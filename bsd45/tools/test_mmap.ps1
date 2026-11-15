@@ -30,7 +30,7 @@ $log = (& $script -Iso $Iso -Keys @(
     "/bin/mmaptest",
     "exit 0") -WaitFor "user exit" -TimeoutSec 90) -join "`n"
 
-Check "private file map" $log @("mmap: file ok size=1066 match=1")
+Check "private file map" $log @("mmap: file ok match=1")
 Check "anonymous map"    $log @("mmap: anon ok")
 Check "shared + msync"   $log @("mmap: shared ok")
 Check "overall"          $log @("mmap: ok")

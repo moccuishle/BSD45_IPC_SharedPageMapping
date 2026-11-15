@@ -194,7 +194,7 @@ S10.1 的 `vstat` 里 `pages ... inuse` 的基线包含 192 页缓存，压力�
   `buf.hits` 增长、`buf.reads` 不变、`page.hits` 增长、`page.fills` 不变、
   `name.hits > 0`、无 TRAP、`[user exit 0]`。
 - `tools/test_mmap.ps1` / `.sh`：`/bin/mmaptest`，断言
-  `mmap: file ok size=1066 match=1`、`mmap: anon ok`、`mmap: shared ok`、
+  `mmap: file ok match=1`、`mmap: anon ok`、`mmap: shared ok`、
   `mmap: ok`、无 TRAP。
 
 实测（QEMU）：
@@ -207,7 +207,7 @@ S17 acceptance: buffer / name / page caches
 S17 caches: PASSED
 
 S17 acceptance: mmap + page cache
-  mmap: file ok size=1066 match=1
+  mmap: file ok match=1
   mmap: anon ok
   mmap: shared ok
   mmap: ok

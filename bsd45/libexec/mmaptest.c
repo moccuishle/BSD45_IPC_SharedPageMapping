@@ -56,7 +56,8 @@ main(int argc, char **argv)
 	/* the mapped page is still readable as a plain pointer */
 	if (p[0] < ' ' || p[0] > '~')
 		bad++;
-	printf("mmap: file ok size=%d match=%d\n", (int)sb.st_size, bad == 0);
+	/* do not print the size: it depends on the checkout's line endings */
+	printf("mmap: file ok match=%d\n", bad == 0);
 	if (bad)
 		return (1);
 	if (munmap((caddr_t)p, (size_t)sb.st_size) < 0)

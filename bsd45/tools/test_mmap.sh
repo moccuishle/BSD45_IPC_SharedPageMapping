@@ -23,7 +23,7 @@ echo "S17 acceptance: mmap + page cache"
 log="$("$ws/tools/run_qemu_test.sh" -Iso "$iso" \
     -Keys "shell|/bin/mmaptest|exit 0" -WaitFor "user exit" -TimeoutSec 90)"
 
-check "private file map" "$log" "mmap: file ok size=1066 match=1"
+check "private file map" "$log" "mmap: file ok match=1"
 check "anonymous map"    "$log" "mmap: anon ok"
 check "shared + msync"   "$log" "mmap: shared ok"
 check "overall"          "$log" "mmap: ok"
