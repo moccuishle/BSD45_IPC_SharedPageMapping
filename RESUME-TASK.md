@@ -1,0 +1,192 @@
+# BSD45-ELF-x86 任务恢复文本（入口 + 缓存系统 S17）
+
+更新时间：2026-11-16（Asia/Shanghai）
+状态：**S17 完成**（缓存系统移植：buffer cache + name cache + page cache + mmap）；
+Windows（MSYS2 ucrt64 GCC 16.2 + `xorriso`）**17 套验收全绿**，
+Linux（Ubuntu 26.04 LTS）走同一套 `.sh` 脚本。
+仓库：https://github.com/moccuishle/BSD45_cache-mmap_filesystem
+
+> 本文件是恢复入口，并**合并了原 `恢复.md`**（4.5BSD VFS/VM 缓存层盘点与路线）。
+> 完整的 S0–S17 功能记录、43+ 条踩坑、构建脚本细节在
+> [`bsd45/RESUME-TASK.md`](bsd45/RESUME-TASK.md)；缓存实现的设计细节在
+> [`docs/cache-mmap.md`](docs/cache-mmap.md)。
+
+---
+
+## 1. 快速开始
+
+环境要求（用户负责安装；执行者只做检查）：MSYS2 + `ucrt64` GCC 16.2（或任意能
+`-m32` 的 gcc）、`ld`/`objcopy`、`qemu-system-i386`、`bison`、`flex`、`python`、
+`git`、`xorriso`/`genisoimage`。
+
+```powershell
+cd bsd45
+powershell -NoProfile -ExecutionPolicy Bypass -File .\build_all.ps1
+powershell -NoProfile -ExecutionPolicy Bypass -File .\tools\test_cache.ps1
+```
+
+```bash
+cd bsd45
+bash build_all.sh
+bash tools/all_tests.sh        # 17 套，预期最后两行：suites failed: 0 / ALL SUITES PASSED
+```
+
+产物：`bsd45/out/BSD45-ELF-x86.iso`（约 4.6 MB，El Torito 引导）与
+`bsd45/build/bsd45.elf`。
+
+> 工具链查找：`tools-find.ps1` 会按 `mingw32 → ucrt64 → mingw64` 找 gcc，并把
+> `gcc -B <dir>/` 传给所有编译命令；`as.exe` 找不到时 gcc 会**静默返回 1**。
+> 本机没有 32 位 libgcc，`libc/src/quad32.c` 与 `chkstk_ms.s` 自己提供。
+
+## 2. 源码位置
+
+| 内容 | 位置 |
+|---|---|
+| 4.5BSD sys 树（内核源码） | `bsd45/kernel/` |
+| `/bin/sh` 用的 4.5BSD 用户态源码 | `bsd45/libc/bsd/` |
+| 用户态工具（`main()` 程序） | `bsd45/libexec/` |
+| libc 子集与 syscall 粘合 | `bsd45/libc/src/` |
+| 内核 VFS/驱动/进程层 | `bsd45/kernel/fs/`、`driver/`、`other/` |
+| 测试驱动 | `bsd45/tools/run_qemu_test.{ps1,sh}`、`all_tests.sh` |
+| 缓存/mmap 设计（S17） | `docs/cache-mmap.md` |
+| 内核边界契约（S100.1） | `docs/kernel-boundary.md` |
+
+`bsd45/src/` 已删除，构建**不需要任何 tarball**。
+
+---
+
+## 3. 缓存系统移植（S17，已完成）
+
+以下 3.1–3.4 是原 `恢复.md` 的盘点与决策存档（保留原文要点）；
+3.5 起是 2026-11-16 的实施结果。
+
+### 3.1 结论摘要
+
+- 4.5BSD 的 VFS/VM 文件**大多存在，但不能直接“加进构建”**：
+  `vfs_bio.c` 的函数体被删空；`vfs_cache.c` / `vfs_subr.c` / `vfs_lookup.c` /
+  `vfs_vnops.c` / `vfs_syscalls.c` / `vfs_cluster.c` 以及 `vm_page.c` /
+  `vm_object.c` / `vm_fault.c` / `vm_pageout.c` / `vnode_pager.c` 是完整源码，
+  但依赖 **4.5BSD 内核核心**（`struct buf`、带 `v_id` 的 `struct vnode`、
+  `struct mount`、`struct ucred`、`struct uio`、`VOP_*`、`sleep/wakeup`、
+  `M_*` malloc、`bdevsw->d_strategy`、`vnode_if.h`）。
+- 我们的内核是为这个端口重写的**最小核心**（自定义 `struct uproc`、
+  协作式调度、`vfs.c` + `vnodeops`、同步 `atapi_read`）。直接编译这些文件会
+  得到几百个 unknown struct / undefined reference。
+- `kernel/fs/ufs/ufs/`、`kernel/fs/ufs/ffs/` **只有 `config.mk`，没有实现**；
+  当前只有 ATAPI CD（只读）驱动，没有 ATA 硬盘驱动，FFS 即使有源码也无设备可挂。
+- `kernel/sys/config.mk` 里列的 `vfs_bio.c`、`vfs_cache.c` 等只是注释里的
+  “sources in this directory”，`obj-y` 全空，构建从未编译它们。
+
+### 3.2 各文件真实状态
+
+| 文件 | 真实状态 |
+|---|---|
+| `kernel/sys/vfs_bio.c` | **函数体被删空**：`bread()` 只剩 `/* Body deleted. */ return (EIO);`（vfs_bio.c:142-154），`bwrite/getblk/brelse/biodone` 同样；只有 `bufinit` 和 hash/队列管理是真的 |
+| `kernel/sys/vfs_cache.c` | 完整 4.5BSD 实现，但用 `(dvp)->v_id`（vfs_cache.c:75）——我们的 `struct vnode` 原本没有 `v_id` |
+| `vfs_subr.c`(1782) / `vfs_lookup.c`(645) / `vfs_vnops.c`(449) / `vfs_syscalls.c`(2417) / `vfs_cluster.c`(756) | 4.5BSD 完整源码，但编译不了：依赖 `struct ucred`、`struct mount`、`struct uio`、`VOP_*`、`vnode_if.h`、`sleep/wakeup`、`M_*` malloc、`bdevsw/strategy` |
+| `kernel/vm/vm_page.c`(710) / `vm_object.c`(1449) / `vm_fault.c`(1037) / `vm_pageout.c`(571) / `vnode_pager.c`(582) | 完整 4.5BSD 源码，依赖 `vm_map`/`proc`/pager 注册/`vm_page` 队列——我们的内核只用了 `pmap`，没有 VM 对象层 |
+| `kernel/fs/ufs/ufs/`、`kernel/fs/ufs/ffs/` | **只有 `config.mk`，没有任何 .c/.h 实现** |
+| `kernel/sys/config.mk` | 这些文件名只是注释里列的 “sources in this directory”，`obj-y` 全空，构建从未编译它 |
+
+S17 之前构建只编 19 个目标：`locore pmap machdep cons bcmp strcmp strlen strings
+usermode usermode_asm embed pccon stubs glue mon atapi isofs tmpfs vfs`。
+
+### 3.3 为什么不能“加进构建就行”
+
+这些 4.5BSD 文件是冲着 **4.5BSD 内核核心**写的：缓冲区（`struct buf`、
+`bufqueues`、`bdevsw->d_strategy`）、vnode（`v_id`、`VOP_*`、`vnode_if.h`）、
+进程/凭证（`struct proc`、`ucred`、`uio`）、同步/内存（`sleep/wakeup`、
+`M_CACHE`、`copyin/copyout`）。本端口有意简化了这些，所以缺的不是一行
+`obj-y`，而是一整套内核核心。
+
+### 3.4 两条路线
+
+- **路线 A：真·移植 4.5BSD 内核核心**——恢复 `vfs_bio.c` 被删的函数体、
+  生成 `vnode_if.h`、带起 `init_main/kern_synch/kern_malloc/kern_descrip/
+  kern_exec/fork/sig`、`vfs_init/vfs_conf`、`bdevsw/strategy`、`ucred/mount`，
+  替换 `usermode.c` 的自定义 syscall 层；还要补 ATA 硬盘驱动。
+  代价：长期不可启动，验收暂时用不上。
+- **路线 B：按 4.5BSD 职责划分，把真正的缓存算法写进当前端口**（本次采用）：
+  B1 buffer cache + 预读；B2 name cache（给 vnode 加 `v_id`）；
+  B3 `vm_object/vm_page/vnode_pager` 文件页缓存；B4 UFS/FFS 暂缓。
+  算法以后可以原样搬进路线 A 的 4.5BSD 结构，不会白做。
+
+### 3.5 已实施：路线 B 的 B1+B2+B3
+
+**新增文件**
+
+| 文件 | 作用 |
+|---|---|
+| `kernel/fs/vfs_bio.c` | 2K 块 buffer cache：hash(32)+LRU、`bread/breada/brelse/bwrite/bdwrite`、hit/miss/read/readahead 统计 |
+| `kernel/fs/vfs_cache.c` | name cache：`(dv->v_id,name)->vnode`，64 项/32 桶，`v_id` 校验、create/remove/rename purge |
+| `kernel/fs/pagecache.c` | 4K 文件页缓存（= vm_object+vm_page+vnode_pager）：128 页、hash+LRU+引用计数、`readraw` 填充 |
+| `libexec/vmstat.c` | `/bin/vmstat`：cat `/dev/vmstat` |
+| `libexec/mmaptest.c` | mmap 三用例验收程序 |
+| `tools/test_cache.{ps1,sh}` | 两遍 `cat` 的缓存断言 |
+| `tools/test_mmap.{ps1,sh}` | file/anon/shared+msync 断言 |
+
+**改动要点**
+
+1. `struct vnode` 增加 `v_id`（唯一、释放清零）与 `v_key`（只读后端的稳定页缓存键）；
+   `vnodeops` 末尾增加 `readraw`（页缓存填充用的无缓存读）。
+2. `vfs_namei()` 先查 name cache；`vfs_create/rename` 与新增的 `vfs_remove()`
+   （unlink/rmdir 统一走它）负责 purge。
+3. **目录 vnode 保留**（8 槽，只保留只读 ISO 目录）：`root->bin->file` 的目录项
+   缓存可跨 exec 命中；普通文件与 tmpfs 目录仍随 close/rmdir 释放，S10.1 的
+   vnode 基线不变。
+4. ISO 的 `read()` = `pagecache_read()`，miss 调 `iso_readraw_op()` → buffer
+   cache（sequential readahead 每块最多预读 4 块）；目录扫描/PVD/readdir 全走 buffer cache。
+5. tmpfs 的 `read()` 也走页缓存（键用 `v_id`），`write/truncate` 时 purge。
+6. `usermode.c` 新增 `mmap(197)/munmap(73)/mprotect(74)/msync(65)`：
+   立即填充、`MAP_PRIVATE` 复制、`MAP_SHARED` 直接映射页缓存页、
+   `mmap_teardown()` 在 exit/exec 前解除共享 PTE 并放引用。
+7. `/dev/vmstat` + `vfs_cache_report()`；monitor `vstat` 追加同样的缓存行。
+8. 构建：`build_kernel.ps1/.sh` 加 3 个源文件；`build_sh.ps1/.sh` 与
+   `build_iso.ps1/.sh` 加 `vmstat mmaptest`；`tools/all_tests.sh` 15 → 17 套。
+
+**观测**（`/bin/vmstat` 或 `cat /dev/vmstat`）：
+
+```
+vnode: total 96 used 2 free 94
+buf: total 64 used 64 hits 507 misses 11 reads 182 readahead 171 dirty 0
+name: total 64 used 2 hits 4 misses 11
+page: total 128 used 89 hits 45 misses 89 fills 89 evicts 0
+pages: alloc 550 freed 54 inuse 496
+```
+
+**验收（Windows + QEMU，17 套）**
+
+```
+test_s3 ... test_ps          15 套全部 PASSED
+test_cache  S17 caches: PASSED   buf hits 413->507, disk reads 182->182,
+                                 page hits 2->45, fills 89->89, name hits 4
+test_mmap   S17 mmap: PASSED     file ok / anon ok / shared ok / mmap: ok
+---- suites failed: 0
+ALL SUITES PASSED
+```
+
+关键判据：第二次 `cat /readme.txt` 期间 **`buf reads` 不变（182→182）、
+`page fills` 不变（89→89）、`page hits` +43** —— 第二次完全由内存服务。
+
+### 3.6 B4（UFS/FFS）继续暂缓
+
+缺 ATA 硬盘驱动，`kernel/fs/ufs/*` 也没有任何实现；做了也是死代码。
+将来若有块设备写路径，`vfs_bio.c` 的 `bwrite/bdwrite` 与 dirty 计数已就位。
+
+### 3.7 下一步候选
+
+1. **真 `fg`/`bg`**：sh 监视模式 + `tcsetpgrp` + 后台读终端 `SIGTTIN`（最大项）。
+2. per-process tty/session 信息，补齐 `ps -a/-x` 语义。
+3. demand paging + COW，把 `MAP_PRIVATE` 从“map 时复制”升级为缺页复制；
+   需要先有用户态 page fault 处理（当前 fault 会停机）。
+4. 路线 A（S100）：把 `vfs_bio.c`/`pagecache.c` 的算法搬进 4.5BSD 结构。
+
+---
+
+## 4. 相关文档
+
+- [`bsd45/RESUME-TASK.md`](bsd45/RESUME-TASK.md)：完整 S0–S17 记录、构建/验收、43+ 坑
+- [`docs/cache-mmap.md`](docs/cache-mmap.md)：S17 设计、数据流、坑
+- [`docs/kernel-boundary.md`](docs/kernel-boundary.md)：内核边界与原语契约（S100.1）
+- [`docs/microkernel-design.md`](docs/microkernel-design.md)：微内核设计（S100.2）
+- [`shell.md`](shell.md)：PowerShell → bash 的固化写法与避坑
