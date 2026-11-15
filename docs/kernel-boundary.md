@@ -4,7 +4,8 @@
 > 「内核态保留什么、什么可以上移到用户态服务、两边通过哪些原语说话」固定成一份
 > 可检查的契约。本文只描述现状与规则，不改代码。
 >
-> 基线：S100.2a 之后（tmpfs 已从 `vfs.c` 拆到 `tmpfs.c`；Windows 15 套全绿）。
+> 基线：S17 之后（tmpfs 已从 `vfs.c` 拆到 `tmpfs.c`；缓存层为 `vfs_bio.c` /
+> `vfs_cache.c` / `pagecache.c`；Windows 17 套全绿）。
 
 ---
 
@@ -41,8 +42,11 @@
 | `kernel/fs/isofs.c` | 295 | ISO9660 目录记录解析 | **可上移** |
 | `kernel/fs/tmpfs.c` | 352 | tmpfs 后端（**S100.2a 从 vfs.c 拆出**） | **可上移**（已是独立文件） |
 | `kernel/fs/vfs.c` | 500 | vnode 池、`namei()`、挂载表 + ISO9660 vnodeops | **转发层留，ISO 后端待搬** |
+| `kernel/fs/vfs_bio.c` | ~330 | **S17** 2K 块 buffer cache（hash+LRU、bread/breada） | 留（bdev 缓存，S100.4 后可下沉） |
+| `kernel/fs/vfs_cache.c` | ~300 | **S17** 目录项 name cache（`v_id` 键） | 留（路径解析加速，非特权） |
+| `kernel/fs/pagecache.c` | ~360 | **S17** 4K 文件页缓存 / `mmap` 页源（vnode_pager 等价） | 可上移（S100.3 的 fs_server 共享页） |
 
-**合计约 10.4k 行**（含刚拆出的 352 行 tmpfs；拆分不改变总行数）。
+**合计约 11.4k 行**（S100.2a 的 10.4k + S17 新增约 1.0k）。
 
 > ⚠️ `kernel/sys/`、`kernel/vm/`、`kernel/net/` 等 4.5BSD 目录**没有编进内核**
 > （只有 `arch/i386/isa/{pmap,machdep}.c` 和 `i386/cons.c` 被选中）。它们是
