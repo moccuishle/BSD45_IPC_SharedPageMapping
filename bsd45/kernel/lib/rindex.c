@@ -42,6 +42,8 @@ char *
 #ifdef STRRCHR
 strrchr(p, ch)
 #else
+/* EN: Return a pointer to the last occurrence of byte ch in the NUL-terminated string p, remembering the latest match while scanning; returns NULL if ch never appears. */
+/* 中文：在已 NUL 结尾的字符串 p 中查找字节 ch 最后一次出现的位置：扫描到终止符并记住最近一次匹配，从未出现时返回 NULL。 */
 rindex(p, ch)
 #endif
 	register const char *p;

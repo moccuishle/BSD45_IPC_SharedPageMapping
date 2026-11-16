@@ -196,6 +196,8 @@ int (*nfsrv3_procs[NFS_NPROCS])() = {
  * Initialize sockets and congestion for a new NFS connection.
  * We do not free the sockaddr if error.
  */
+/* EN: Creates the socket via socreate, waits for connect with 2*hz sleeps, reserves buffers, sets SB_NOINTR, seeds srtt, cwnd=NFS_MAXCWND/2, nm_sent=0; on failure nfs_disconnect. */
+/* 中文：用socreate创建socket，以2*hz睡眠循环等待connect完成，预留收发缓冲区、设置SB_NOINTR，并初始化srtt、cwnd=NFS_MAXCWND/2、nm_sent=0；失败则调用nfs_disconnect。 */
 int
 nfs_connect(nmp, rep)
 	register struct nfsmount *nmp;
@@ -338,6 +340,8 @@ bad:
  * If this fails the mount point is DEAD!
  * nb: Must be called with the nfs_sndlock() set on the mount point.
  */
+/* EN: Closes the old socket, retries nfs_connect until it succeeds (sleeping on lbolt, EINTR if interrupted), then marks all queued requests of this mount R_MUSTRESEND. */
+/* 中文：先关闭旧socket，循环重试nfs_connect直至成功（在lbolt上睡眠，被中断返回EINTR），最后给该挂载点所有排队请求置R_MUSTRESEND。 */
 int
 nfs_reconnect(rep)
 	register struct nfsreq *rep;
@@ -367,6 +371,8 @@ nfs_reconnect(rep)
 /*
  * NFS disconnect. Clean up and unlink.
  */
+/* EN: Closes the mount's socket if present: NULLs nm_so first, then soshutdown(so, 2) and soclose(so); no-op when nm_so is already NULL. */
+/* 中文：若挂载点存在socket，先清空nm_so，再调用soshutdown(so,2)与soclose(so)；nm_so已为NULL时无操作。 */
 void
 nfs_disconnect(nmp)
 	register struct nfsmount *nmp;
@@ -394,6 +400,8 @@ nfs_disconnect(nmp)
  * - return EPIPE if a connection is lost for connection based sockets (TCP...)
  * - do any cleanup required by recoverable socket errors (???)
  */
+/* EN: Sends an RPC via sosend; on R_SOFTTERM returns EINTR, on a gone socket frees mbufs and returns 0 with R_MUSTRESEND set, otherwise logs errors and swallows recoverable ones. */
+/* 中文：用sosend发送RPC；遇R_SOFTTERM返回EINTR，socket已消失则置R_MUSTRESEND、释放mbuf并返回0，其余错误记日志并忽略可恢复项。 */
 int
 nfs_send(so, nam, top, rep)
 	register struct socket *so;
@@ -462,6 +470,8 @@ nfs_send(so, nam, top, rep)
  * For SOCK_STREAM we must be very careful to read an entire record once
  * we have read any of it, even if the system call has been interrupted.
  */
+/* EN: Receives one RPC reply: for non-DGRAM takes the send lock, reconnects and resends as needed, reads a 4-byte record mark then the body, retries after failure and nfs_realigns data. */
+/* 中文：接收一个RPC回复：非DGRAM时取发送锁，按需重连重发，读4字节记录标记后读消息体，失败时释放mbuf、重连重试，最后对数据做nfs_realign对齐。 */
 int
 nfs_receive(rep, aname, mp)
 	register struct nfsreq *rep;
@@ -673,6 +683,8 @@ errout:
  * with outstanding requests using the xid, until ours is found.
  */
 /* ARGSUSED */
+/* EN: Waits for this request's reply under nfs_rcvlock: receives a packet, checks xid/rpc_reply, attaches it to the matching nfs_reqq request, updates rtt/cwnd, drops unmatched packets. */
+/* 中文：在nfs_rcvlock下等待本请求回复：接收报文、校验xid与rpc_reply，挂到nfs_reqq中匹配的请求上并更新rtt/cwnd，丢弃不匹配报文。 */
 int
 nfs_reply(myrep)
 	struct nfsreq *myrep;
@@ -840,6 +852,8 @@ nfsmout:
  *	  by mrep or error
  * nb: always frees up mreq mbuf list
  */
+/* EN: Allocates an nfsreq, builds the auth header, chains it on nfs_reqq, sends if the window allows, waits via nfs_reply, handles TRYLATER/ESTALE, then returns mrep/md/dpos or error. */
+/* 中文：分配nfsreq并用unix/kerb认证构造头部，挂入nfs_reqq，窗口允许则发送，经nfs_reply等待，处理TRYLATER/ESTALE，返回mrep/md/dpos或错误码。 */
 int
 nfs_request(vp, mrest, procnum, procp, cred, mrp, mdp, dposp)
 	struct vnode *vp;
@@ -1125,6 +1139,8 @@ nfsmout:
  * Generate the rpc reply header
  * siz arg. is used to decide if adding a cluster is worthwhile
  */
+/* EN: Builds the reply header mbuf (cluster if big): xid and rpc_reply, denied or accepted forms with verifier, err mapped via nfsrv_errmap, optional NQNFS lease, and bumps srvrpc_errs. */
+/* 中文：在新mbuf（大回复用簇）中构造回复头：写入xid与rpc_reply，生成拒绝或带校验值的接受回复，用nfsrv_errmap映射错误码，可附加NQNFS租约并累加srvrpc_errs。 */
 int
 nfs_rephead(siz, nd, slp, err, cache, frev, mrq, mbp, bposp)
 	int siz;
@@ -1280,6 +1296,8 @@ nfs_rephead(siz, nd, slp, err, cache, frev, mrq, mbp, bposp)
  * To avoid retransmission attempts on STREAM sockets (in the future) make
  * sure to set the r_retry field to 0 (implies nm_retry == 0).
  */
+/* EN: Timer: ages nfs_reqq requests with backed-off RTO, resends DGRAM ones (halving cwnd), forces R_SOFTTERM after r_retry, runs nqnfs_serverd, wakes nfsd for due writes and re-arms. */
+/* 中文：定时器：按退避RTO为nfs_reqq中的请求计时（超过deadthresh告警，超过r_retry置R_SOFTTERM），DGRAM重传时拥塞窗口减半，调用nqnfs_serverd、唤醒到期写队列的nfsd并重新装载自身。 */
 void
 nfs_timer(arg)
 	void *arg;	/* never used */
@@ -1408,6 +1426,8 @@ nfs_timer(arg)
  * Test for a termination condition pending on the process.
  * This is used for NFSMNT_INT mounts.
  */
+/* EN: Returns EINTR if the request is R_SOFTTERM, or for an NFSMNT_INT mount if the process has a pending NFSINT_SIGMASK signal that is neither blocked nor ignored; else 0. */
+/* 中文：请求已置R_SOFTTERM，或NFSMNT_INT挂载点上进程存在NFSINT_SIGMASK中未屏蔽、未忽略的待处理信号时返回EINTR，否则返回0。 */
 int
 nfs_sigintr(nmp, rep, p)
 	struct nfsmount *nmp;
@@ -1432,6 +1452,8 @@ nfs_sigintr(nmp, rep, p)
  * and also to avoid race conditions between the processes with nfs requests
  * in progress when a reconnect is necessary.
  */
+/* EN: Send-lock acquire: while NFSMNT_SNDLOCK is held, sets NFSMNT_WANTSND and tsleeps (PCATCH, 2*hz timeouts), returning EINTR if interrupted; on success sets NFSMNT_SNDLOCK. */
+/* 中文：获取发送锁：当NFSMNT_SNDLOCK被占用时置NFSMNT_WANTSND并在标志上tsleep（PCATCH、2*hz超时），被中断返回EINTR；成功则置NFSMNT_SNDLOCK。 */
 int
 nfs_sndlock(flagp, rep)
 	register int *flagp;
@@ -1464,6 +1486,8 @@ nfs_sndlock(flagp, rep)
 /*
  * Unlock the stream socket for others.
  */
+/* EN: Releases the send lock, panicking if NFSMNT_SNDLOCK was not held; if NFSMNT_WANTSND is set it clears it and wakeup()s sleepers on the flag. */
+/* 中文：释放发送锁，若未持有NFSMNT_SNDLOCK则panic；若NFSMNT_WANTSND置位则清除并wakeup()等待该标志的睡眠者。 */
 void
 nfs_sndunlock(flagp)
 	register int *flagp;
@@ -1478,6 +1502,8 @@ nfs_sndunlock(flagp)
 	}
 }
 
+/* EN: Receive-lock acquire: loops while NFSMNT_RCVLOCK is held, setting NFSMNT_WANTRCV and tsleeping on the flag (PCATCH when NFSMNT_INT); returns EINTR if nfs_sigintr fires. */
+/* 中文：获取接收锁：当NFSMNT_RCVLOCK被占用时置NFSMNT_WANTRCV并在标志上tsleep（NFSMNT_INT时用PCATCH）；nfs_sigintr命中则返回EINTR。 */
 int
 nfs_rcvlock(rep)
 	register struct nfsreq *rep;
@@ -1507,6 +1533,8 @@ nfs_rcvlock(rep)
 /*
  * Unlock the stream socket for others.
  */
+/* EN: Releases the receive lock, panicking if NFSMNT_RCVLOCK was not held; clears NFSMNT_RCVLOCK and, when NFSMNT_WANTRCV is set, clears it and wakeup()s the waiters. */
+/* 中文：释放接收锁，若未持有NFSMNT_RCVLOCK则panic；清除NFSMNT_RCVLOCK，并在NFSMNT_WANTRCV置位时清除它并wakeup()等待者。 */
 void
 nfs_rcvunlock(flagp)
 	register int *flagp;
@@ -1525,6 +1553,8 @@ nfs_rcvunlock(flagp)
  * Check for badly aligned mbuf data areas and
  * realign data in an mbuf list by copying the data areas up, as required.
  */
+/* EN: Walks the mbuf list; at the first unaligned segment (m_len or data pointer) it compacts data into aligned buffers (first capped at hsiz), zeroes emptied m_len fields and returns. */
+/* 中文：遍历mbuf链，遇到m_len或数据指针非长字对齐的段时，把数据压实到对齐缓冲区（首mbuf上限为hsiz），把腾空的后继mbuf的m_len清零后返回。 */
 void
 nfs_realign(m, hsiz)
 	register struct mbuf *m;
@@ -1617,6 +1647,8 @@ nfs_realign(m, hsiz)
  * Essentially do as much as possible non-blocking, else punt and it will
  * be called with M_WAIT from an nfsd.
  */
+/* EN: nfsd upcall: no-op unless SLP_VALID; STREAM reads into ns_raw/ns_cc then nfsrv_getstream splits records (SLP_NEEDQ to defer); DGRAM loops soreceive, realigns and queues on ns_rec. */
+/* 中文：nfsd的socket回调：SLP_VALID未置位则返回；STREAM时先读入ns_raw/ns_cc再由nfsrv_getstream切记录（忙则置SLP_NEEDQ），DGRAM循环soreceive、对齐并挂到ns_rec。 */
 void
 nfsrv_rcv(so, arg, waitflag)
 	struct socket *so;
@@ -1730,6 +1762,8 @@ dorecs:
  * stream socket. The "waitflag" argument indicates whether or not it
  * can sleep.
  */
+/* EN: Splits stream data into records (SLP_GETSTREAM guard, panics on reentry): parses the 4-byte record mark, rejects out-of-range lengths with EPERM and queues full records on ns_rec. */
+/* 中文：在SLP_GETSTREAM保护下（重入即panic）把流数据切成记录：解析4字节记录标记，长度超出NFS_MINPACKET..NFS_MAXPACKET返回EPERM，把完整记录挂到ns_rec队列。 */
 int
 nfsrv_getstream(slp, waitflag)
 	register struct nfssvc_sock *slp;
@@ -1851,6 +1885,8 @@ nfsrv_getstream(slp, waitflag)
 /*
  * Parse an RPC header.
  */
+/* EN: Dequeues a record from slp->ns_rec (ENOBUFS if invalid or empty), strips the MT_SONAME mbuf, allocates and nfs_getreq-parses an nfsrv_descript, and stores it in nfsd->nfsd_nd. */
+/* 中文：从slp->ns_rec取出一个记录（无效或为空返回ENOBUFS），分离MT_SONAME地址mbuf，分配并用nfs_getreq解析nfsrv_descript，存入nfsd->nfsd_nd。 */
 int
 nfsrv_dorec(slp, nfsd, ndp)
 	register struct nfssvc_sock *slp;
@@ -1897,6 +1933,8 @@ nfsrv_dorec(slp, nfsd, ndp)
  * - verify it
  * - fill in the cred struct.
  */
+/* EN: Decodes the RPC/NFS header in nd_mrep: checks prog/version/proc, fills nd_cr from unix or Kerberos auth, sets nd_flag/nd_procnum/nd_repstat + NQNFS lease; 0, else EBADRPC. */
+/* 中文：解析 nd_mrep 中的 RPC/NFS 请求头：校验程序号、版本和过程号，从 unix 或 Kerberos 认证填充 nd_cr，设置 nd_flag/nd_procnum/nd_repstat 及 NQNFS 租约；格式错误返回 EBADRPC。 */
 int
 nfs_getreq(nd, nfsd, has_header)
 	register struct nfsrv_descript *nd;
@@ -2142,6 +2180,8 @@ nfsmout:
  * SIDE EFFECT: If none found, set NFSD_CHECKSLP flag, so that one of the
  * running nfsds will go look for the work in the nfssvc_sock list.
  */
+/* EN: Wakes one nfsd flagged NFSD_WAITING: clears the flag, bumps slp->ns_sref and points nd->nfsd_slp at slp; if none waits, sets SLP_DOREC and NFSD_CHECKSLP. */
+/* 中文：唤醒一个带 NFSD_WAITING 标志的 nfsd：清除该标志、递增 slp->ns_sref、把 nd->nfsd_slp 指向该套接字；若无人等待，则置 SLP_DOREC 与 NFSD_CHECKSLP 让运行中的 nfsd 轮询。 */
 void
 nfsrv_wakenfsd(slp)
 	struct nfssvc_sock *slp;
@@ -2165,6 +2205,8 @@ nfsrv_wakenfsd(slp)
 	nfsd_head_flag |= NFSD_CHECKSLP;
 }
 
+/* EN: Logs 'nfs server <server>: <msg>' through tprintf, opening a process tprintf handle when p is non-NULL and closing it after; always returns 0. */
+/* 中文：通过 tprintf 打印 'nfs server <server>: <msg>'，p 非空时先 tprintf_open 取得进程级句柄、输出后关闭；始终返回 0。 */
 int
 nfs_msg(p, server, msg)
 	struct proc *p;

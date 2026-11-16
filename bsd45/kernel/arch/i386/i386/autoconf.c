@@ -66,6 +66,8 @@ extern int	cold;		/* cold start flag initialized in locore.s */
 /*
  * Determine i/o configuration for a machine.
  */
+/* EN: Kernel autoconfiguration: probes ISA devices, selects the root device via setroot(), sizes swap/dump areas with swapconf(), then clears the global cold flag. */
+/* 中文：内核自动配置：探测 ISA 设备，经 setroot() 选择根设备，由 swapconf() 确定交换区和转储区大小，最后清除全局 cold 标志。 */
 configure()
 {
 
@@ -92,6 +94,8 @@ configure()
 /*
  * Configure swap space and related parameters.
  */
+/* EN: Walks the swdevt list, calling each swap device's d_psize to clamp sw_nblks, then sets dumplo from dumpdev's size minus Maxmem*NBPG/512 sectors, clamped to 0. */
+/* 中文：遍历 swdevt 表，调用各交换设备的 d_psize 修正 sw_nblks，再用 dumpdev 大小减去 Maxmem*NBPG/512 个扇区得到 dumplo，负值归 0。 */
 swapconf()
 {
 	register struct swdevt *swp;
@@ -136,6 +140,8 @@ static	char devname[][2] = {
  * If we can do so, and not instructed not to do so,
  * change rootdev to correspond to the load device.
  */
+/* EN: Decodes bootdev (after B_DEVMAGIC check) into major/adaptor/partition/unit and sets rootdev, printing the new root device and swapping the matching swap device into swdevt[0]. */
+/* 中文：校验 B_DEVMAGIC 后从 bootdev 解出主设备号/适配器/分区/单元号并设置 rootdev，打印新根设备，并把匹配的交换设备换到 swdevt[0]。 */
 setroot()
 {
 	int  majdev, mindev, unit, part, adaptor;

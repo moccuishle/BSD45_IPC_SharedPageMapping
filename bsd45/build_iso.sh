@@ -1,4 +1,4 @@
-#!/usr/bin/env bash
+﻿#!/usr/bin/env bash
 # build_iso.sh - build the El Torito boot image and the BSD45-ELF-x86 ISO.
 set -uo pipefail
 ws="$(cd "$(dirname "$0")" && pwd)"
@@ -62,7 +62,10 @@ for pair in "sh:bin/SH.ELF" "init:sbin/INIT.ELF" "hello:HELLO.ELF" "test:TEST.EL
             "tail:bin/TAIL.ELF" "df:bin/DF.ELF" "mount:bin/MOUNT.ELF" "ps:bin/PS.ELF" \
             "uname:bin/UNAME.ELF" "true:bin/TRUE.ELF" "false:bin/FALSE.ELF" \
             "date:bin/DATE.ELF" "vmstat:bin/VMSTAT.ELF" \
-            "mmaptest:bin/MMAPTEST.ELF"; do
+            "mmaptest:bin/MMAPTEST.ELF" "subtest:bin/SUBTEST.ELF" \
+            "spin:bin/SPIN.ELF" "cowtest:bin/COWTEST.ELF" \
+            "crash:bin/CRASH.ELF" "badptr:bin/BADPTR.ELF" \
+            "aiotest:bin/AIOTEST.ELF" "uring:bin/uring.ELF"; do
     name="${pair%%:*}"; dst="${pair#*:}"
     [ -f "$ws/out/userland/$name.elf" ] && cp -f "$ws/out/userland/$name.elf" "$isodir/$dst"
 done
@@ -95,3 +98,4 @@ pad2=$(( (2048 - (kbytes % 2048)) % 2048 ))
 [ "$pad2" -gt 0 ] && dd if=/dev/zero bs=1 count="$pad2" status=none >> "$out_iso"
 
 echo "ISO: $out_iso ($(stat -c%s "$out_iso" 2>/dev/null || wc -c < "$out_iso") bytes), kernel at LBA $kernel_lba"
+

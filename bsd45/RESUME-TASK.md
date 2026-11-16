@@ -15,7 +15,7 @@ Windows（MSYS2 ucrt64 GCC 16.2 + `xorriso`）**17 套验收全绿**，Linux(Ubu
 | i686 工具链 | `C:\msys64\mingw32\bin`（GCC 16.2.0，pacman 装的 mingw-w64-i686-gcc） |
 | mkisofs | `C:\Program Files (x86)\VMware\VMware Workstation\mkisofs.exe` |
 | QEMU | `C:\msys64\ucrt64\bin\qemu-system-i386.exe`（11.1.3） |
-| 4.5BSD 源码 | `kernel\`（sys 树）+ `libc\bsd\`（用户态）；`src\` 已合并删除 |
+| 4.5BSD 源码 | `kernel\`（sys 树）+ `libc\arch\bsd\`（用户态）；`src\` 已合并删除 |
 | 4.3BSD-Reno 源码 | `C:\Users\Administrator\Desktop\work\reno-src-main`（ctype 等参考） |
 
 > 注意：`C:\msys64\mingw32\i686-w64-mingw32\bin\as.exe` / `ld.exe` 是坏的
@@ -127,7 +127,7 @@ bash tools/all_tests.sh
 ```bash
 git clone git@github.com:moccuishle/BSD45_rootfs_overlay.git
 cd BSD45_rootfs_overlay
-# 源码已合并进仓库：kernel/ 是完整 4.5BSD sys 树，libc/bsd/ 是 /bin/sh 需要的
+# 源码已合并进仓库：kernel/ 是完整 4.5BSD sys 树，libc/arch/bsd/ 是 /bin/sh 需要的
 # 4.5BSD 用户态源码；原来的 bsd45/src/（整棵 4.4BSD 解包树）已删除。
 # 构建不依赖任何 tarball，clone 完直接 build_all.ps1 / build_all.sh。
 ```
@@ -170,7 +170,7 @@ powershell -NoProfile -ExecutionPolicy Bypass -File .\tools\test_s9.ps1
 | 进程/fd/管道 | `kernel/other/usermode.c`（`struct uproc`、`proc_sched`、`fd_*`） |
 | libc 子集 | `libc/src/`（`libc_sys.c` 是 syscall 粘合层） |
 | 用户工具源码 | `libc/src/{echo,ls,cat,mkdir,printf,test}.c` |
-| 4.5BSD sh | `libc/bsd/bin/sh`（构建时拷到 `build/shgen`） |
+| 4.5BSD sh | `libc/arch/bsd/bin/sh`（构建时拷到 `build/shgen`） |
 | 链接脚本 | `boot/kernel.ld`（Linux ELF）；Windows 走 PE + defsym |
 | 测试驱动 | `tools/run_qemu_test.sh`（串口 TCP + `/dev/tcp`） |
 
@@ -233,7 +233,7 @@ powershell -NoProfile -ExecutionPolicy Bypass -File .\tools\test_s9.ps1
     `config.mk`，4.5BSD 头文件/arch 源要临时从 `src\BSD45` 拷（`tools/populate-src.ps1`）。
     现在这些文件全部在 `kernel/` 里随仓库走；`/bin/sh` 需要的 4.5BSD 用户态
     源码（`bin/sh`、`lib/libc`、`usr.bin/printf`、`include`、`sys/sys`、
-    `sys/i386/include`、`sys/net`、`sys/hp300/include`）在 `libc/bsd/`。
+    `sys/i386/include`、`sys/net`、`sys/hp300/include`）在 `libc/arch/bsd/`。
     原来的 `bsd45/src/`（151 MB 整棵解包树）已删除，`ensure-src` / `reorganize`
     这些一次性脚本也一并移除；`tools/populate-src.ps1` 留着当“重新解包时怎么
     归位”的参考（不再被构建调用）。
@@ -754,7 +754,7 @@ vmnet8 NAT）：`gcc 15.2.0 + gcc-multilib + libc6-dev-i386`、
 `build_*.ps1`，这些分支从没被执行过）：
 
 1. **头文件视图**：`build_sh.sh` 拷的是 `kernel/include/{sys,machine}`，而
-   `machine/endian.h` 只在 `libc/bsd/sys/i386/include` 里 → 86 个文件
+   `machine/endian.h` 只在 `libc/arch/bsd/sys/i386/include` 里 → 86 个文件
    `fatal error: machine/endian.h`。改成与 `build_sh.ps1` 一致：
    `usr/include`、`usr/sys/sys`、`usr/sys/i386/include → machine/`、
    `usr/sys/net`，hp300 的 ansi/limits/float 兜底；最后再把项目自己的
@@ -1501,7 +1501,7 @@ absent 是正常的。
   `git@github.com:moccuishle/BSD45_rootfs_overlay.git`（main）。
 - 恢复方式：clone 仓库 → 按第 0 节构建 → 从文档开头的 S10 节开始。
 - 构建产物不进 git（`bsd45/build/`、`bsd45/out/` 已忽略）。
-- 源码全部在仓库里：`bsd45/kernel/`（4.5BSD sys 树）+ `bsd45/libc/bsd/`
+- 源码全部在仓库里：`bsd45/kernel/`（4.5BSD sys 树）+ `bsd45/libc/arch/bsd/`
   （4.5BSD 用户态源码）。`bsd45/src/` 已合并删除，构建不依赖任何 tarball
   （已实测：`src` 不存在时 `build_all.ps1` 104 秒 + 7 套验收全绿）。
 - 引导代码按架构分目录：`boot/i386/`（stage1、stage2、kernel.ld 在用）、
@@ -1509,3 +1509,9 @@ absent 是正常的。
   的路径已统一指向 `boot/i386/`。
 - 整包备份/迁移可以用上层目录的 `4.5BSD-jialiang.tar.gz`（它包含完整的
   `bsd45/`），但**日常构建与恢复都不需要它**。
+
+---
+
+## 2026-11-16 决策
+
+先做内核，外部的api 以后再做也可以。

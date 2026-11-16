@@ -1,4 +1,4 @@
-#!/usr/bin/env bash
+﻿#!/usr/bin/env bash
 # build_sh.sh - build the real 4.5BSD /bin/sh (and the small tools) as ELF32.
 #
 #   build_sh.sh            -> out/userland/sh.elf + echo/ls/cat/mkdir
@@ -15,7 +15,7 @@ while [ $# -gt 0 ]; do
     esac
 done
 
-usr="$ws/libc/bsd"
+usr="$ws/libc/arch/bsd"
 shsrc="$usr/bin/sh"
 lc="$usr/lib/libc"
 bld="$ws/build"
@@ -36,6 +36,7 @@ prepare_headers() {
     cp -f "$ws/libc/include/stdarg.h" "$incu/stdarg.h"
     cp -f "$ws/libc/include/ctype.h"  "$incu/ctype.h"
     cp -f "$ws/libc/include/histedit.h" "$incu/histedit.h"
+    cp -f "$ws/libc/include/uring.h" "$incu/uring.h"
     [ -f "$incu/errno.h" ] && return 0
     step "preparing libc header view"
     # Mirror build_sh.ps1 exactly: 4.5BSD usr/include, sys/sys (also at the
@@ -58,6 +59,7 @@ prepare_headers() {
     cp -f "$ws/libc/include/stdarg.h" "$incu/stdarg.h"
     cp -f "$ws/libc/include/ctype.h"  "$incu/ctype.h"
     cp -f "$ws/libc/include/histedit.h" "$incu/histedit.h"
+    cp -f "$ws/libc/include/uring.h" "$incu/uring.h"
 }
 
 prepare_headers
@@ -243,7 +245,7 @@ ld -m elf_i386 -Ttext 0x08048000 -e _start -o "$elf" "${objs[@]}" "$libgcc" || {
 echo "built $elf ($(stat -c%s "$elf" 2>/dev/null || wc -c < "$elf") bytes)"
 
 if [ "$target" = "sh" ]; then
-    for tool in echo ls cat mkdir kill sleep rm cp mv wc grep head tail df mount ps uname true false date vmstat mmaptest; do
+    for tool in echo ls cat mkdir kill sleep rm cp mv wc grep head tail df mount ps uname true false date vmstat mmaptest subtest pthread aiotest uring spin cowtest crash badptr; do
         tobj="$obj/$tool.o"
         if compile_c "$ws/libexec/$tool.c" "$tobj"; then
             ld -m elf_i386 -Ttext 0x08048000 -e _start -o "$outd/$tool.elf" \
@@ -252,3 +254,4 @@ if [ "$target" = "sh" ]; then
         fi
     done
 fi
+

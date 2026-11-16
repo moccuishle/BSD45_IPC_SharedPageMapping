@@ -63,6 +63,8 @@ typedef u_long digit;
  * `fall out' the left (there never will be any such anyway).
  * We may assume len >= 0.  NOTE THAT THIS WRITES len+1 DIGITS.
  */
+/* EN: Shift the len+1 base-2^HALF_BITS digits at p left by sh bits in place, carrying each digit's overflow into the next; static helper used by __qdivrem to normalize the divisor. */
+/* 中文：把 p 处 len+1 个以 2^HALF_BITS 为基的数字就地左移 sh 位，每个数字溢出的高位进位到下一数字；是 __qdivrem 规范化除数的静态辅助函数。 */
 static void
 shl(register digit *p, register int len, register int sh)
 {
@@ -81,6 +83,8 @@ shl(register digit *p, register int len, register int sh)
  * divisor are 4 `digits' in this base (they are shorter if they have
  * leading zeros).
  */
+/* EN: Divide uq by vq, returning the quotient and writing the remainder via non-NULL arq: 1/zero traps divide-by-zero, uq<vq short-circuits, else Knuth program D in base 2^HALF_BITS. */
+/* 中文：计算 uq/vq 并返回商，arq 非空时写回余数：除零通过 1/zero 触发异常，uq<vq 时直接返回 0 并置余数，其余在 2^HALF_BITS 进制下执行 Knuth 算法 D，含规范化左移与回加修正。 */
 u_quad_t
 __qdivrem(uq, vq, arq)
 	u_quad_t uq, vq, *arq;

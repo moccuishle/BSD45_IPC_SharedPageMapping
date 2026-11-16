@@ -115,6 +115,8 @@ char	partab[];
 
 u_char inb();
 
+/* EN: Resets the keyboard controller via ports 0x64/0x60 (command 0xFF), retries on 0xFE/0xFF errors and waits for the 0xAA self-test reply; always returns 1. */
+/* 中文：经端口 0x64/0x60 发送 0xFF RESET 复位键盘控制器，遇到 0xFE/0xFF 重试并等待 0xAA 自检回码；总是返回 1。 */
 pcprobe(dev)
 struct isa_device *dev;
 {
@@ -141,6 +143,8 @@ struct isa_device *dev;
 	return 1;
 }
 
+/* EN: Distinguishes mono from color by writing 0xA55A through Crtat and printing <mono> or <color>, restores the saved word, then calls cursor(). */
+/* 中文：向 Crtat 写入 0xA55A 判断单色或彩色显示并打印 <mono>/<color>，恢复原来的字值，然后调用 cursor()。 */
 pcattach(dev)
 struct isa_device *dev;
 {
@@ -165,6 +169,8 @@ struct isa_device *dev;
 #ifdef __STDC__
 pcopen(dev_t dev, int flag, int mode, struct proc *p)
 #else
+/* EN: Opens console tty: sets t_oproc=pcstart and t_param=pcparam, initializes termios defaults/watermarks on first open, returns EBUSY for non-root exclusive open, then calls l_open. */
+/* 中文：打开控制台 tty：设 t_oproc=pcstart、t_param=pcparam，首次打开初始化默认 termios 与水位，非 root 独占打开返回 EBUSY，最后调用 l_open。 */
 pcopen(dev, flag, mode, p)
 	dev_t dev;
 	int flag, mode;
@@ -194,6 +200,8 @@ pcopen(dev, flag, mode, p)
 	return ((*linesw[tp->t_line].l_open)(dev, tp));
 }
 
+/* EN: Closes the console: invokes the current line discipline's l_close then ttyclose(&pccons); unconditionally returns 0. */
+/* 中文：关闭控制台：先调用当前线路规程的 l_close，再调用 ttyclose(&pccons)，无条件返回 0。 */
 pcclose(dev, flag, mode, p)
 	dev_t dev;
 	int flag, mode;
@@ -205,6 +213,8 @@ pcclose(dev, flag, mode, p)
 }
 
 /*ARGSUSED*/
+/* EN: Thin wrapper: returns linesw[pccons.t_line].l_read(&pccons, uio, flag), delegating the whole read to the currently attached line discipline. */
+/* 中文：薄封装：直接返回 linesw[pccons.t_line].l_read(&pccons, uio, flag)，把读取完全交给当前线路规程。 */
 pcread(dev, uio, flag)
 	dev_t dev;
 	struct uio *uio;
@@ -213,6 +223,8 @@ pcread(dev, uio, flag)
 }
 
 /*ARGSUSED*/
+/* EN: Thin wrapper: returns linesw[pccons.t_line].l_write(&pccons, uio, flag), handing the user output buffer to the current line discipline. */
+/* 中文：薄封装：返回 linesw[pccons.t_line].l_write(&pccons, uio, flag)，把用户输出缓冲区交给当前线路规程。 */
 pcwrite(dev, uio, flag)
 	dev_t dev;
 	struct uio *uio;
@@ -225,6 +237,8 @@ pcwrite(dev, uio, flag)
  * the console processor wants to give us a character.
  * Catch the character, and see who it goes to.
  */
+/* EN: Console receive interrupt: takes a char with sgetc(1), drops it on error, when CSF_POLLING is set or when KDB consumes it, else feeds it to linesw l_rint if openf is set. */
+/* 中文：控制台接收中断：用 sgetc(1) 取字符，出错、置 CSF_POLLING 或被 KDB 接管时丢弃，否则在 openf 置位时交给线路规程 l_rint。 */
 pcrint(dev, irq, cpl)
 	dev_t dev;
 {
@@ -242,6 +256,8 @@ pcrint(dev, irq, cpl)
 		(*linesw[pccons.t_line].l_rint)(c&0xff, &pccons);
 }
 
+/* EN: Tries the line discipline's l_ioctl first, then ttioctl, returning the first non-negative error value and ENOTTY when neither handles cmd. */
+/* 中文：先调用线路规程 l_ioctl，再调用 ttioctl，返回第一个非负结果；两者都不处理该 cmd 时返回 ENOTTY。 */
 pcioctl(dev, cmd, data, flag, p)
 	dev_t dev;
 	int cmd, flag;
@@ -265,6 +281,8 @@ int	pcconsintr = 1;
  * Got a console transmission interrupt -
  * the console processor wants another character.
  */
+/* EN: Console transmit interrupt: returns immediately when pcconsintr is 0, otherwise clears TS_BUSY and the timeout and restarts output via the line discipline l_start or pcstart. */
+/* 中文：控制台发送中断：pcconsintr 为 0 时立即返回，否则清 TS_BUSY 与超时标志，经线路规程 l_start 或 pcstart 继续输出。 */
 pcxint(dev)
 	dev_t dev;
 {
@@ -281,6 +299,8 @@ pcxint(dev)
 		pcstart(&pccons);
 }
 
+/* EN: tty output start routine running under spltty: bails out on TS_TIMEOUT/TS_BUSY/TS_TTSTOP, wakes writers and selectors at low water, and drains t_outq with sput(c, 0x7). */
+/* 中文：在 spltty 下运行的 tty 输出启动例程：遇 TS_TIMEOUT/TS_BUSY/TS_TTSTOP 直接返回，低水位时唤醒写者与 select，并用 sput(c,0x7) 排空 t_outq。 */
 pcstart(tp)
 	register struct tty *tp;
 {
@@ -308,6 +328,8 @@ out:
 	splx(s);
 }
 
+/* EN: Fills in the consdev: finds the major number whose cdevsw d_open is pcopen, then sets cn_dev=makedev(maj,0), cn_tp=&pccons and cn_pri=CN_INTERNAL. */
+/* 中文：填写 consdev：扫描 cdevsw 找出 d_open 等于 pcopen 的主设备号，设置 cn_dev=makedev(maj,0)、cn_tp=&pccons、cn_pri=CN_INTERNAL。 */
 pccnprobe(cp)
 	struct consdev *cp;
 {
@@ -326,6 +348,8 @@ pccnprobe(cp)
 }
 
 /* ARGSUSED */
+/* EN: Console initialization hook that intentionally does nothing on this port (the crtat reset is commented out); takes the consdev pointer and returns void. */
+/* 中文：控制台初始化钩子，本移植版刻意留空（crtat 复位语句被注释掉），接收 consdev 指针且无返回值。 */
 pccninit(cp)
 	struct consdev *cp;
 {
@@ -338,6 +362,8 @@ pccninit(cp)
 static __color;
 
 /* ARGSUSED */
+/* EN: Console putc: turns global __color into an attribute (0 becomes 0x30, else OR 0x60), prepends CR when c is a newline, then sput(c,clr); dev is unused. */
+/* 中文：控制台字符输出：把全局 __color 换算成属性（0 取 0x30，否则再或上 0x60），c 为换行时先补发 CR，随后调用 sput(c,clr) 输出；dev 未使用。 */
 pccnputc(dev, c)
 	dev_t dev;
 	char c;
@@ -356,6 +382,8 @@ pccnputc(dev, c)
 /*
  * Print a character on console.
  */
+/* EN: Thin console write wrapper: sput(c,0x2) with a fixed attribute, and after a newline calls getchar() so output blocks until a key is pressed; tp is unused. */
+/* 中文：底层控制台输出包装：以固定属性 0x2 调用 sput(c,0x2)，遇到换行后再调 getchar() 阻塞等待按键，起分屏暂停作用；tp 未使用。 */
 pcputchar(c, tp)
 	char c;
 	register struct tty *tp;
@@ -366,6 +394,8 @@ pcputchar(c, tp)
 
 
 /* ARGSUSED */
+/* EN: Polled keyboard getc: raises spltty to block pcrint, takes a char from sgetc(0), maps CR to newline, restores the old spl with splx and returns it; dev unused. */
+/* 中文：轮询取键盘字符：先用 spltty 屏蔽 pcrint，再调 sgetc(0) 取字符并把 CR 转成换行，最后用 splx 恢复原中断级别并返回该字符；dev 未使用。 */
 pccngetc(dev)
 	dev_t dev;
 {
@@ -378,6 +408,8 @@ pccngetc(dev)
 	return (c);
 }
 
+/* EN: Returns the next keyboard character from sgetc(0) masked to the low 8 bits; takes no lock and ignores tp. */
+/* 中文：调用 sgetc(0) 取下一个键盘字符，只保留低 8 位后返回；函数不加锁，tp 参数未使用。 */
 pcgetchar(tp)
 	register struct tty *tp;
 {
@@ -390,6 +422,8 @@ pcgetchar(tp)
 /*
  * Set line parameters
  */
+/* EN: Copies t->c_ispeed, c_ospeed and c_cflag into tp->t_ispeed/t_ospeed/t_cflag and returns 0; no hardware line settings are programmed. */
+/* 中文：把 termios 的 c_ispeed、c_ospeed、c_cflag 复制到 tp 的 t_ispeed/t_ospeed/t_cflag 后返回 0，不编程任何硬件线路参数。 */
 pcparam(tp, t)
 	register struct tty *tp;
 	register struct termios *t;
@@ -407,6 +441,8 @@ pcparam(tp, t)
 /*
  * Turn input polling on/off (used by debugger).
  */
+/* EN: KDB-only stub with an empty body: accepts the polling on/off argument and changes nothing. */
+/* 中文：仅在 KDB 下编译的空函数：接收轮询开关参数 onoff，但函数体为空，不改变任何轮询状态。 */
 pcpoll(onoff)
 	int onoff;
 {
@@ -416,6 +452,8 @@ pcpoll(onoff)
 extern int hz;
 
 static beeping;
+/* EN: Silences the speaker: clears bits 0-1 of port 0x61 to disable timer channel 2 and sets beeping to 0. */
+/* 中文：关闭扬声器：把端口 0x61 的第 0、1 位清零以停用定时器通道 2，并把 beeping 标志置 0。 */
 sysbeepstop()
 {
 	/* disable counter 2 */
@@ -423,6 +461,8 @@ sysbeepstop()
 	beeping = 0;
 }
 
+/* EN: Starts the beep: enables timer channel 2 via 0x61 and programs 0x43/0x42 for 750 Hz; if not already beeping, arms timeout(sysbeepstop,0,hz/4) and sets beeping=1. */
+/* 中文：启动蜂鸣：通过端口 0x61 使能定时器通道 2，并向 0x43/0x42 写入 0xB6 和 0x637 得到 750Hz；若尚未鸣叫则挂 timeout(sysbeepstop,0,hz/4) 并置 beeping=1。 */
 sysbeep()
 {
 
@@ -464,6 +504,8 @@ u_char shfts, ctls, alts, caps, num, stp, scroll;
 /* This is a bare-bones implementation of a bare-bones entry    */
 /* One modification: Change li#24 to li#25 to reflect 25 lines  */
 
+/* EN: 80x25 text core: first call probes mono/CGA buffer and reads cursor from 6845 ports; then handles tab/BS/CR/LF/ESC[ escapes, bell via sysbeep, and scrolls with bcopy/fillw. */
+/* 中文：80x25 文本输出核心：首次调用时探测单色/CGA 显存并从 6845 端口读取光标位置；之后处理 tab/退格/CR/LF/ESC[ 转义序列、经 sysbeep 响铃，越界时用 bcopy/fillw 滚屏。 */
 sput(c, ca)
 u_char c, ca;
 {
@@ -707,6 +749,8 @@ struct key {
 #define	KBDATA		0x60	/* kbd data port */
 #define	KBSTATUSPORT	0x61	/* kbd status */
 
+/* EN: Programs the keyboard LEDs: waits for the port 0x64 input buffer to clear, sends command 0xED to 0x60, then the mask scroll|2*num|4*caps. */
+/* 中文：更新键盘指示灯：轮询端口 0x64 等待输入缓冲空闲，先向 0x60 发 0xED 命令，再发由 scroll|2*num|4*caps 组成的灯位掩码。 */
 update_led()
 {
 	while (inb(0x64)&2);	/* wait input ready */
@@ -730,6 +774,8 @@ reset_cpu() {
 sgetc(noblock) : get a character from the keyboard. If noblock = 0 wait until
 a key is gotten.  Otherwise return a 0x100 (256).
 */
+/* EN: Keyboard decode: polls 0x64/0x60, ctrl-alt-del calls _exit(), maps scancodes via unshift/shift/ctl tables, toggles locks with update_led; returns 0x100 if noblock and no key. */
+/* 中文：键盘扫描码解码：轮询 0x64/0x60 端口，Ctrl-Alt-Del 调用 _exit()，按 unshift/shift/ctl 表解释通断码并翻转锁定键后调 update_led；noblock 且无键时返回 0x100。 */
 int sgetc(noblock)
 {
 	u_char dt; unsigned key;
@@ -795,6 +841,8 @@ pg(p,q,r,s,t,u,v,w,x,y,z) char *p; {
 #define del	0177	
 #define cntld	4
 
+/* EN: Polled debugger console input: sets CSF_POLLING under splhigh, prompts '>', blocks in sgetc(0), clears the flag, echoes the char (CR/LF, BS/DEL) and returns it, 0 on ^D. */
+/* 中文：调试用轮询控制台输入：在 splhigh 下设 CSF_POLLING 并输出 '>' 提示，阻塞于 sgetc(0)，取到后清标志并回显（处理 CR/LF、BS/DEL），遇 ^D 返回 0。 */
 getchar()
 {
 	register char thechar;

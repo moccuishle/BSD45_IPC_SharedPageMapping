@@ -114,6 +114,8 @@ int nec;
 
 u_short boarddata[16];
  
+/* EN: At splimp resets the NE2000 at id_iobase, polls ISR for DSIS_RESET, sets word-transfer DCR, checks command readback, programs ring bounds, copies ROM MAC to ns_addr; 1 or 0. */
+/* 中文：在 splimp 下复位 id_iobase 处的 NE2000，轮询 ISR 等待 DSIS_RESET，设字传输 DCR、回读命令寄存器、设环形边界，并把 ROM 中的 MAC 拷到 ns_addr；成功返回 1，否则 0。 */
 neprobe(dvp)
 	struct isa_device *dvp;
 {
@@ -254,6 +256,8 @@ neput (up, ad, len) caddr_t up; {
 /*
  * Reset of interface.
  */
+/* EN: Ignored for units >= NNE; prints "ne%d: reset", clears DSF_LOCK in the softc so nestart may run again, and re-enters neinit(); installed as if_reset. */
+/* 中文：unit >= NNE 时直接返回；否则打印 "ne%d: reset"，清除软状态中的 DSF_LOCK 以便 nestart 能再次发送，并重新调用 neinit()；该函数挂在 if_reset。 */
 nereset(unit, uban)
 	int unit, uban;
 {
@@ -269,6 +273,8 @@ nereset(unit, uban)
  * record.  System will initialize the interface when it is ready
  * to accept packets.  We get the ethernet address here.
  */
+/* EN: Fills ns_if for unit id_unit: name "ne", ETHERMTU, flags BROADCAST|SIMPLEX|NOTRAILERS, and the neinit/ether_output/nestart/neioctl/nereset hooks, then calls if_attach(). */
+/* 中文：为该单元的 ns_if 填写名字 ne、MTU 为 ETHERMTU、标志 BROADCAST|SIMPLEX|NOTRAILERS，以及 neinit/ether_output/nestart/neioctl/nereset 钩子，最后调用 if_attach()。 */
 neattach(dvp)
 	struct isa_device *dvp;
 {
@@ -294,6 +300,8 @@ neattach(dvp)
  * Initialization of interface; set up initialization block
  * and transmit/receive descriptor rings.
  */
+/* EN: Returns early if no ifaddr or already IFF_RUNNING; at splimp writes PAR/MAR, ring bounds, DCR/TCR/RCR, sets IMR 0xff, marks IFF_RUNNING, resets ns_oactive/ns_mask, then nestart(). */
+/* 中文：无协议地址或已处于 IFF_RUNNING 时直接返回；在 splimp 下写 PAR/MAR、接收环边界、DCR/TCR/RCR，置 IMR 为 0xff，设置 IFF_RUNNING 并清 ns_oactive/ns_mask，最后调用 nestart()。 */
 neinit(unit)
 	int unit;
 {
@@ -349,6 +357,8 @@ neinit(unit)
  * and map it to the interface before starting the output.
  * called only at splimp or interrupt level.
  */
+/* EN: Returns if DSF_LOCK, NIC transmitting, or not IFF_RUNNING; else dequeues an mbuf, sets DSF_LOCK, neput()s it into TBUF, pads to ETHER_MIN_LEN and starts TX. */
+/* 中文：若已置 DSF_LOCK、网卡正在发送或未 IFF_RUNNING 则返回；否则从发送队列取一个 mbuf，置 DSF_LOCK，用 neput 拷入 TBUF（奇数长度先 m_pullup），补齐到 ETHER_MIN_LEN 后启动发送。 */
 nestart(ifp)
 	struct ifnet *ifp;
 {
@@ -426,6 +436,8 @@ nestart(ifp)
 /*
  * Controller interrupt.
  */
+/* EN: Acks ISR, counts RXE/TXE errors and TX packets, walks the RX ring calling nerecv for 0x21/RPC frames, advances BNRY, restarts TX, re-reads ISR and loops while nonzero. */
+/* 中文：中断处理：确认 ISR，统计收发错误与已发包数，遍历接收环对状态为 0x21/RPC 的帧调用 nerecv，前移 BNRY 边界，重启发送，再重读 ISR 非零则继续循环。 */
 neintr(unit)
 {
 	register struct ne_softc *ns = &ne_softc[unit];
@@ -554,6 +566,8 @@ loop:
  * packet based on type and pass to type specific higher-level
  * input routine.
  */
+/* EN: Counts if_ipackets, drops lengths outside ETHER_MIN_LEN..ETHER_MAX_LEN, DMAs the frame across pages (ns_cur wraps 0x7f to 0x46), strips header+CRC, calls neread. */
+/* 中文：累加 if_ipackets，长度不在 ETHER_MIN_LEN..ETHER_MAX_LEN 内则丢弃，跨页从网卡内存 DMA 出整帧（ns_cur 超过 0x7f 回绕到 0x46），去掉以太头与 CRC 后调用 neread。 */
 nerecv(ns)
 	register struct ne_softc *ns;
 {
@@ -592,6 +606,8 @@ nerecv(ns)
  * Pass a packet to the higher levels.
  * We deal with the trailer protocol here.
  */
+/* EN: ntohs()s ether_type, unwraps trailer frames (recomputes type/len, checks offset and resid), builds mbufs with neget, then passes the packet to ether_input. */
+/* 中文：把 ether_type 转为主机序，处理 trailer 协议帧（重算类型与长度并检查偏移/resid 合法性），用 neget 构造 mbuf 链后交给 ether_input。 */
 neread(ns, buf, len)
 	register struct ne_softc *ns;
 	char *buf;
@@ -647,6 +663,8 @@ neread(ns, buf, len)
  * data into mbufs.  When full cluster sized units are present
  * we copy into clusters.
  */
+/* EN: Allocates an mbuf chain (MGETHDR/MGET, MCLGET past MINCLSIZE), copies totlen bytes skipping the trailer offset, sets rcvif/len; frees all and returns 0 on failure. */
+/* 中文：分配 mbuf 链（MGETHDR/MGET，长度 >=MINCLSIZE 时用 MCLGET 集群），拷贝 totlen 字节并在有 trailer 时跳过其偏移，设置 m_pkthdr.rcvif/len；分配失败则释放整链返回 0。 */
 struct mbuf *
 neget(buf, totlen, off0, ifp)
 	caddr_t buf;
@@ -718,6 +736,8 @@ neget(buf, totlen, off0, ifp)
 /*
  * Process an ioctl request.
  */
+/* EN: At splimp handles if_ioctl: SIOCSIFADDR sets IFF_UP, calls neinit, stores ac_ipaddr/NS address and calls arpwhohas; SIOCSIFFLAGS stops or re-inits; other commands return EINVAL. */
+/* 中文：在 splimp 下处理 if_ioctl：SIOCSIFADDR 置 IFF_UP、调用 neinit、记录 ac_ipaddr/NS 地址并调用 arpwhohas；SIOCSIFFLAGS 停止或重新初始化网卡；其它命令返回 EINVAL。 */
 neioctl(ifp, cmd, data)
 	register struct ifnet *ifp;
 	int cmd;
@@ -740,6 +760,8 @@ neioctl(ifp, cmd, data)
 			neinit(ifp->if_unit);	/* before arpwhohas */
 			((struct arpcom *)ifp)->ac_ipaddr =
 				IA_SIN(ifa)->sin_addr;
+			/* EN: Not defined here; only occurrence is neioctl's SIOCSIFADDR/AF_INET branch calling arpwhohas() after neinit() to broadcast an ARP request for the new address. */
+			/* 中文：本文件未定义该函数；唯一出现处是 neioctl 的 SIOCSIFADDR/AF_INET 分支，在 neinit() 和设置 ac_ipaddr 之后调用 arpwhohas() 为新地址广播 ARP 请求。 */
 			arpwhohas((struct arpcom *)ifp, &IA_SIN(ifa)->sin_addr);
 			break;
 #endif

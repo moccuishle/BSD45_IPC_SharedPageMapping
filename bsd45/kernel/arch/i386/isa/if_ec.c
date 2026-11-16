@@ -131,6 +131,8 @@ struct	isa_driver ecdriver = {
 
 #define TIMO 10000 /* used in ec_uprim */
 
+/* EN: Resets all cards, compares the 6-byte R_ECID signature with "*3COM*" and on match reads MAC and revision, records memory/port resources, prints them and returns 1, else 0. */
+/* 中文：复位所有卡,读取 6 字节 R_ECID 与 "*3COM*" 比对,匹配则读出 MAC 与版本号、记录内存和端口资源并打印,返回 1,否则返回 0。 */
 ecprobe(id)
 	register struct	isa_device *id;
 {
@@ -161,6 +163,8 @@ ecprobe(id)
 	return 1;
 }
 
+/* EN: Writes 255 pseudo-random bytes to I/O port 0x100, each shifted left with XOR 0xe7 on overflow, producing the signature pattern used to reset the board. */
+/* 中文：向 I/O 端口 0x100 依次写入 255 个伪随机字节(左移,溢出时异或 0xe7),构成用于复位板卡的识别码序列。 */
 void
 ec_idpattern()
 {
@@ -173,6 +177,8 @@ ec_idpattern()
 	}
 }
 
+/* EN: Resets every board by writing 0 to port 0x100, clocking out the ec_idpattern signature sequence, then writing 0 to that port again. */
+/* 中文：向端口 0x100 写 0,输出 ec_idpattern 识别码序列,再写 0,以此复位所有板卡。 */
 void
 ec_reset_all()
 {
@@ -187,6 +193,8 @@ extern int cpuspeed;
 #define SET_CA		ECWR(ec->sc_ports, port_ca, 0)
 #define UNLATCH_INT	ECWR(ec->sc_ports, port_ic, 0);
 
+/* EN: Selects node-memory register `which` through creg, then reads six bytes from the indexed data ports with DELAY(2) between accesses. */
+/* 中文：通过 creg 选择编号为 which 的节点内存寄存器,随后从对应的数据端口依次读取 6 个字节,每次访问之间延时 2 微秒。 */
 void
 ec_getnmdata(p, which, data)
 register struct ec_ports *p;
@@ -203,6 +211,8 @@ register u_char *data;
 	}
 }
 
+/* EN: Loopback-resets the 82586, runs ec_meminit, waits on iscp.busy, starts the CU and RU, enables interrupts and sets if_timer=5; returns 0, returning early when not IFF_RUNNING. */
+/* 中文：对 82586 做回环复位并调用 ec_meminit,等待 iscp.busy 清除后启动 CU 与 RU、开中断并把 if_timer 置 5;始终返回 0,未 RUNNING 时提前返回。 */
 ecreset(unit)
 	register int unit;
 {
@@ -248,6 +258,8 @@ ecreset(unit)
  * to accept packets.
  */
 
+/* EN: Fills the ifnet (unit, name "ec", MTU, ioctl/watchdog/start, ether_output) and calls if_attach; note if_init is set to ecinit then overwritten by ecreset; returns 1. */
+/* 中文：填充 ifnet(单元号、名字 "ec"、MTU、ioctl/watchdog/start、ether_output)并调用 if_attach;注意 if_init 先设 ecinit 又被 ecreset 覆盖;返回 1。 */
 ecattach(id)
 	register struct isa_device *id;
 {
@@ -273,6 +285,8 @@ ecattach(id)
 }
 #define OFF(e) ((u_short)&(((struct ec_mem *)0)->e))
 
+/* EN: Lays out 82586 shared memory: zeroes it, sets ISCP/SCB offsets and the config block (promisc when IFF_PROMISC), copies the MAC into iasetup, then chains TX CBs and RX FDs. */
+/* 中文：布局 82586 共享内存:整块清零,设置 ISCP/SCB 偏移与配置块(IFF_PROMISC 时加混杂位),把 MAC 写入 iasetup,再串起发送 CB 与接收 FD 链。 */
 ec_meminit(ec)
 	register struct ec_softc *ec;
 {
@@ -332,6 +346,8 @@ ec_meminit(ec)
 /*
  * Initialization of interface
  */
+/* EN: Returns 0 until an address of a family other than AF_LINK exists; then under splimp sets IFF_RUNNING, calls ecreset and kicks ecstart. Always returns 0. */
+/* 中文：等待地址链表中出现非 AF_LINK 的地址(没有则直接返回 0);然后在 splimp 下置 IFF_RUNNING,调用 ecreset 并触发 ecstart,始终返回 0。 */
 ecinit(unit)
 	int unit;
 {
@@ -358,6 +374,8 @@ ecinit(unit)
 /*
  * Timeout: for now check for a transmit command taking more than 10 seconds.
  */
+/* EN: Watchdog: if the deadman flag sc_iflags has IFF_OACTIVE it clears IFF_RUNNING and re-inits via ecinit, else sets that flag when sc_txcnt>0; finally re-arms if_timer=5. */
+/* 中文：看门狗:若 sc_iflags 带 IFF_OACTIVE 则清除 IFF_RUNNING 并调用 ecinit 重新初始化,否则在 sc_txcnt>0 时置该标志;最后把 if_timer 重置为 5。 */
 ecwatchdog(unit)
 	int unit;
 {
@@ -372,6 +390,8 @@ ecwatchdog(unit)
 
 
 
+/* EN: Starts the 82586 CU on the oldest pending TX command block: computes the tcom index from sc_txnum-sc_txcnt, sets scb.cbl_off, CU_START and status 0, then latches CA. */
+/* 中文：在最早的待发发送命令块上启动 82586 的 CU:用 sc_txnum-sc_txcnt 算出 tcom 下标,设置 scb.cbl_off、CU_START 命令并清零状态,然后触发 CA。 */
 ec_txstart(ec)
 register struct ec_softc *ec;
 {
@@ -389,6 +409,8 @@ register struct ec_softc *ec;
  * off of the interface queue, and copy it to the interface
  * before starting the output.
  */
+/* EN: Fills the TX ring from if_snd: copies each mbuf via ecput, taps bpf, sets the TBD count, starts the CU when idle and sets IFF_OACTIVE once all NTXBUF slots are used. */
+/* 中文：循环从 if_snd 填充发送环:用 ecput 拷贝 mbuf、调用 bpf_tap、设置 TBD 长度,空闲时启动 CU,占满 NTXBUF 个槽后置 IFF_OACTIVE。 */
 ecstart(ifp)
 	struct ifnet *ifp;
 {
@@ -429,6 +451,8 @@ again:
 }
 int ECC_intr, ECC_rint, ECC_xint, ECC_unready;
 
+/* EN: Reads scb.status and acknowledges it by writing back the cause bits, dispatches ecrint on FR and ecxint on CX, counts unready RU states, then unlatches the interrupt. */
+/* 中文：读取 scb.status 并回写中断原因位完成应答,FR 时调用 ecrint、CX 时调用 ecxint,统计 RU 未就绪次数,最后解除中断锁存。 */
 ecintr(unit)
 	register int unit;
 {
@@ -452,6 +476,8 @@ ecintr(unit)
  * Ethernet interface transmitter interrupt.
  * Start another output if more data to send.
  */
+/* EN: Transmit-complete: clears the deadman flag, adds collisions, counts errors and resets on DMA-late underrun, else counts if_opackets, then restarts the CU via ecstart. */
+/* 中文：发送完成处理:清除 OACTIVE 死锁标志,累计冲突数,出错时计错并在 DMALATE 下溢时复位,否则累加 if_opackets,随后重启 CU 并调用 ecstart。 */
 ecxint(unit)
 	register int unit;
 {
@@ -502,6 +528,8 @@ ecxint(unit)
  * Decapsulate packet based on type and pass to type specific
  * higher-level input routine.
  */
+/* EN: Receive interrupt: detects out-of-sync descriptors (logging and calling ecreset), then walks all completed RFDs, counting bad/chained packets and handing good ones to ecread. */
+/* 中文：接收中断:检测描述符失步(记日志并调用 ecreset),随后遍历所有已完成 RFD,统计坏包和链式包并把正常包交给 ecread。 */
 ecrint(unit)
 	int unit;
 {
@@ -539,6 +567,8 @@ ecrint(unit)
 	}
 }
 
+/* EN: Delivers one frame: bumps if_ipackets, swaps the Ethernet type, handles trailers, drops runts, taps bpf, filters promiscuous frames, then builds an mbuf and calls ether_input. */
+/* 中文：交付一个帧:递增 if_ipackets,转换以太类型,处理 trailer 头,丢弃 runt 包,调用 bpf_tap,在混杂模式下过滤,再生成 mbuf 并交给 ether_input。 */
 void
 ecread(ec, buf, len)
 	register struct ec_softc *ec;
@@ -622,6 +652,8 @@ ecread(ec, buf, len)
  * Routine to copy from mbuf chain to transmit
  * buffer in board local memory.
  */
+/* EN: Copies an mbuf chain into the board's transmit buffer, frees the chain with m_freem, zero-pads short frames up to ECMINSIZE, and returns the total length copied. */
+/* 中文：把 mbuf 链拷贝到板卡发送缓冲区,用 m_freem 释放 mbuf,不足 ECMINSIZE 时补零,返回实际拷贝的总长度。 */
 ecput(ecbuf, m)
 	register char *ecbuf;
 	register struct mbuf *m;
@@ -648,6 +680,8 @@ ecput(ecbuf, m)
 /*
  * Process an ioctl request.
  */
+/* EN: At splimp handles SIOCSIFADDR (per-family init and ARP request) and SIOCSIFFLAGS (reset or init on up/down, plus reset+ecstart when IFF_PROMISC flips); other cmds give EINVAL. */
+/* 中文：在 splimp 下处理 SIOCSIFADDR(按协议族初始化并发 ARP 请求)与 SIOCSIFFLAGS(上下线时复位或初始化,IFF_PROMISC 变化时复位并重启发送),其他命令返回 EINVAL。 */
 ecioctl(ifp, cmd, data)
 	register struct ifnet *ifp;
 	int cmd;
@@ -667,6 +701,8 @@ ecioctl(ifp, cmd, data)
 			ecinit(ifp->if_unit);	/* before arpwhohas */
 			((struct arpcom *)ifp)->ac_ipaddr =
 				IA_SIN(ifa)->sin_addr;
+			/* EN: No definition in this file: ecioctl's SIOCSIFADDR/AF_INET case calls arpwhohas() after storing ac_ipaddr, so ARP broadcasts a request for the new address. */
+			/* 中文：本文件没有该函数定义：ecioctl 的 SIOCSIFADDR/AF_INET 分支在记录 ac_ipaddr 后调用 arpwhohas()，由 ARP 为新地址广播请求。 */
 			arpwhohas((struct arpcom *)ifp, &IA_SIN(ifa)->sin_addr);
 			break;
 #endif
@@ -719,6 +755,8 @@ ecioctl(ifp, cmd, data)
 	return (error);
 }
 
+/* EN: Gated by global ecdebug: logs LOG_WARNING for receive descriptor sc_rxnum with its source Ethernet address, buffer number, length and rfd0 status bits; silent when ecdebug is 0. */
+/* 中文：受全局 ecdebug 控制：为接收描述符 sc_rxnum 输出 LOG_WARNING，打印源以太网地址、缓冲区号、长度和 rfd0 状态位；ecdebug 为 0 时直接返回。 */
 ecrerror(unit, msg)
 	int unit;
 	char *msg;
@@ -740,6 +778,8 @@ ecrerror(unit, msg)
 	    rmd->rfd0, "\14\14LEN\13CRC\12ALGN\11NBUF\10DMAL\07SHRT");
 }
 
+/* EN: Also gated by ecdebug: logs LOG_WARNING for transmit command sc_txnum with the destination address, buffer number, length and com0 status bits (ABRT/LCOLL/NCAR/...). */
+/* 中文：同样受 ecdebug 控制：为发送命令 sc_txnum 输出 LOG_WARNING，打印目的地址、缓冲区号、长度及 com0 状态位（ABRT/LCOLL/NCAR 等）。 */
 ecxerror(unit)
 	int unit;
 {

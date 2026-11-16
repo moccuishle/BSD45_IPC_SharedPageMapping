@@ -40,6 +40,8 @@
  * and whatever else we might use it for.  The result is uniform on
  * [0, 2^31 - 1].
  */
+/* EN: Advance the static seed randseed (initially 1) via the Park-Miller 7^5 minimal standard LCG, computing 16807*x mod (2^31-1), then return the new positive value; no locking. */
+/* 中文：用静态种子 randseed（初始为 1）推进 Park-Miller 7^5 最小标准线性同余生成器，计算 16807*x mod (2^31-1)，更新种子并返回新的正 31 位随机数；未加锁。 */
 u_long
 random()
 {

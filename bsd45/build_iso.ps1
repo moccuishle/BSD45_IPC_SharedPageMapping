@@ -1,4 +1,4 @@
-# build_iso.ps1 - build the El Torito boot image and the BSD45-ELF-x86 ISO
+﻿# build_iso.ps1 - build the El Torito boot image and the BSD45-ELF-x86 ISO
 param(
     [string]$Kernel = "",
     [string]$OutIso = "",
@@ -114,8 +114,22 @@ $dtb = Join-Path $ws "out\userland\date.elf"
 if (Test-Path $dtb) { Copy-Item $dtb "$isodir\bin\DATE.ELF" -Force }
 $vsb = Join-Path $ws "out\userland\vmstat.elf"
 if (Test-Path $vsb) { Copy-Item $vsb "$isodir\bin\VMSTAT.ELF" -Force }
+$sub = Join-Path $ws "out\userland\subtest.elf"
+if (Test-Path $sub) { Copy-Item $sub "$isodir\bin\SUBTEST.ELF" -Force }
 $mmb = Join-Path $ws "out\userland\mmaptest.elf"
 if (Test-Path $mmb) { Copy-Item $mmb "$isodir\bin\MMAPTEST.ELF" -Force }
+$ptb = Join-Path $ws "out\userland\pthread.elf"
+if (Test-Path $ptb) { Copy-Item $ptb "$isodir\bin\PTHREAD.ELF" -Force }
+$atb = Join-Path $ws "out\userland\aiotest.elf"
+if (Test-Path $atb) { Copy-Item $atb "$isodir\bin\AIOTEST.ELF" -Force }
+$urb = Join-Path $ws "out\userland\uring.elf"
+if (Test-Path $urb) { Copy-Item $urb "$isodir\bin\uring.ELF" -Force }
+foreach ($pair in @(
+    @("spin", "SPIN"), @("cowtest", "COWTEST"), @("crash", "CRASH"),
+    @("badptr", "BADPTR"))) {
+    $srcf = Join-Path $ws ("out\userland\{0}.elf" -f $pair[0])
+    if (Test-Path $srcf) { Copy-Item $srcf ("$isodir\bin\{0}.ELF" -f $pair[1]) -Force }
+}
 Copy-Item "$bld\boot.img" "$isodir\boot.img" -Force
 # rootfs_overlay/ is copied on top of the ISO root: /etc/profile,
 # /README.TXT and the empty bin/sbin/tmp skeleton.
@@ -170,6 +184,7 @@ if ($pad2 -gt 0) {
 $fs.Close()
 
 Write-Host ("ISO: {0} ({1:N0} bytes), kernel at LBA {2}" -f $OutIso, (Get-Item $OutIso).Length, $KernelLba)
+
 
 
 

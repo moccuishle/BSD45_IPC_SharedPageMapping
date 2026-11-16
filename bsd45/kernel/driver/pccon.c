@@ -18,6 +18,8 @@
 
 #include <i386/i386/cons.h>
 
+#include "arch/i386/hal/hal.h"
+
 #define	COM1		0x3f8
 #define	COM1_LSR	(COM1 + 5)
 
@@ -43,10 +45,12 @@ static void	vga_cursor(void);
  * return 0xff, which would otherwise look like "LSR: data ready" and make
  * cngetc() return 0xff forever, so the keyboard was never polled.
  */
+/* EN: Reads COM1 LSR: returns 0 if it reads 0xff (no UART mapped) or if (lsr & 0xe0) != 0x60, else 1, meaning a 16550-class port is present. */
+/* 中文：读 COM1 的 LSR：读到 0xff（端口未映射）或 (lsr & 0xe0) != 0x60 时返回 0；否则返回 1，表示存在 16550 类串口。 */
 static int
 com_probe(void)
 {
-	int lsr = inb(COM1_LSR);
+	int lsr = hal_inb(COM1_LSR);
 
 	if (lsr == 0xff)
 		return (0);
@@ -56,6 +60,8 @@ com_probe(void)
 	return (1);
 }
 
+/* EN: Returns the cached com_present flag that pccninit() stored from com_probe(); it performs no COM1 access itself. */
+/* 中文：返回 pccninit() 用 com_probe() 探测后缓存的 com_present 标志，本身不访问 COM1 硬件。 */
 int
 pccom_present(void)
 {
@@ -63,20 +69,24 @@ pccom_present(void)
 	return (com_present);
 }
 
+/* EN: Drains up to 32 stale bytes from the 8042 output buffer (ports 0x64/0x60), waits for the input buffer to clear, then writes 0xae to enable the keyboard. */
+/* 中文：先最多读 32 次清掉 8042 输出缓冲区（端口 0x64/0x60）中 BIOS 遗留的数据，等待输入缓冲区变空，再向 0x64 写 0xae 使能键盘。 */
 static void
 kbd_init(void)
 {
 	int i;
 
 	/* drain whatever the BIOS left in the 8042 output buffer */
-	for (i = 0; i < 32 && (inb(0x64) & 0x01); i++)
-		(void)inb(0x60);
+	for (i = 0; i < 32 && (hal_inb(0x64) & 0x01); i++)
+		(void)hal_inb(0x60);
 	/* wait for the input buffer to drain, then enable the keyboard */
-	for (i = 0; i < 100000 && (inb(0x64) & 0x02); i++)
+	for (i = 0; i < 100000 && (hal_inb(0x64) & 0x02); i++)
 		;
-	outb(0x64, 0xae);
+	hal_outb(0x64, 0xae);
 }
 
+/* EN: Returns 0 at once if com_present is clear; otherwise polls COM1's LSR up to 100000 times for THRE (0x20), returning 1 when set and 0 on timeout. */
+/* 中文：若 com_present 为 0 立即返回 0；否则最多轮询 COM1 的 LSR 100000 次等 THRE(0x20) 置位，置位返回 1，超时返回 0。 */
 static int
 com_ready(void)
 {
@@ -85,30 +95,36 @@ com_ready(void)
 	if (!com_present)
 		return (0);
 	for (i = 0; i < 100000; i++)
-		if (inb(COM1_LSR) & 0x20)
+		if (hal_inb(COM1_LSR) & 0x20)
 			return (1);
 	return (0);
 }
 
+/* EN: Waits for com_ready() and only then writes character c to COM1's data register; the byte is dropped silently if the UART is absent or never becomes ready. */
+/* 中文：先调 com_ready() 等待发送就绪，就绪后才把字符 c 写入 COM1 数据寄存器；串口不存在或始终不就绪时该字符被静默丢弃。 */
 static void
 com_putc(int c)
 {
 	if (com_ready())
-		outb(COM1, c);
+		hal_outb(COM1, c);
 }
 
+/* EN: Programs COM1 for polled output: interrupts off, divisor 1 (115200 baud), 8N1 framing, FIFO enabled (0xc7), and asserts DTR|RTS (0x03). */
+/* 中文：把 COM1 配置为轮询输出：关中断，分频值 1（115200 波特），8N1 帧格，使能 FIFO（0xc7），并置位 DTR|RTS（0x03）。 */
 static void
 com_init(void)
 {
-	outb(COM1 + 1, 0x00);	/* no interrupts */
-	outb(COM1 + 3, 0x80);	/* DLAB */
-	outb(COM1 + 0, 0x01);	/* divisor 1 = 115200 */
-	outb(COM1 + 1, 0x00);
-	outb(COM1 + 3, 0x03);	/* 8N1 */
-	outb(COM1 + 2, 0xc7);	/* FIFO on */
-	outb(COM1 + 4, 0x03);	/* DTR|RTS */
+	hal_outb(COM1 + 1, 0x00);	/* no interrupts */
+	hal_outb(COM1 + 3, 0x80);	/* DLAB */
+	hal_outb(COM1 + 0, 0x01);	/* divisor 1 = 115200 */
+	hal_outb(COM1 + 1, 0x00);
+	hal_outb(COM1 + 3, 0x03);	/* 8N1 */
+	hal_outb(COM1 + 2, 0xc7);	/* FIFO on */
+	hal_outb(COM1 + 4, 0x03);	/* DTR|RTS */
 }
 
+/* EN: Console probe: points crt_base at the locore-relocated Crtat buffer rather than the raw 0xFE0B8000 constant, sets cp->cn_pri = CN_INTERNAL, and returns 0. */
+/* 中文：控制台探测：把 crt_base 指向已由 locore 重定位的 Crtat 缓冲区而非裸地址 0xFE0B8000，设 cp->cn_pri = CN_INTERNAL，返回 0。 */
 int
 pccnprobe(struct consdev *cp)
 {
@@ -124,6 +140,8 @@ pccnprobe(struct consdev *cp)
 	return (0);
 }
 
+/* EN: Console init: fills all 80x25 cells of Crtat with ATTR spaces, homes the cursor, probes and initializes COM1 if present, enables the keyboard, and returns 0. */
+/* 中文：控制台初始化：把 Crtat 的 80x25 单元格全填为 ATTR 空白，光标归位，若探到 COM1 则初始化之，使能键盘，最后返回 0。 */
 int
 pccninit(struct consdev *cp)
 {
@@ -141,6 +159,8 @@ pccninit(struct consdev *cp)
 	return (0);
 }
 
+/* EN: Writes c to the COM1 mirror and to VGA text memory; handles CR, LF, backspace and tab, wraps at column 80, scrolls up past row 25, refreshes the cursor, returns 0. */
+/* 中文：把字符 c 同时输出到 COM1 和 VGA 文本显存；处理回车、换行、退格与制表符，满 80 列换行，超过第 25 行整屏上滚，刷新硬件光标，返回 0。 */
 int
 pccnputc(dev_t dev, int c)
 {
@@ -185,15 +205,17 @@ pccnputc(dev_t dev, int c)
 	return (0);
 }
 
+/* EN: Programs the VGA CRTC cursor registers 0x0f/0x0e through ports 0x3d4/0x3d5 with crt_row * COL + crt_col, writing the low byte first. */
+/* 中文：通过 0x3d4/0x3d5 端口把光标位置 crt_row * COL + crt_col 写入 VGA CRTC 光标寄存器 0x0f/0x0e，先写低字节。 */
 static void
 vga_cursor(void)
 {
 	unsigned pos = crt_row * COL + crt_col;
 
-	outb(0x3d4, 0x0f);
-	outb(0x3d5, pos & 0xff);
-	outb(0x3d4, 0x0e);
-	outb(0x3d5, (pos >> 8) & 0xff);
+	hal_outb(0x3d4, 0x0f);
+	hal_outb(0x3d5, pos & 0xff);
+	hal_outb(0x3d4, 0x0e);
+	hal_outb(0x3d5, (pos >> 8) & 0xff);
 }
 
 /*
@@ -226,6 +248,8 @@ static const char scancode_shift[128] = {
 static int shift_down;
 static int ext_pending;
 
+/* EN: Polled input: returns a pending COM1 byte, else reads one 8042 scancode (0 if none), tracks Shift/E0 prefix, skips releases, maps set-1 codes to ASCII, 0 for modifier keys. */
+/* 中文：轮询式输入：有 COM1 数据就返回该字节，否则读一个 8042 扫描码（无则返 0），跟踪 Shift 与 E0 前缀，忽略松键，用 set-1 码表转 ASCII；修饰键返 0。 */
 int
 pccngetc(dev_t dev)
 {
@@ -233,13 +257,13 @@ pccngetc(dev_t dev)
 	static const char *map;
 	int c;
 
-	if (com_present && (inb(COM1_LSR) & 0x01))
-		return (inb(COM1));
+	if (com_present && (hal_inb(COM1_LSR) & 0x01))
+		return (hal_inb(COM1));
 
-	if ((inb(0x64) & 0x01) == 0)
+	if ((hal_inb(0x64) & 0x01) == 0)
 		return (0);
 
-	sc = inb(0x60);
+	sc = hal_inb(0x60);
 	if (sc == 0xe0) {
 		ext_pending = 1;
 		return (0);

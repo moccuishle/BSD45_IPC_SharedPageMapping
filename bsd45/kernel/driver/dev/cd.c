@@ -106,6 +106,8 @@ int numcd;
  * XXX this will not work if you want to use a cd as your primary
  * swap device since swapconf() has been called before now.
  */
+/* EN: Allocates/zeroes num cd_softc structs via M_NOWAIT, then per cddevice entry assigns a dk index (-1 if dkn is full) and calls cdinit(), returning the index on failure. */
+/* 中文：用 M_NOWAIT 分配并清零 num 个 cd_softc 结构，然后遍历 cddevice 表为每项分配 dk 索引（dkn 用尽则为 -1）并调 cdinit()，初始化失败时归还索引。 */
 void
 cdattach(num)
 	int num;
@@ -147,6 +149,8 @@ cdattach(num)
 	}
 }
 
+/* EN: Opens each component via bdevsw, records interleave-truncated sizes, honors CDF_UNIFORM, builds the cdinterleave() table, sets dk_wpms and marks CDF_ALIVE|CDF_INITED; 1 or 0. */
+/* 中文：通过 bdevsw 逐个打开分量并记录按 sc_ileave 取整后的大小，处理 CDF_UNIFORM，用 cdinterleave() 建交错表，设 dk_wpms 并标 CDF_ALIVE|CDF_INITED；成功 1，失败 0。 */
 cdinit(cd)
 	struct cddevice *cd;
 {
@@ -265,6 +269,8 @@ cdinit(cd)
  * XXX not really cd specific.
  * Could be called something like bdevtostr in machine/conf.c.
  */
+/* EN: Formats a cd dev_t into a static buffer: hp300 major gives rd/sd/cd/vn (else '??'), then unit digit minor>>3 and partition letter minor&7; returns the static string. */
+/* 中文：把 cd 设备的 dev_t 格式化为静态缓冲区中的字符串：hp300 下按主设备号取 rd/sd/cd/vn（否则为 ??），再接 minor>>3 的单元号与 minor&7 的分区字母，返回该静态串。 */
 char *
 cddevtostr(dev)
 	dev_t dev;
@@ -296,6 +302,8 @@ cddevtostr(dev)
 	return (dbuf);
 }
 
+/* EN: Allocates and zeroes sc_itable (M_DEVBUF, M_WAITOK) to map blocks to components: one entry per disk when ileave==0, else smallest-component-first entries; always returns 1. */
+/* 中文：用 M_DEVBUF/M_WAITOK 分配并清零 sc_itable 交叉表：ileave 为 0 时每个部件一项（串联），否则按剩余最小部件反复建项，记录起始块、起始偏移与参与磁盘下标；始终返回 1。 */
 cdinterleave(cs)
 	register struct cd_softc *cs;
 {
@@ -388,6 +396,8 @@ cdinterleave(cs)
 }
 
 #ifdef DEBUG
+/* EN: DEBUG-only helper that walks the interleave table with printf and prints each entry's disk count, start block, start offset and component indices. */
+/* 中文：仅在 DEBUG 下编译的调试函数，遍历交叉表并用 printf 打印每项的磁盘数、起始块、起始偏移和各部件下标。 */
 printiinfo(ii)
 	struct cdiinfo *ii;
 {
@@ -403,6 +413,8 @@ printiinfo(ii)
 }
 #endif
 
+/* EN: Returns ENXIO when unit >= numcd or the softc lacks CDF_ALIVE; otherwise returns 0 without modifying any state. */
+/* 中文：当 unit 超过 numcd 或 softc 未置 CDF_ALIVE 时返回 ENXIO，否则直接返回 0，不修改任何状态。 */
 cdopen(dev, flags)
 	dev_t dev;
 {
@@ -418,6 +430,8 @@ cdopen(dev, flags)
 	return(0);
 }
 
+/* EN: Checks CDF_INITED (else ENXIO) and the b_blkno range against sc_size (EINVAL; a tail request's b_bcount is truncated), sets b_resid, then calls cdstart at splbio; errors biodone. */
+/* 中文：检查 CDF_INITED（否则 ENXIO）并校验 b_blkno 是否越过 sc_size（越界返回 EINVAL，尾部请求截短 b_bcount），置 b_resid 后在 splbio 下调用 cdstart，出错则 biodone。 */
 void
 cdstrategy(bp)
 	register struct buf *bp;
@@ -463,6 +477,8 @@ done:
 	biodone(bp);
 }
 
+/* EN: Bumps sc_usecnt and dk_busy/dk_xfer/dk_wds accounting, then cuts bp into component pieces via cdbuffer and submits each through its d_strategy; called at splbio. */
+/* 中文：先递增 sc_usecnt 并更新 dk_busy/dk_xfer/dk_wds 统计，再用 cdbuffer 把 bp 的 b_bcount 切成若干分量，逐个调用其 d_strategy 下发；在 splbio 下调用。 */
 cdstart(cs, bp)
 	register struct cd_softc *cs;
 	register struct buf *bp;
@@ -502,6 +518,8 @@ cdstart(cs, bp)
 /*
  * Build a component buffer header.
  */
+/* EN: Maps a block to a component disk, builds a getcbuf() child buf with bcount clamped to the component or ileave tail, and stashes parent bp/unit/comp in b_saveaddr/b_pfcent. */
+/* 中文：把逻辑块映射到具体部件（串联扫描或查交叉表），用 getcbuf 申请子 buf，bcount 按部件或交叉余量截断，并把父 bp 与单元/部件号存入 b_saveaddr/b_pfcent 供 cdiodone 用。 */
 struct buf *
 cdbuffer(cs, bp, bn, addr, bcount)
 	register struct cd_softc *cs;
@@ -590,6 +608,8 @@ cdbuffer(cs, bp, bn, addr, bcount)
 	return(cbp);
 }
 
+/* EN: Decrements sc_usecnt, clears dk_busy when the last request finishes, forces b_resid=b_bcount on B_ERROR, then biodone()s bp to wake the top half. */
+/* 中文：递减 sc_usecnt，在最后一个请求完成时清除 dk_busy，若带 B_ERROR 则把 b_resid 置为 b_bcount，最后 biodone 唤醒上半部。 */
 cdintr(cs, bp)
 	register struct cd_softc *cs;
 	register struct buf *bp;
@@ -614,6 +634,8 @@ cdintr(cs, bp)
  * Mark the component as done and if all components are done,
  * take a cd interrupt.
  */
+/* EN: Child iodone at splbio: propagates errors to the parent (B_ERROR/biowait), putcbuf()s the child, subtracts bcount from parent b_resid (panic if negative), cdintr()s at zero. */
+/* 中文：子缓冲完成回调，在 splbio 下运行：子缓冲出错时给父 bp 置 B_ERROR 并用 biowait 取错误码，putcbuf 释放子缓冲，从父 b_resid 减去 b_bcount（为负则 panic），减到 0 时调用 cdintr。 */
 void
 cdiodone(cbp)
 	register struct buf *cbp;
@@ -657,6 +679,8 @@ cdiodone(cbp)
 	splx(s);
 }
 
+/* EN: Thin wrapper over physio() using cdstrategy, B_READ and minphys to move a read uio one buffer at a time; returns physio's error. */
+/* 中文：对 physio 的薄封装，传入 cdstrategy、B_READ 和 minphys，把读 uio 逐块搬运，返回 physio 的错误码。 */
 cdread(dev, uio)
 	dev_t dev;
 	struct uio *uio;
@@ -670,6 +694,8 @@ cdread(dev, uio)
 	return(physio(cdstrategy, NULL, dev, B_READ, minphys, uio));
 }
 
+/* EN: Thin wrapper over physio() using cdstrategy, B_WRITE and minphys to push a write uio out block by block; returns physio's error. */
+/* 中文：对 physio 的薄封装，传入 cdstrategy、B_WRITE 和 minphys，把写 uio 逐块下发，返回 physio 的错误码。 */
 cdwrite(dev, uio)
 	dev_t dev;
 	struct uio *uio;
@@ -683,6 +709,8 @@ cdwrite(dev, uio)
 	return(physio(cdstrategy, NULL, dev, B_WRITE, minphys, uio));
 }
 
+/* EN: Stub ioctl handler that unconditionally returns EINVAL, so no cd-specific ioctl commands are supported. */
+/* 中文：空的 ioctl 处理函数，固定返回 EINVAL，表示该设备不支持任何 cd 专用 ioctl 命令。 */
 cdioctl(dev, cmd, data, flag)
 	dev_t dev;
 	u_long cmd;
@@ -692,6 +720,8 @@ cdioctl(dev, cmd, data, flag)
 	return(EINVAL);
 }
 
+/* EN: Returns the cd size in DEV_BSIZE blocks, or -1 when unit >= numcd or the softc is not CDF_INITED. */
+/* 中文：返回以 DEV_BSIZE 块为单位的 cd 大小；当 unit 超过 numcd 或 softc 未置 CDF_INITED 时返回 -1。 */
 cdsize(dev)
 	dev_t dev;
 {
@@ -703,6 +733,8 @@ cdsize(dev)
 	return(cs->sc_size);
 }
 
+/* EN: Dump entry point that always returns ENXIO, refusing to dump to a concatenated disk. */
+/* 中文：转储入口，固定返回 ENXIO，拒绝对串联磁盘执行 dump。 */
 cddump(dev)
 {
 	return(ENXIO);

@@ -117,6 +117,8 @@ struct vn_softc *vn_softc;
 int numvnd;
 #endif
 
+/* EN: Allocates (M_DEVBUF, M_NOWAIT) and zeroes the num-entry vn_softc array and publishes it as vn_softc/numvnd; returns immediately for num<=0 and warns instead of failing. */
+/* 中文：用 M_DEVBUF/M_NOWAIT 分配并清零 num 项 vn_softc 数组，设为全局 vn_softc 与 numvnd；num<=0 直接返回，分配失败只打印警告而不报错。 */
 void
 vnattach(num)
 	int num;
@@ -137,6 +139,8 @@ vnattach(num)
 	numvnd = num;
 }
 
+/* EN: Returns ENXIO when unit >= numvnd, else 0; open does no other setup, configuration is done by the VNIOCSET ioctl. */
+/* 中文：unit 超过 numvnd 时返回 ENXIO，否则返回 0；打开时不做其他初始化，实际配置由 VNIOCSET ioctl 完成。 */
 int
 vnopen(dev, flags, mode, p)
 	dev_t dev;
@@ -159,6 +163,8 @@ vnopen(dev, flags, mode, p)
  * Note that this driver can only be used for swapping over NFS on the hp
  * since nfs_strategy on the vax cannot handle u-areas and page tables.
  */
+/* EN: Requires VNF_INITED (else ENXIO) and in-range blocks; splits bp at f_iosize via VOP_BMAP on sc_vp, builds getvnbuf children (sc_cred, vniodone), then disksort/vnstart at splbio. */
+/* 中文：要求 VNF_INITED（否则 ENXIO）且块号在 sc_size 内；按 f_iosize 把 bp 切片，用 VOP_BMAP 在 sc_vp 上求映射，构造带 sc_cred 和 vniodone 的 getvnbuf 子缓冲，在 splbio 下 disksort 并按 sc_maxactive 调用 vnstart。 */
 void
 vnstrategy(bp)
 	register struct buf *bp;
@@ -281,6 +287,8 @@ vnstrategy(bp)
  * to an NFS file.  This places the burden on the client rather than the
  * server.
  */
+/* EN: Pops the head buffer off sc_tab (b_actf) before submitting so the lower layer may reuse the links, bumps v_numoutput for writes, then calls VOP_STRATEGY. */
+/* 中文：在下发前先从 sc_tab 的 b_actf 摘下缓冲区（避免下层复用链域），写请求时递增 v_numoutput，然后调用 VOP_STRATEGY。 */
 vnstart(vn)
 	register struct vn_softc *vn;
 {
@@ -303,6 +311,8 @@ vnstart(vn)
 	VOP_STRATEGY(bp);
 }
 
+/* EN: Child iodone at splbio: forwards errors to the parent bp, subtracts bcount from b_resid, frees the child buf, biodones the parent at resid 0, else vnstarts next/drops b_active. */
+/* 中文：子缓冲完成回调，在 splbio 下运行：把错误复制给父 bp，从父 b_resid 减去 b_bcount，putvnbuf 释放子缓冲，resid 为 0 时 biodone 父缓冲，再 vnstart 下一个缓冲或递减 sc_tab.b_active。 */
 void
 vniodone(bp)
 	register struct buf *bp;
@@ -342,6 +352,8 @@ vniodone(bp)
 	splx(s);
 }
 
+/* EN: Thin physio() wrapper passing vnstrategy, B_READ and minphys to move a read uio through vnode-disk buffers; returns physio's error. */
+/* 中文：对 physio 的薄封装，传入 vnstrategy、B_READ 和 minphys，把读 uio 经 vnode 磁盘缓冲搬运，返回 physio 的错误码。 */
 vnread(dev, uio, flags, p)
 	dev_t dev;
 	struct uio *uio;
@@ -356,6 +368,8 @@ vnread(dev, uio, flags, p)
 	return(physio(vnstrategy, NULL, dev, B_READ, minphys, uio));
 }
 
+/* EN: Thin physio() wrapper passing vnstrategy, B_WRITE and minphys to push a write uio through vnode-disk buffers; returns physio's error. */
+/* 中文：对 physio 的薄封装，传入 vnstrategy、B_WRITE 和 minphys，把写 uio 经 vnode 磁盘缓冲下发，返回 physio 的错误码。 */
 vnwrite(dev, uio, flags, p)
 	dev_t dev;
 	struct uio *uio;
@@ -371,6 +385,8 @@ vnwrite(dev, uio, flags, p)
 }
 
 /* ARGSUSED */
+/* EN: suser-guarded: VNIOCSET (EBUSY if inited) opens vio->vn_file r/w, sets sc_size by GETATTR, vnsetcred/throttles, returns vn_size, marks VNF_INITED; VNIOCCLR clears; else ENOTTY. */
+/* 中文：经 suser 检查：VNIOCSET 在已初始化时返回 EBUSY，否则读写方式 vn_open 指定文件，用 GETATTR 取大小（btodb，会截断）设 sc_size，调 vnsetcred 和 vnthrottle，回填 vn_size 并置 VNF_INITED；VNIOCCLR 调 vnclear；其他命令返回 ENOTTY。 */
 vnioctl(dev, cmd, data, flag, p)
 	dev_t dev;
 	u_long cmd;
@@ -456,6 +472,8 @@ vnioctl(dev, cmd, data, flag, p)
  * to this "disk" is essentially as root.  Note that credentials may change
  * if some other uid can write directly to the mapped file (NFS).
  */
+/* EN: crdup()s cred into sc_cred, reads one DEV_BSIZE sector at offset 0 via VOP_READ under the new credentials (NFS kludge), frees the temp buf and returns the error. */
+/* 中文：用 crdup 把 cred 复制到 sc_cred，再以新凭证在偏移 0 处 VOP_READ 读一个 DEV_BSIZE 扇区（为 NFS 建立凭证的变通做法），释放临时缓冲区并返回 VOP_READ 的错误码。 */
 vnsetcred(vn, cred)
 	register struct vn_softc *vn;
 	struct ucred *cred;
@@ -486,6 +504,8 @@ vnsetcred(vn, cred)
 /*
  * Set maxactive based on FS type
  */
+/* EN: Sets sc_maxactive to 2 for NFS vnodes (v_op == nfsv2_vnodeop_p) and 8 otherwise, clamping the result to at least 1. */
+/* 中文：若 vnode 为 NFS（v_op == nfsv2_vnodeop_p）则把 sc_maxactive 设为 2，否则设为 8，并保证不小于 1。 */
 vnthrottle(vn, vp)
 	register struct vn_softc *vn;
 	struct vnode *vp;
@@ -501,6 +521,8 @@ vnthrottle(vn, vp)
 		vn->sc_maxactive = 1;
 }
 
+/* EN: Shutdown hook that walks every vn_softc and vnclear()s each unit still marked VNF_INITED, closing its file and dropping credentials. */
+/* 中文：关机钩子：遍历所有 vn_softc，对仍置有 VNF_INITED 的单元调用 vnclear，关闭其底层文件并释放凭证。 */
 vnshutdown()
 {
 	register struct vn_softc *vn;
@@ -510,6 +532,8 @@ vnshutdown()
 			vnclear(vn);
 }
 
+/* EN: Clears VNF_INITED, panics on a null sc_vp, vn_close()s the vnode with FREAD|FWRITE and sc_cred, crfree()s the credentials, then zeroes sc_vp, sc_cred and sc_size. */
+/* 中文：清除 VNF_INITED；若 sc_vp 为空则 panic；以 FREAD|FWRITE 和 sc_cred 调用 vn_close 关闭 vnode，crfree 释放凭证，随后把 sc_vp、sc_cred、sc_size 清零。 */
 vnclear(vn)
 	register struct vn_softc *vn;
 {
@@ -530,6 +554,8 @@ vnclear(vn)
 	vn->sc_size = 0;
 }
 
+/* EN: Returns the vnode disk size in DEV_BSIZE blocks, or -1 when unit >= numvnd or the unit is not VNF_INITED. */
+/* 中文：返回以 DEV_BSIZE 块为单位的 vnode 磁盘大小；unit 超过 numvnd 或未置 VNF_INITED 时返回 -1。 */
 vnsize(dev)
 	dev_t dev;
 {
@@ -541,6 +567,8 @@ vnsize(dev)
 	return(vn->sc_size);
 }
 
+/* EN: Dump hook that always returns ENXIO, so a vnode disk cannot be used as a dump device. */
+/* 中文：转储钩子，固定返回 ENXIO，表示 vnode 磁盘不能用作 dump 设备。 */
 vndump(dev)
 {
 	return(ENXIO);

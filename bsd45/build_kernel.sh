@@ -5,6 +5,7 @@ ws="$(cd "$(dirname "$0")" && pwd)"
 . "$ws/tools-find.sh"
 
 src="$ws/kernel"
+ARCH="${ARCH:-i386}"
 bld="$ws/build"
 obj="$bld/obj"
 inc="$bld/inc"
@@ -121,7 +122,10 @@ cflags=(-m32 -std=gnu89 -O2 -ffreestanding -fleading-underscore
     -ffunction-sections -fdata-sections
     -nostdinc -I "$inc" -I "$gen" -I "$src"
     -I "$src/arch" -I "$src/fs" -I "$src/driver" -I "$src/net"
-    -isystem "$gccinc" -DKERNEL)
+    -isystem "$gccinc" -DKERNEL -DARCH_$ARCH)
+if [ "${KERNEL_UNICODE:-0}" = "1" ]; then
+    cflags+=(-DKERNEL_UNICODE=1)
+fi
 
 compile_c() {
     local file="$1" out="$2" log
@@ -162,6 +166,23 @@ sources=(
     "c:$src/driver/atapi.c"
     "c:$src/fs/isofs.c"
     "c:$src/fs/tmpfs.c"
+    "c:$src/obj/kstr.c"
+    "c:$src/subsys/subsys.c"
+    "c:$src/subsys/subsys_unix.c"
+    "c:$src/subsys/subsys_posix.c"
+    "c:$src/subsys/subsys_linux.c"
+    "c:$src/subsys/subsys_win32.c"
+    "c:$src/thread/kthread.c"
+    "c:$src/thread/softirq.c"
+    "asm:$src/thread/kswitch.s"
+    "asm:$src/arch/$ARCH/x86.asm"
+    "c:$src/hal/ipl.c"
+    "c:$src/arch/$ARCH/hal/ipl_arch.c"
+    "c:$src/arch/$ARCH/hal/context_arch.c"
+    "c:$src/hal/clock.c"
+    "c:$src/arch/$ARCH/hal/clock_arch.c"
+    "c:$src/vm/zcomp.c"
+    "c:$src/fs/aio.c"
     "c:$src/fs/vfs_bio.c"
     "c:$src/fs/vfs_cache.c"
     "c:$src/fs/pagecache.c"

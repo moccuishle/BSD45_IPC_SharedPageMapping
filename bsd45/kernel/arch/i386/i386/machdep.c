@@ -102,6 +102,8 @@ int biosmem;
 
 extern cyloffset;
 
+/* EN: Maps msgbuf above avail_end, sizes then kmem_allocs kernel tables/buffers in two passes, suballocates exec/phys/mbuf maps, builds callout freelist, then initcpu/bufinit/configure. */
+/* 中文：在 avail_end 之上映射 msgbuf，两趟遍历统计并 kmem_alloc 出内核表与缓冲区，再子分配 exec/phys/mbuf 子映射、串起 callout 空闲链表，最后调用 initcpu、bufinit 与 configure。 */
 cpu_startup(firstaddr)
 	int firstaddr;
 {
@@ -291,6 +293,8 @@ again:
  * ipl, return error code.
  */
 /*ARGSUSED*/
+/* EN: PGINPROF-only helper: returns elapsed microseconds as ((time.tv_sec-otime)*60 + lbolt-olbolt)*16667, reading time and lbolt without any locking; oicr is unused. */
+/* 中文：仅 PGINPROF 使用的计时辅助：按 ((time.tv_sec-otime)*60 + lbolt-olbolt)*16667 算出经过的微秒数，直接读 time 与 lbolt 且不加锁，参数 oicr 未使用。 */
 vmtime(otime, olbolt, oicr)
 	register int otime, olbolt, oicr;
 {
@@ -322,6 +326,8 @@ extern int kstack[];
  * frame pointer, it returns to the user
  * specified pc, psl.
  */
+/* EN: Builds a sigframe on the alt or user/trap stack (grown first); if useracc fails it forces SIGILL; else fills signum, code, handler, eax/edx/ecx and repoints eip at pcb_sigc. */
+/* 中文：在备用栈或用户栈（陷阱帧用 tESP）上构造 sigframe，栈不够先 grow；useracc 失败则改为强制投递 SIGILL；成功则填入 signum、code、handler 与 eax/edx/ecx，并把 eip 指向 pcb_sigc 蹦床。 */
 void
 sendsig(catcher, sig, mask, code)
 	sig_t catcher;
@@ -429,6 +435,8 @@ sendsig(catcher, sig, mask, code)
 struct sigreturn_args {
 	struct sigcontext *sigcntxp;
 };
+/* EN: Validates the sigframe at esp; restores eax/edx/ecx, SA_ONSTACK, sigmask minus SIGKILL/SIGCONT/SIGSTOP, ebp/esp/eip/eflags; returns EJUSTRETURN, or EINVAL if useracc fails. */
+/* 中文：校验 esp 处的 sigframe：恢复 eax/edx/ecx、SA_ONSTACK 标志、剔除 SIGKILL/SIGCONT/SIGSTOP 后的信号屏蔽字以及 ebp/esp/eip/eflags；成功返回 EJUSTRETURN，useracc 校验失败返回 EINVAL。 */
 sigreturn(p, uap, retval)
 	struct proc *p;
 	struct sigreturn_args *uap;
@@ -472,6 +480,8 @@ sigreturn(p, uap, retval)
 
 int	waittime = -1;
 
+/* EN: Unless RB_NOSYNC or already rebooting, syncs and unmounts filesystems then waits up to 20 rounds for busy buffers; splhigh; RB_HALT spins, RB_DUMP calls dumpsys, else reset_cpu. */
+/* 中文：除非带 RB_NOSYNC 或已在重启，先 sync、unmount 并最多等 20 轮让忙缓冲区落盘；随后 splhigh，RB_HALT 则死循环，RB_DUMP 调用 dumpsys，其余情况 reset_cpu 重启。 */
 boot(arghowto)
 	int arghowto;
 {
@@ -548,6 +558,8 @@ int	dumpsize = 0;		/* also for savecore */
  * getting on the dump stack, either when called above, or by
  * the auto-restart code.
  */
+/* EN: Returns early unless dumpdev is usable (not NODEV, minor&07==1); sets dumpsize=physmem, then calls bdevsw d_dump and prints ENXIO/EFAULT/EINVAL/EIO or success. */
+/* 中文：dumpdev 为 NODEV 或分区号 (minor&07)!=1 时直接返回；否则置 dumpsize=physmem，调用 bdevsw 的 d_dump，并按 ENXIO/EFAULT/EINVAL/EIO 或成功打印结果。 */
 dumpsys()
 {
 
@@ -584,6 +596,8 @@ dumpsys()
 	DELAY(1000);
 }
 
+/* EN: Raises ipl to splhigh, copies time into *tvp, adds the unaccounted tick to tv_usec and normalizes tv_sec, then splx; splhigh is the only protection. */
+/* 中文：在 splhigh 下把 time 复制到 *tvp，把尚未计入的 tick 加到 tv_usec 并进位到 tv_sec，然后 splx 恢复；仅靠 splhigh 保证读取一致。 */
 microtime(tvp)
 	register struct timeval *tvp;
 {
@@ -627,6 +641,8 @@ physstrat(bp, strat, prio)
 	bp->b_un.b_addr = baddr;
 }
 
+/* EN: Empty i386 stub: the body has no statements and sets up no CPU registers or cache, yet cpu_startup calls it unconditionally late in startup. */
+/* 中文：i386 的空桩函数：函数体没有任何语句，不设置 CPU 寄存器或缓存，但 cpu_startup 在启动尾段仍无条件调用它。 */
 initcpu()
 {
 }
@@ -634,6 +650,8 @@ initcpu()
 /*
  * Clear registers on exec
  */
+/* EN: Prepares a process for exec: clears ebp and loads eip=entry, zeroes pcb_flags, sets CR0_EM to start FP emulation and calls npxinit(0x262) when NNPX>0. */
+/* 中文：为 exec 准备用户寄存器：清 ebp 并置 eip=entry，清零 pcb_flags，置 CR0_EM 进入浮点模拟，并在 NNPX>0 时调用 npxinit(0x262)。 */
 setregs(p, entry, retval)
 	register struct proc *p;
 	u_long entry;
@@ -653,6 +671,8 @@ setregs(p, entry, retval)
 /*
  * machine dependent system variables.
  */
+/* EN: Machine-dependent sysctl: rejects namelen!=1 with ENOTDIR; CPU_CONSDEV returns cn_tty->t_dev read-only via sysctl_rdstruct, any other name gives EOPNOTSUPP. */
+/* 中文：机器相关 sysctl 处理：namelen!=1 返回 ENOTDIR；CPU_CONSDEV 通过 sysctl_rdstruct 只读导出 cn_tty->t_dev，其余名字一律返回 EOPNOTSUPP。 */
 cpu_sysctl(name, namelen, oldp, oldlenp, newp, newlen, p)
 	int *name;
 	u_int namelen;
@@ -1027,6 +1047,8 @@ setsoftclock() {
  * insert an element into a queue 
  */
 #undef insque
+/* EN: Splices element in right after head of a prochd doubly-linked queue by rewriting four ph_link/ph_rlink pointers; no locking, callers must serialize. */
+/* 中文：把 element 插入 prochd 双向队列 head 之后，通过改写四处 ph_link/ph_rlink 指针完成拼接；函数内部不加锁，需调用者自行串行化。 */
 _insque(element, head)
 	register struct prochd *element, *head;
 {
@@ -1040,6 +1062,8 @@ _insque(element, head)
  * remove an element from a queue
  */
 #undef remque
+/* EN: Unlinks element from a prochd doubly-linked queue by patching both neighbours' ph_link/ph_rlink and zeroing element->ph_rlink; no locking and no free. */
+/* 中文：从 prochd 双向队列中摘除 element：修正前后邻居的 ph_link/ph_rlink 并把 element->ph_rlink 置 0；不加锁，也不释放元素内存。 */
 _remque(element)
 	register struct prochd *element;
 {

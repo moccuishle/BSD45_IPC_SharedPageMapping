@@ -66,6 +66,8 @@ extern struct nfsstats nfsstats;
  * Vnode op for read using bio
  * Any similarity to readip() is purely coincidental
  */
+/* EN: NFS read op: on mtime/lease change it invalidates dirs and flushes buffers, starts read-ahead via nfs_asyncio, fills blocks with nfs_doio, uiomoves data; returns error or EINTR. */
+/* 中文：NFS 读操作：mtime 或租约变化时先失效目录并刷新缓冲，用 nfs_asyncio 发起预读、nfs_doio 填充数据块，再 uiomove 拷出；返回错误码，取块被打断返回 EINTR。 */
 int
 nfs_bioread(vp, uio, ioflag, cred)
 	register struct vnode *vp;
@@ -382,6 +384,8 @@ again:
 /*
  * Vnode op for write using bio
  */
+/* EN: NFS write: EIO on non-regular vnodes, replays NWRITEERR, enforces RLIMIT_FSIZE, takes NQNFS leases, uiomoves into cache blocks, sets NMODIFIED/n_size, then bdwrite or bwrite. */
+/* 中文：NFS 写操作：非普通文件返回 EIO，先重放 NWRITEERR，检查 RLIMIT_FSIZE，获取 NQNFS 写租约，把数据 uiomove 进缓存块并置 NMODIFIED、扩展 n_size，最后 bdwrite 或 bwrite。 */
 int
 nfs_write(ap)
 	struct vop_write_args /* {
@@ -591,6 +595,8 @@ again:
  * interrupted by a signal for an interruptible mount point, return
  * NULL.
  */
+/* EN: Wraps getblk for an NFS cache block: on interruptible mounts it sleeps with PCATCH and retries, returning NULL if a signal is pending; else getblk waits uninterruptibly. */
+/* 中文：对 NFS 缓存块封装 getblk：可中断挂载点上带 PCATCH 睡眠并重试，有信号待处理时返回 NULL；否则以不可中断方式等待 getblk。 */
 struct buf *
 nfs_getcacheblk(vp, bn, size, p)
 	struct vnode *vp;
@@ -617,6 +623,8 @@ nfs_getcacheblk(vp, bn, size, p)
  * Flush and invalidate all dirty buffers. If another process is already
  * doing the flush, just wait for completion.
  */
+/* EN: Flushes/invalidates NFS vnode buffers: waits out NFLUSHINPROG setting NFLUSHWANT, loops vinvalbuf until success, clears NMODIFIED and wakes a waiter; returns EINTR on interrupt. */
+/* 中文：刷新并失效 NFS vnode 的全部缓冲：置 NFLUSHWANT 等待其他进程的 NFLUSHINPROG 结束，循环调用 vinvalbuf 直至成功，清除 NMODIFIED 并唤醒等待者；被中断返回 EINTR。 */
 int
 nfs_vinvalbuf(vp, flags, cred, p, intrflg)
 	struct vnode *vp;
@@ -678,6 +686,8 @@ nfs_vinvalbuf(vp, flags, cred, p, intrflg)
  * This is mainly to avoid queueing async I/O requests when the nfsiods
  * are all hung on a dead server.
  */
+/* EN: Queues a cache block for an idle nfsiod: holds cred, marks writes B_WRITEINPROG, links it on nfs_bufq and wakes the daemon; returns EIO if none is idle, else delays the write. */
+/* 中文：把缓存块交给空闲的 nfsiod：持有 cred、给写操作置 B_WRITEINPROG，挂入 nfs_bufq 并唤醒该守护进程；无空闲守护时返回 EIO，否则把异步写降级为延迟写。 */
 int
 nfs_asyncio(bp, cred)
 	register struct buf *bp;
@@ -732,6 +742,8 @@ nfs_asyncio(bp, cred)
  * Do an I/O operation to/from a cache block. This may be called
  * synchronously or from an nfsiod.
  */
+/* EN: Runs the RPC for one NFS cache block: local uio over b_data, dispatch to readrpc/readlinkrpc/readdirrpc/writerpc by vnode type, hole zero-fill, B_ERROR, biodone; returns error. */
+/* 中文：对单个 NFS 缓存块执行 RPC：用局部 uio 指向 b_data，按 vnode 类型分派到 readrpc/readlinkrpc/readdirrpc/writerpc，短读空洞补零，出错置 B_ERROR，最后 biodone 并返回错误码。 */
 int
 nfs_doio(bp, cr, p)
 	register struct buf *bp;

@@ -40,6 +40,8 @@ static char sccsid[] = "@(#)bcmp.c	8.1 (Berkeley) 6/4/93";
 /*
  * bcmp -- vax cmpc3 instruction
  */
+/* EN: Compare two blocks byte by byte for up to length bytes; returns 0 when equal, else the count of bytes not yet compared at the first mismatch, so non-zero means unequal. */
+/* 中文：逐字节比较两块内存最多 length 个字节：相同返回 0，首次不相等时返回尚未比较的剩余字节数，因此返回非零即表示不相等。 */
 int
 bcmp(b1, b2, length)
 	const void *b1, *b2;

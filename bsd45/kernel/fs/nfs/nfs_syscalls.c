@@ -109,6 +109,8 @@ struct getfh_args {
 	char	*fname;
 	fhandle_t *fhp;
 };
+/* EN: Root-only getfh(2): namei's uap->fname with FOLLOW|LOCKLEAF, sets fh_fsid from the mount stat fsid, gets fh_fid via VFS_VPTOFH, vput's the vnode, copyout's the handle to uap->fhp. */
+/* 中文：仅超级用户可用的 getfh(2)：用 FOLLOW|LOCKLEAF 对 uap->fname 做 namei，从挂载点 stat 取 fh_fsid、经 VFS_VPTOFH 取 fh_fid，vput 释放 vnode 后把文件句柄 copyout 到 uap->fhp。 */
 int
 getfh(p, uap, retval)
 	struct proc *p;
@@ -152,6 +154,8 @@ struct nfssvc_args {
 	int flag;
 	caddr_t argp;
 };
+/* EN: Root-only nfssvc(2) dispatcher: BIOD runs nfssvc_iod, ADDSOCK registers sockets, MNTD checks a VROOT mount and calls nqnfs_clientd, else caches Kerberos uids then nfssvc_nfsd. */
+/* 中文：仅超级用户可用的 nfssvc(2) 分发函数：NFSSVC_BIOD 进入 nfssvc_iod；NFSSVC_ADDSOCK 取套接字并注册；NFSSVC_MNTD 校验 VROOT 挂载点后调用 nqnfs_clientd；其余处理 Kerberos 凭据缓存并运行 nfssvc_nfsd，EINTR/ERESTART 归 0。 */
 int
 nfssvc(p, uap, retval)
 	struct proc *p;
@@ -322,6 +326,8 @@ nfssvc(p, uap, retval)
 /*
  * Adds a socket to the list for servicing by nfsds.
  */
+/* EN: Wraps an open socket as an nfssvc_sock: reserves buffers, sets KEEPALIVE/TCP_NODELAY, installs nfsrv_rcv upcall, bumps f_count; EPERM if the global UDP sock is taken. */
+/* 中文：把已打开的套接字登记为 nfssvc_sock：预留收发缓冲区、设置 KEEPALIVE/TCP_NODELAY、挂上 nfsrv_rcv 回调并增加 f_count；全局 UDP/CLTP 套接字已占用时返回 EPERM。 */
 int
 nfssvc_addsock(fp, mynam)
 	struct file *fp;
@@ -412,6 +418,8 @@ nfssvc_addsock(fp, mynam)
  * Called by nfssvc() for nfsds. Just loops around servicing rpc requests
  * until it is killed by a signal.
  */
+/* EN: nfsd server loop: allocates nfsd, sleeps for a socket, receives requests, dispatches nfsrv3_procs or write-gather, caches and sends replies; exit frees nfsd. */
+/* 中文：nfsd 服务循环：首次调用分配 nfsd 并挂入 nfsd_head，tsleep 等待套接字，取到请求后调用 nfsrv3_procs 或 writegather、更新应答缓存并发送应答；退出时摘链并释放 nfsd，最后一个退出者调用 nfsrv_init(TRUE)。 */
 int
 nfssvc_nfsd(nsd, argp, p)
 	struct nfsd_srvargs *nsd;
@@ -696,6 +704,8 @@ done:
  * They do read-ahead and write-behind operations on the block I/O cache.
  * Never returns unless it fails or gets killed.
  */
+/* EN: Async client I/O daemon: claims an nfs_asyncdaemon slot (EBUSY if none), sleeps on nfs_iodwant until nfs_bufq is non-empty, then runs nfs_doio; loops until error. */
+/* 中文：客户端异步 I/O 守护进程：占用 nfs_asyncdaemon 空槽（无空槽返回 EBUSY），睡眠等待 nfs_bufq 非空后逐个执行 nfs_doio 读/预写，并顺带取出同 vnode 的延迟写缓冲；仅在出错时返回。 */
 int
 nfssvc_iod(p)
 	struct proc *p;
@@ -778,6 +788,8 @@ nfssvc_iod(p)
  * will stop using it and clear ns_flag at the end so that it will not be
  * reassigned during cleanup.
  */
+/* EN: Releases a server socket: clears SLP flags, soshutdown+closef of ns_fp, frees ns_nam and raw/rec mbufs, and purges nfsuid entries and the ns_tq delayed-write list. */
+/* 中文：关闭并清理服务端套接字：清除全部 SLP 标志，对 ns_fp 做 soshutdown 与 closef，释放 ns_nam/ns_raw/ns_rec，并清空 ns_uidlruhead 中的 nfsuid 及 ns_tq 延迟写队列。 */
 void
 nfsrv_zapsock(slp)
 	register struct nfssvc_sock *slp;
@@ -825,6 +837,8 @@ nfsrv_zapsock(slp)
  * Get an authorization string for the uid by having the mount_nfs sitting
  * on this mount point porpous out of the kernel and do it.
  */
+/* EN: Asks mount_nfs for RPCAUTH credentials: sleeps until NFSMNT_WAITAUTH, posts the uid, waits for HASAUTH, returns auth/verf lengths and key, AUTHERR gives EAUTH. */
+/* 中文：通过 nm_flag 与 mount_nfs 进程握手索取 RPCAUTH 凭据：先等待 NFSMNT_WAITAUTH 并设置 nm_authuid 后唤醒，再等 HASAUTH 取回长度与会话密钥，出错返回 EAUTH 并释放认证串。 */
 int
 nfs_getauth(nmp, rep, cred, auth_str, auth_len, verf_str, verf_len, key)
 	register struct nfsmount *nmp;
@@ -887,6 +901,8 @@ nfs_getauth(nmp, rep, cred, auth_str, auth_len, verf_str, verf_len, key)
 /*
  * Get a nickname authenticator and verifier.
  */
+/* EN: Finds the cached nfsuid for cred->cr_uid in the mount hash (EACCES if absent/expired), refreshes its LRU position, and builds the nickname authenticator plus timestamp verifier. */
+/* 中文：按 cred->cr_uid 在挂载点 uid 哈希中查找 nfsuid，缺失或已过期返回 EACCES，命中则移到 LRU 尾部并生成 nickname 认证器及加密时间戳校验器。 */
 int
 nfs_getnickauth(nmp, cred, auth_str, auth_len, verf_str, verf_len)
 	struct nfsmount *nmp;
@@ -956,6 +972,8 @@ nfs_getnickauth(nmp, cred, auth_str, auth_len, verf_str, verf_len)
 /*
  * Save the current nickname in a hash list entry on the mount point.
  */
+/* EN: Parses the 3-word nickname reply, checks timestamp skew against NFS_KERBCLOCKSKEW, then caches a new nfsuid (uid, expire, nickname, key) in the mount LRU and hash. */
+/* 中文：解析三字 nickname 应答并校验时间戳偏移是否在 NFS_KERBCLOCKSKEW 内，合格则新建或淘汰最旧 nfsuid，把 uid、过期时间、昵称和密钥登记到 LRU 与哈希表。 */
 int
 nfs_savenickauth(nmp, cred, len, key, mdp, dposp, mrep)
 	register struct nfsmount *nmp;
@@ -1031,6 +1049,8 @@ nfsmout:
  * Derefence a server socket structure. If it has no more references and
  * is no longer valid, you can throw it away.
  */
+/* EN: Drops the ns_sref reference on a server socket and, once it hits zero with SLP_VALID cleared, unlinks it from nfssvc_sockhead and frees the nfssvc_sock. */
+/* 中文：递减服务端套接字的 ns_sref 引用计数，计数归零且 SLP_VALID 已清除时从 nfssvc_sockhead 摘除并 free 该 nfssvc_sock。 */
 void
 nfsrv_slpderef(slp)
 	register struct nfssvc_sock *slp;
@@ -1046,6 +1066,8 @@ nfsrv_slpderef(slp)
  * Handshake with any new nfsds starting up to avoid any chance of
  * corruption.
  */
+/* EN: Resets server state: panic if re-entered; if terminating zaps/frees all sockets and clears the reply cache, then allocates new UDP/CLTP sock slots and wakes SLP_WANTINIT waiters. */
+/* 中文：初始化/复位服务端数据结构：重复进入会 panic；terminating 时关闭并释放所有套接字、清空应答缓存，随后重建 nfssvc_sockhead 与 nfsd_head 并新建 UDP/CLTP 套接字槽。 */
 void
 nfsrv_init(terminating)
 	int terminating;
@@ -1092,6 +1114,8 @@ nfsrv_init(terminating)
 /*
  * Add entries to the server monitor log.
  */
+/* EN: Appends an nfsdrt ring entry: cache outcome flags plus TCP/NQNFS/NFSV3 bits, RPC proc, client IP from nd_nam, response usec and timestamp; pos advances mod NFSRTTLOGSIZ. */
+/* 中文：在 nfsdrt 环形缓冲区追加一条监控记录：按 cacherep 设置缓存标志并叠加 TCP/NQNFS/NFSV3 位，记录过程号、nd_nam 中的客户端 IP、响应微秒数与时间戳，pos 取模后前移。 */
 static void
 nfsd_rt(sotype, nd, cacherep)
 	int sotype;

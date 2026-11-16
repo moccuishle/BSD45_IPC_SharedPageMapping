@@ -20,5 +20,5 @@ bash tools/test_s9.sh
 ```
 
 > 源码已合并进仓库：`bsd45/kernel/`（4.5BSD sys 树）+
-> `bsd45/libc/bsd/`（`/bin/sh` 用的 4.5BSD 用户态源码）。
+> `bsd45/libc/arch/bsd/`（`/bin/sh` 用的 4.5BSD 用户态源码）。
 > 原来的 `bsd45/src/` 已删除，构建**不需要任何 tarball**。

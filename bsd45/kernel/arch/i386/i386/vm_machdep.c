@@ -60,6 +60,8 @@
  * address in each process; in the future we will probably relocate
  * the frame pointers on the stack after copying.
  */
+/* EN: Copies p1's PCB and live kernel stack into p2's u area, maps the child's UPAGES to its kernel stack with pmap_enter, activates the child pmap; returns 1 in the child via savectx. */
+/* 中文：把 p1 的 PCB 和正在使用的内核栈复制到 p2 的 u 区，用 pmap_enter 把子进程的 UPAGES 映射到其内核栈并激活子进程 pmap，子进程经 savectx 返回 1。 */
 cpu_fork(p1, p2)
 	register struct proc *p1, *p2;
 {
@@ -132,6 +134,10 @@ extern struct proc *npxproc;
  * a special case].
  */
 struct proc *switch_to_inactive();
+/* EN: Active definition: releases the coprocessor when p owns it (NNPX), sets curproc = p and mi_switch()es away; vmspace and u area are freed later by cpu_wait(). */
+/* 中文：第二个即实际编译的定义：当 p 占用协处理器时释放它（NNPX），置 curproc = p 后调用 mi_switch 让出 CPU；vmspace 与 u 区由 cpu_wait() 稍后释放。 */
+/* EN: notyet variant only: frees the FPU, switches to an inactive stack, frees vmspace and u area, sets p_addr to nullpcb and mi_switch()es away; never returns. */
+/* 中文：文件中第一个定义，仅在 #ifdef notyet 分支编译：释放浮点协处理器，切到非活动栈后释放 vmspace 与 u 区，把 p_addr 指向 nullpcb 再调用 mi_switch 离开，永不返回。 */
 cpu_exit(p)
 	register struct proc *p;
 {
@@ -154,6 +160,10 @@ cpu_exit(p)
 	/* NOTREACHED */
 }
 #else
+/* EN: Active definition: releases the coprocessor when p owns it (NNPX), sets curproc = p and mi_switch()es away; vmspace and u area are freed later by cpu_wait(). */
+/* 中文：第二个即实际编译的定义：当 p 占用协处理器时释放它（NNPX），置 curproc = p 后调用 mi_switch 让出 CPU；vmspace 与 u 区由 cpu_wait() 稍后释放。 */
+/* EN: notyet variant only: frees the FPU, switches to an inactive stack, frees vmspace and u area, sets p_addr to nullpcb and mi_switch()es away; never returns. */
+/* 中文：文件中第一个定义，仅在 #ifdef notyet 分支编译：释放浮点协处理器，切到非活动栈后释放 vmspace 与 u 区，把 p_addr 指向 nullpcb 再调用 mi_switch 离开，永不返回。 */
 cpu_exit(p)
 	register struct proc *p;
 {
@@ -178,6 +188,8 @@ cpu_wait(p) struct proc *p; {
 /*
  * Dump the machine specific header information at the start of a core dump.
  */
+/* EN: Writes the process u-area (p->p_addr, ctob(UPAGES) bytes at offset 0) to vnode vp via vn_rdwr with IO_NODELOCKED|IO_UNIT and returns that error. */
+/* 中文：用 vn_rdwr 把进程 u 区（p->p_addr，偏移 0，ctob(UPAGES) 字节）写入 vnode vp，标志 IO_NODELOCKED|IO_UNIT，并返回其错误码。 */
 cpu_coredump(p, vp, cred)
 	struct proc *p;
 	struct vnode *vp;
@@ -192,6 +204,8 @@ cpu_coredump(p, vp, cred)
 /*
  * Set a red zone in the kernel stack after the u. area.
  */
+/* EN: Empty stub with no statements: the comment says the kernel-stack red zone below the u-area should someday use an expand-down ss0 stack segment. */
+/* 中文：空函数桩，函数体没有任何语句；注释说明日后应为 ss0 建立向下扩展的栈段，从而在 u 区下方设置内核栈红区。 */
 setredzone(pte, vaddr)
 	u_short *pte;
 	caddr_t vaddr;
@@ -211,6 +225,8 @@ setredzone(pte, vaddr)
  * Both addresses are assumed to reside in the Sysmap,
  * and size must be a multiple of CLSIZE.
  */
+/* EN: Moves Sysmap pages from from to to by copying PTEs in NBPG steps and zeroing each source PTE, then flushes the TLB; panics unless size is a CLBYTES multiple. */
+/* 中文：在 Sysmap 内把页从 from 搬到 to：按 NBPG 步长复制页表项并把源 PTE 清零，最后刷新 TLB；size 不是 CLBYTES 整数倍时 panic。 */
 pagemove(from, to, size)
 	register caddr_t from, to;
 	int size;
@@ -234,6 +250,8 @@ pagemove(from, to, size)
 /*
  * Convert kernel VA to physical address
  */
+/* EN: Converts a kernel virtual address to physical via pmap_extract on kernel_pmap, panicking with 'kvtop: zero page frame' when no mapping exists. */
+/* 中文：通过 pmap_extract 在 kernel_pmap 中把内核虚拟地址转换为物理地址；映射不存在时以 'kvtop: zero page frame' 触发 panic。 */
 kvtop(addr)
 	register caddr_t addr;
 {
@@ -250,6 +268,8 @@ kvtop(addr)
  * The probe[rw] routines should probably be redone in assembler
  * for efficiency.
  */
+/* EN: Read probe (compiled out under #ifdef notdef): returns 0 at or above USRSTACK, otherwise 1 when btop(addr) falls outside dptov(p_dsize)..sptov(p_ssize). */
+/* 中文：只读用户地址探测（位于 #ifdef notdef 内）：addr >= USRSTACK 返回 0，否则当 btop(addr) 落在 dptov(p_dsize)..sptov(p_ssize) 之外时返回 1。 */
 prober(addr)
 	register u_int addr;
 {
@@ -265,6 +285,8 @@ prober(addr)
 	return(0);
 }
 
+/* EN: Write probe like prober, but for pages inside the data..stack range it also requires the vtopte PTE to carry PG_UW user-write permission before returning 1. */
+/* 中文：与 prober 类似的写探测：对落在 dptov..sptov 区间内的页，还要求 vtopte 取出的页表项带有 PG_UW 用户可写权限才返回 1。 */
 probew(addr)
 	register u_int addr;
 {
@@ -284,6 +306,8 @@ probew(addr)
  * NB: assumes a physically contiguous kernel page table
  *     (makes life a LOT simpler).
  */
+/* EN: Checks that count bytes of kernel space at addr are mapped, requiring valid PDEs and valid Sysmap PTEs bounded by Syssize; returns 1 only if all are valid, rw is ignored. */
+/* 中文：检查内核地址 addr 起 count 字节是否已映射：要求相关 PDE 与 Sysmap 中的 PTE 全部有效且不越过 Syssize，全部有效才返回 1，rw 参数被忽略。 */
 kernacc(addr, count, rw)
 	register u_int addr;
 	int count, rw;
@@ -313,6 +337,8 @@ kernacc(addr, count, rw)
 	return(1);
 }
 
+/* EN: Checks a user range page by page using prober for B_READ or probew otherwise, returning 1 only when every page-aligned probe succeeds, 0 if any fails or count <= 0. */
+/* 中文：按页检查用户区间：B_READ 用 prober、其余用 probew；所有页对齐的探测都成功才返回 1，任一失败或 count <= 0 返回 0。 */
 useracc(addr, count, rw)
 	register u_int addr;
 	int count, rw;
@@ -355,6 +381,8 @@ extern vm_map_t phys_map;
  * All requests are (re)mapped into kernel VA space via the useriomap
  * (a name with only slightly more meaning than "kernelmap")
  */
+/* EN: Maps a B_PHYS buffer's user pages into phys_map: saves b_saveaddr, kmem_alloc_wait's npf pages, then pmap_enter's each extracted page RW and wired; panics on a null frame. */
+/* 中文：把 B_PHYS 缓冲区的用户页映射进 phys_map：保存 b_saveaddr，用 kmem_alloc_wait 分配 npf 页，再对每个 pmap_extract 得到的物理页以读写、wired 方式 pmap_enter；空页框则 panic。 */
 vmapbuf(bp)
 	register struct buf *bp;
 {
@@ -389,6 +417,8 @@ vmapbuf(bp)
  * Free the io map PTEs associated with this IO operation.
  * We also invalidate the TLB entries and restore the original b_addr.
  */
+/* EN: Unmaps vmapbuf's phys_map range with kmem_free_wakeup (waking waiters), restores b_un.b_addr from b_saveaddr and clears b_saveaddr; panics when B_PHYS is not set. */
+/* 中文：用 kmem_free_wakeup 释放 vmapbuf 建立的 phys_map 区间并唤醒等待者，把 b_un.b_addr 恢复为 b_saveaddr 后将其清空；未置 B_PHYS 时 panic。 */
 vunmapbuf(bp)
 	register struct buf *bp;
 {

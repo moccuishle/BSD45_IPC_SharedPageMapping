@@ -40,6 +40,8 @@ static char sccsid[] = "@(#)ffs.c	8.1 (Berkeley) 6/4/93";
 /*
  * ffs -- vax ffs instruction
  */
+/* EN: Return the 1-based index of the first set bit in mask scanning from the least significant bit, or 0 if mask is zero; implemented by shifting mask right one bit per iteration. */
+/* 中文：从最低位开始查找 mask 中第一个置位的位置并返回其从 1 起始的位号，mask 为 0 时返回 0；实现上每次将 mask 右移一位计数。 */
 int
 ffs(mask)
 	register int mask;

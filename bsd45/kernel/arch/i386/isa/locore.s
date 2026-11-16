@@ -1630,13 +1630,17 @@ calltrap:
 	call	_trap
 	addl	$4,%esp
 	/*
-	 * Return through doreti to handle ASTs.  Have to change trap frame
-	 * to interrupt frame.
+	 * BSD45 port: return directly instead of going through doreti.
+	 * doreti restores the PIC mask from the 4.5BSD cpl/imen variables
+	 * (initialised to 0xffff), which would mask the PIT and defeat the
+	 * IPL layer.  This port has no AST/netisr consumers, so a plain
+	 * iret on the trap frame is both correct and simpler.
 	 */
-	movl	$T_ASTFLT,4+4+32(%esp)	/* new trap type (err code not used) */
-	pushl	_cpl
-	pushl	$0			/* dummy unit */
-	jmp	doreti
+	pop	%es
+	pop	%ds
+	popal
+	addl	$8,%esp		/* trapno + error code */
+	iret
 
 #ifdef KGDB
 /*

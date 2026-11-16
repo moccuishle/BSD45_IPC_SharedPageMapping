@@ -44,6 +44,8 @@ static char sccsid[] = "@(#)ashrdi3.c	8.1 (Berkeley) 6/4/93";
 /*
  * Shift a (signed) quad value right (arithmetic shift right).
  */
+/* EN: Arithmetic right shift of a signed quad_t: builds the sign word by shifting the high half LONG_BITS-1 then 1 (no undefined shift by LONG_BITS), so counts >= 64 give all sign bits. */
+/* 中文：对 64 位有符号数做算术右移：先用高半部右移 LONG_BITS-1 再移 1 位得到符号字，以规避按字长移位的未定义行为，使移位 >=64 时结果全为符号位。 */
 quad_t
 __ashrdi3(a, shift)
 	quad_t a;

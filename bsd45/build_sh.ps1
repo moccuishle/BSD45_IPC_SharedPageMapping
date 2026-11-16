@@ -1,4 +1,4 @@
-# build_sh.ps1 - build the 4.5BSD /bin/sh (and a libc smoke test) as a static
+﻿# build_sh.ps1 - build the 4.5BSD /bin/sh (and a libc smoke test) as a static
 # i386 ELF for BSD45-ELF-x86.
 #
 #	COFF objects -> PE (image base 0x08048000) -> objcopy -O elf32-i386
@@ -18,7 +18,7 @@ $ccb  = Get-CcBinArg $bin
 $GCC  = "$bin\gcc.exe"; $LD = "$bin\ld.exe"; $OC = "$bin\objcopy.exe"
 $gccinc = Get-GccInclude $bin
 
-$usr   = Join-Path $ws "libc\bsd"
+$usr   = Join-Path $ws "libc\arch\bsd"
 $shsrc = Join-Path $usr "bin\sh"
 $lc    = Join-Path $usr "lib\libc"
 $bld   = Join-Path $ws "build"
@@ -36,6 +36,9 @@ function Prepare-Headers {
     Copy-Item (Join-Path $ws "libc\include\stdarg.h") "$incu\stdarg.h" -Force
     Copy-Item (Join-Path $ws "libc\include\ctype.h") "$incu\ctype.h" -Force
     Copy-Item (Join-Path $ws "libc\include\histedit.h") "$incu\histedit.h" -Force
+    Copy-Item (Join-Path $ws "libc\include\pthread.h") "$incu\pthread.h" -Force
+    Copy-Item (Join-Path $ws "libc\include\uring.h") "$incu\uring.h" -Force
+    Copy-Item (Join-Path $ws "libc\include\syscall_arch.h") "$incu\syscall_arch.h" -Force
     if (Test-Path (Join-Path $incu "errno.h")) { return }
     Write-Step "preparing libc header view"
     New-Item -ItemType Directory -Force -Path "$incu\sys", "$incu\machine", "$incu\net" | Out-Null
@@ -54,6 +57,9 @@ function Prepare-Headers {
     Copy-Item (Join-Path $ws "libc\include\stdarg.h") "$incu\stdarg.h" -Force
     Copy-Item (Join-Path $ws "libc\include\ctype.h") "$incu\ctype.h" -Force
     Copy-Item (Join-Path $ws "libc\include\histedit.h") "$incu\histedit.h" -Force
+    Copy-Item (Join-Path $ws "libc\include\pthread.h") "$incu\pthread.h" -Force
+    Copy-Item (Join-Path $ws "libc\include\uring.h") "$incu\uring.h" -Force
+    Copy-Item (Join-Path $ws "libc\include\syscall_arch.h") "$incu\syscall_arch.h" -Force
 }
 Prepare-Headers
 
@@ -98,12 +104,27 @@ $objs = @()
 
 # ---------------------------------------------------------------- startup
 Write-Step "startup objects"
-if (Compile-Asm (Join-Path $ws "libc\src\crt0.s") "$obj\crt0.o") { $objs += "$obj\crt0.o" }
-if (Compile-Asm (Join-Path $ws "libc\src\jmp.s")  "$obj\jmp.o")  { $objs += "$obj\jmp.o" }
+$libcArch = "x86"
+$archCfg = Join-Path $ws "libc\arch\$libcArch\config.mk"
+$asmSrcs = @()
+if (Test-Path $archCfg) {
+    $asmSrcs = Get-Content $archCfg |
+        Where-Object { $_ -match '^\s*asm-y\s*\+=' } |
+        ForEach-Object { ($_ -split '=', 2)[1].Trim() } |
+        Where-Object { $_ -ne "chkstk_ms.s" }
+}
+foreach ($af in $asmSrcs) {
+    $base = [IO.Path]::GetFileNameWithoutExtension($af)
+    $oname = if ($base -eq "pthread") { "pthread_asm.o" } else { "$base.o" }
+    if (Compile-Asm (Join-Path $ws "libc\arch\$libcArch\$af") "$obj\$oname") {
+        $objs += "$obj\$oname"
+    }
+}
 
 # ---------------------------------------------------------------- our libc glue
 Write-Step "port glue"
 if (Compile-C (Join-Path $ws "libc\src\libc_sys.c") "$obj\libc_sys.o") { $objs += "$obj\libc_sys.o" }
+if (Compile-C (Join-Path $ws "libc\src\pthread.c") "$obj\pthread_lib.o") { $objs += "$obj\pthread_lib.o" }
 if (Compile-C (Join-Path $ws "libc\src\dtoa.c") "$obj\dtoa.o") { $objs += "$obj\dtoa.o" }
 if (Compile-C (Join-Path $ws "libc\src\histedit_stub.c") "$obj\histedit_stub.o") { $objs += "$obj\histedit_stub.o" }
 
@@ -171,7 +192,7 @@ if (Compile-C (Join-Path $ws "libc\src\ctype_table.c") "$obj\ctype_table.o") { $
 # so __divdi3 and friends (plus __chkstk_ms) come from our own sources.
 # They are linked through $libgcc below for both sh and the small tools.
 Compile-C (Join-Path $ws "libc\src\quad32.c") "$obj\lc_quad32.o" | Out-Null
-Compile-Asm (Join-Path $ws "libc\src\chkstk_ms.s") "$obj\chkstk_ms.o" | Out-Null
+Compile-Asm (Join-Path $ws "libc\arch\x86\chkstk_ms.s") "$obj\chkstk_ms.o" | Out-Null
 
 if ($fail) { Write-Host "$fail file(s) failed" -ForegroundColor Red; exit 1 }
 
@@ -276,7 +297,7 @@ Write-Host ("built {0} ({1:N0} bytes)" -f $elf, (Get-Item $elf).Length)
 
 if ($Target -eq "sh") {
     # /bin/echo, /bin/ls: small tools linked against the same libc.
-    foreach ($tool in @("echo", "ls", "cat", "mkdir", "kill", "sleep", "rm", "cp", "mv", "wc", "grep", "head", "tail", "df", "mount", "ps", "uname", "true", "false", "date", "vmstat", "mmaptest")) {
+    foreach ($tool in @("echo", "ls", "cat", "mkdir", "kill", "sleep", "rm", "cp", "mv", "wc", "grep", "head", "tail", "df", "mount", "ps", "uname", "true", "false", "date", "vmstat", "mmaptest", "subtest", "pthread", "aiotest", "uring", "spin", "cowtest", "crash", "badptr")) {
         $tobj = "$obj\$tool.o"
         if (Compile-C (Join-Path $ws "libexec\$tool.c") $tobj) {
             $tobjs = @($libobjs) + @($tobj)
@@ -290,5 +311,6 @@ if ($Target -eq "sh") {
         }
     }
 }
+
 
 

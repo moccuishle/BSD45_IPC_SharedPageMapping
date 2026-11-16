@@ -542,6 +542,8 @@ LIST_HEAD(nfsnodehashhead, nfsnode);
  * The hsiz is the size of the rest of the nfs request header.
  * (just used to decide if a cluster is a good idea)
  */
+/* EN: Allocates a request mbuf (cluster if hsiz >= MINCLSIZE) and, on NQNFS mounts, prepends lease flag plus duration (or one 0); returns it with *bposp at the write point. */
+/* 中文：分配一个请求 mbuf（hsiz 不小于 MINCLSIZE 时用簇），对 NQNFS 挂载点先写入租约标志与时长（无租约时写单个 0），返回该 mbuf 并把写入位置存入 *bposp。 */
 struct mbuf *
 nfsm_reqh(vp, procid, hsiz, bposp)
 	struct vnode *vp;
@@ -590,6 +592,8 @@ nfsm_reqh(vp, procid, hsiz, bposp)
  * come from outside of the kernel.
  * Returns the head of the mbuf list.
  */
+/* EN: Builds the RPC call header: new nfs_xid into *xidp, prog/version/proc, AUTH_UNIX cred or raw Kerberos auth, verifier; chains mrest, sets m_pkthdr.len, *mbp to last mbuf. */
+/* 中文：构造 RPC 调用头：把新的 nfs_xid 写入 *xidp，编码程序号/版本/过程号（v2 经 nfsv2_procid 映射）、AUTH_UNIX 凭据或 Kerberos 认证串及校验器，链上 mrest 并设置 m_pkthdr.len，最后一个 mbuf 存入 *mbp。 */
 struct mbuf *
 nfsm_rpchead(cr, nmflag, procid, auth_type, auth_len, auth_str, verf_len,
 	verf_str, mrest, mrest_len, mbp, xidp)
@@ -738,6 +742,8 @@ nfsm_rpchead(cr, nmflag, procid, auth_type, auth_len, auth_str, verf_len,
 /*
  * copies mbuf chain to the uio scatter/gather list
  */
+/* EN: Copies siz bytes from mbufs into uio iovecs (bcopy for UIO_SYSSPACE, else copyout), advancing uio_offset/uio_resid, then skips XDR roundup; EFBIG/EBADRPC when short. */
+/* 中文：把 mbuf 链中 siz 字节复制到 uio 各 iovec（UIO_SYSSPACE 用 bcopy，否则 copyout），同步推进 uio_offset/uio_resid 与 iov 位置，最后跳过 XDR 对齐填充；空间不足返回 EFBIG 或 EBADRPC。 */
 int
 nfsm_mbuftouio(mrep, uiop, siz, dpos)
 	struct mbuf **mrep;
@@ -813,6 +819,8 @@ nfsm_mbuftouio(mrep, uiop, siz, dpos)
 /*
  * copies a uio scatter/gather list to an mbuf chain...
  */
+/* EN: Copies siz bytes from uio iovecs into mbufs chained after *mq (clusters when siz > MLEN), updates uio_offset/uio_resid, zero-fills XDR roundup, sets *bpos and *mq to last mbuf. */
+/* 中文：把 uio 各 iovec 的 siz 字节复制到挂在 *mq 之后的新 mbuf（siz 大于 MLEN 时用簇），推进 uio_offset/uio_resid，按 XDR 对齐补零，并把写入位置与最后一个 mbuf 分别存入 *bpos、*mq。 */
 int
 nfsm_uiotombuf(uiop, mq, siz, bpos)
 	register struct uio *uiop;
@@ -901,6 +909,8 @@ nfsm_uiotombuf(uiop, mq, siz, bpos)
  * This is used by the macros nfsm_dissect and nfsm_dissecton for tough
  * cases. (The macros use the vars. dpos and dpos2)
  */
+/* EN: Makes siz bytes contiguous: uses current position if enough remains, else allocates an mbuf and copies leftover plus next mbufs in, updating *mdp/*dposp; EBADRPC if short. */
+/* 中文：让 siz 字节在 mbuf 链中连续以便解析：当前 mbuf 剩余足够时直接返回指针，否则新分配一个 mbuf，把剩余数据和后续 mbuf 内容拷入并更新 *mdp/*dposp；链太短返回 EBADRPC。 */
 int
 nfsm_disct(mdp, dposp, siz, left, cp2)
 	struct mbuf **mdp;
@@ -964,6 +974,8 @@ nfsm_disct(mdp, dposp, siz, left, cp2)
 /*
  * Advance the position in the mbuf chain.
  */
+/* EN: Advances the dissection position offs bytes through the mbuf chain, starting from left bytes in the current mbuf, stores it in *mdp/*dposp; EBADRPC if the chain ends early. */
+/* 中文：沿 mbuf 链向前跳过 offs 字节（先把当前 mbuf 剩余的 left 字节计入），把新位置写回 *mdp 和 *dposp；链表提前结束则返回 EBADRPC。 */
 int
 nfs_adv(mdp, dposp, offs, left)
 	struct mbuf **mdp;
@@ -991,6 +1003,8 @@ nfs_adv(mdp, dposp, offs, left)
 /*
  * Copy a string into mbufs for the hard cases...
  */
+/* EN: Writes a counted XDR string (length prefix, data, roundup padding) into the mbuf chain, allocating mbufs or clusters as needed, sets *mb/*bpos to the tail; returns 0. */
+/* 中文：把带长度前缀的 XDR 字符串（含对齐填充）写入 mbuf 链，空间不足时分配新 mbuf 或簇，最后把末尾 mbuf 与写入位置存入 *mb、*bpos；返回 0。 */
 int
 nfsm_strtmbuf(mb, bpos, cp, siz)
 	struct mbuf **mb;
@@ -1057,6 +1071,8 @@ nfsm_strtmbuf(mb, bpos, cp, siz)
 /*
  * Called once to initialize data structures...
  */
+/* EN: One-time init: warns on oversized nfsnode/nfsmount/nfssvc_sock/nfsuid, sets nfs_ticks, inits nfsnode table, server data, request cache, NQNFS leases, starts nfs_timer; 0. */
+/* 中文：一次性初始化：检查 nfsnode/nfsmount/nfssvc_sock/nfsuid 是否超出预分配大小并告警，设置 nfs_ticks，初始化 nfsnode 表、服务端数据、请求缓存和 NQNFS 租约，最后启动 nfs_timer；返回 0。 */
 int
 nfs_init(vfsp)
 	struct vfsconf *vfsp;
@@ -1142,6 +1158,8 @@ nfs_init(vfsp)
  * Iff vap not NULL
  *    copy the attributes to *vaper
  */
+/* EN: Parses an nfs_fattr into np->n_vattr (v2/v3), sets a VNON vnode's type, aliases special devices via checkalias, syncs pager size, stamps n_attrstamp, copies to *vaper; 0 or error. */
+/* 中文：解析 mbuf 中的 nfs_fattr 填充 np->n_vattr（类型/模式/设备号/大小/时间），为 VNON 节点补类型、对特殊设备做 checkalias 别名处理、同步 vnode_pager 大小并更新 n_attrstamp，最后复制到 *vaper。 */
 int
 nfs_loadattrcache(vpp, mdp, dposp, vaper)
 	struct vnode **vpp;
@@ -1295,6 +1313,8 @@ nfs_loadattrcache(vpp, mdp, dposp, vaper)
  * If the cache is valid, copy contents to *vap and return 0
  * otherwise return an error
  */
+/* EN: Returns np->n_vattr in *vaper if newer than NFS_ATTRTIMEO(np), reconciling va_size/n_size and pager size, applying pending atime/mtime; else counts a miss and returns ENOENT. */
+/* 中文：若 n_attrstamp 未超过 NFS_ATTRTIMEO(np) 就把 n_vattr 复制到 *vaper（计入 attrcache_hits），并校正 va_size/n_size、同步页大小、合入待写入的 atime/mtime；否则计 miss 并返回 ENOENT。 */
 int
 nfs_getattrcache(vp, vaper)
 	register struct vnode *vp;
@@ -1335,6 +1355,8 @@ nfs_getattrcache(vp, vaper)
 /*
  * Set up nameidata for a lookup() call and do it
  */
+/* EN: Copies a name from mbufs into ni_pnbuf (rejecting NUL and '/'), skips padding, resolves the fh to the start dir into *retdirp via nfsrv_fhtovp, calls lookup(); EINVAL on symlink. */
+/* 中文：从 mbuf 链取出分量名写入 ni_pnbuf（拒绝 '\0' 和 '/'）、跳过 XDR 填充，用 nfsrv_fhtovp 把文件句柄转成起始目录存入 *retdirp，置 RDONLY/NOCROSSMOUNT 后调用 lookup()；遇符号链接返回 EINVAL。 */
 int
 nfs_namei(ndp, fhp, len, slp, nam, mdp, dposp, retdirp, p, kerbflag)
 	register struct nameidata *ndp;
@@ -1449,6 +1471,8 @@ out:
  * A fiddled version of m_adj() that ensures null fill to a long
  * boundary and only trims off the back end
  */
+/* EN: Trims len bytes from the tail of the mbuf chain, zeroing the final nul bytes, and sets m_len = 0 on the mbufs past the new end (they stay on the chain); returns void. */
+/* 中文：从 mbuf 链尾部截去 len 字节并把新的末尾 nul 字节清零；超出新长度的后续 mbuf 只把 m_len 置 0 而仍留在链上；无返回值。 */
 void
 nfsm_adj(mp, len, nul)
 	struct mbuf *mp;
@@ -1511,6 +1535,8 @@ nfsm_adj(mp, len, nul)
  * Make these functions instead of macros, so that the kernel text size
  * doesn't get too big...
  */
+/* EN: Encodes NFSv3 weak cache consistency data: false, or true plus pre-op va_size/va_mtime/va_ctime, then appends post-op attributes via nfsm_srvpostopattr; updates *mbp and *bposp. */
+/* 中文：编码 NFSv3 弱缓存一致性数据：失败写 false，成功写 true 加操作前的 va_size/va_mtime/va_ctime，再调用 nfsm_srvpostopattr 追加操作后属性，并更新 *mbp、*bposp。 */
 void
 nfsm_srvwcc(nfsd, before_ret, before_vap, after_ret, after_vap, mbp, bposp)
 	struct nfsrv_descript *nfsd;
@@ -1542,6 +1568,8 @@ nfsm_srvwcc(nfsd, before_ret, before_vap, after_ret, after_vap, mbp, bposp)
 	nfsm_srvpostopattr(nfsd, after_ret, after_vap, mbp, bposp);
 }
 
+/* EN: Writes the post-op attribute flag: false when after_ret is set, otherwise true followed by an NFSv3 fattr filled by nfsm_srvfattr; updates *mbp and *bposp. */
+/* 中文：在回复中写操作后属性标志：after_ret 非零时写 false，否则写 true 并紧跟由 nfsm_srvfattr 填充的 NFSv3 fattr，同时更新 *mbp 和 *bposp。 */
 void
 nfsm_srvpostopattr(nfsd, after_ret, after_vap, mbp, bposp)
 	struct nfsrv_descript *nfsd;
@@ -1568,6 +1596,8 @@ nfsm_srvpostopattr(nfsd, after_ret, after_vap, mbp, bposp)
 	*bposp = bpos;
 }
 
+/* EN: Converts a vattr into an XDR nfs_fattr, choosing v2 or v3 layout by ND_NFSV3 (hyper size/used, split rdev, fsid/fileid, v3 times vs 32-bit fields, 0xffffffff rdev for FIFO). */
+/* 中文：把 struct vattr 转成 XDR 格式的 nfs_fattr；按 ND_NFSV3 选择 v2/v3 布局（v3 用 hyper 表示大小与已用块、rdev 拆主次号、含 fsid/fileid 与 v3 时间；v2 用 32 位字段，FIFO 的 rdev 写 0xffffffff）。 */
 void
 nfsm_srvfattr(nfsd, vap, fp)
 	register struct nfsrv_descript *nfsd;
@@ -1617,6 +1647,8 @@ nfsm_srvfattr(nfsd, vap, fp)
  *	- if cred->cr_uid == 0 or MNT_EXPORTANON set it to credanon
  *	- if not lockflag unlock it with VOP_UNLOCK()
  */
+/* EN: Maps fh_fsid to a mount (ESTALE if gone) and calls VFS_FHTOVP; enforces MNT_EXKERB vs kerbflag, swaps in credanon for root/anonymous, sets *rdonlyp, unlocks unless lockflag. */
+/* 中文：用 vfs_getvfs 按 fh_fsid 找挂载点（不存在返回 ESTALE）并调用 VFS_FHTOVP；校验 MNT_EXKERB 与 kerbflag 是否匹配，root/匿名导出换成 credanon，按 MNT_EXRDONLY 置 *rdonlyp，lockflag 为假时 VOP_UNLOCK。 */
 int
 nfsrv_fhtovp(fhp, lockflag, vpp, cred, slp, nam, rdonlyp, kerbflag)
 	fhandle_t *fhp;
@@ -1675,6 +1707,8 @@ nfsrv_fhtovp(fhp, lockflag, vpp, cred, slp, nam, rdonlyp, kerbflag)
  * The AF_INET family is handled as a special case so that address mbufs
  * don't need to be saved to store "struct in_addr", which is only 4 bytes.
  */
+/* EN: Compares client address haddr with socket address mbuf nam: AF_INET compares sin_addr, AF_ISO compares ISO nlen/addrs; returns 1 on match, 0 otherwise. */
+/* 中文：按地址族比较 haddr 中的客户端地址与套接字地址 mbuf nam：AF_INET 比较 sin_addr，AF_ISO 比较 ISO 地址长度与内容；相同返回 1，否则返回 0。 */
 int
 netaddr_match(family, haddr, nam)
 	int family;
@@ -1716,6 +1750,8 @@ static nfsuint64 nfs_nullcookie = { 0, 0 };
  * This function finds the directory cookie that corresponds to the
  * logical byte offset given.
  */
+/* EN: Maps a directory offset to its nfsuint64 cookie slot (nfs_nullcookie for block 0); walks or allocates nfsdmap chunks, bumps ndm_eocookie when add is set, else NULL if absent. */
+/* 中文：把目录逻辑偏移映射到对应的 nfsuint64 cookie 槽（块 0 返回 nfs_nullcookie）；按需遍历或分配 nfsdmap 块（M_NFSDIROFF），add 为真时抬高 ndm_eocookie，否则不存在时返回 NULL。 */
 nfsuint64 *
 nfs_getcookie(np, off, add)
 	register struct nfsnode *np;
@@ -1774,6 +1810,8 @@ nfs_getcookie(np, off, add)
  * blocks (which are invalidated separately).
  * Done mainly to avoid the use of stale offset cookies.
  */
+/* EN: Invalidates cached directory state: clears n_direofoffset, zeroes n_cookieverf, and resets the first nfsdmap's ndm_eocookie to 0; panics under DIAGNOSTIC if vp is not a directory. */
+/* 中文：使目录缓存信息失效：清零 n_direofoffset、把 n_cookieverf 置 0，并把首个 nfsdmap 的 ndm_eocookie 复位为 0；DIAGNOSTIC 下对非目录 vp 会 panic。 */
 void
 nfs_invaldir(vp)
 	register struct vnode *vp;
@@ -1797,6 +1835,8 @@ nfs_invaldir(vp)
  * dirty block list as B_DELWRI, all this takes is clearing the B_NEEDCOMMIT
  * flag. Once done the new write verifier can be set for the mount point.
  */
+/* EN: Walks every vnode of the mount under splbio() and clears B_NEEDCOMMIT on buffers that are B_DELWRI|B_NEEDCOMMIT but not B_BUSY, so they are rewritten after a verifier change. */
+/* 中文：在 splbio() 下遍历挂载点上的所有 vnode，对处于 B_DELWRI|B_NEEDCOMMIT 且不忙的缓冲区清除 B_NEEDCOMMIT，使其在写校验器变化后重新写回。 */
 void
 nfs_clearcommit(mp)
 	struct mount *mp;
@@ -1825,6 +1865,8 @@ loop:
  * Map errnos to NFS error numbers. For Version 3 also filter out error
  * numbers not specified for the associated procedure.
  */
+/* EN: Maps an errno to an NFS error: for v3 consults the sorted per-procedure table and returns that procedure's default error when not listed; for v2 uses nfsrv_v2errmap or NFSERR_IO. */
+/* 中文：把内核 errno 映射为 NFS 错误码：NFSv3 查按过程排序的错误表，不允许时返回该过程的默认错误（过程号越界则返回 err & 0xffff）；NFSv2 用 nfsrv_v2errmap，越界返回 NFSERR_IO。 */
 int
 nfsrv_errmap(nd, err)
 	struct nfsrv_descript *nd;

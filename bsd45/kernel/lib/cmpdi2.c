@@ -46,6 +46,8 @@ static char sccsid[] = "@(#)cmpdi2.c	8.1 (Berkeley) 6/4/93";
  * Both a and b are considered signed---which means only the high word is
  * signed.
  */
+/* EN: Three-way comparison of two quad_t: compares the signed high words first, then the unsigned low words, returning 0 for a<b, 1 for a==b and 2 for a>b. */
+/* 中文：对两个 64 位有符号数做三路比较：先比有符号高字，再比无符号低字，分别返回 0（a<b）、1（相等）、2（a>b）。 */
 int
 __cmpdi2(a, b)
 	quad_t a, b;

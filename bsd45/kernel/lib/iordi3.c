@@ -44,6 +44,8 @@ static char sccsid[] = "@(#)iordi3.c	8.1 (Berkeley) 6/4/93";
 /*
  * Return a | b, in quad.
  */
+/* EN: Bitwise OR of two quad_t performed separately on the low and high 32-bit words of the union; pure helper returning the combined 64-bit value. */
+/* 中文：对两个 64 位整数按低、高两个 32 位字分别执行按位或，纯辅助函数，返回合并后的 64 位结果。 */
 quad_t
 __iordi3(a, b)
 	quad_t a, b;

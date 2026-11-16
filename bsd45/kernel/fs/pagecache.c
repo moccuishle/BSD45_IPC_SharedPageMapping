@@ -30,6 +30,7 @@
 #include <sys/errno.h>
 
 #include "vfs.h"
+#include "thread/kthread.h"
 
 #ifndef PAGE_SIZE
 #define	PAGE_SIZE	4096
@@ -67,6 +68,8 @@ static int pc_inited;
 static unsigned pc_hits, pc_misses, pc_fills, pc_evicts;
 
 /* A read-only backend with a stable identity may use its v_key. */
+/* EN: Returns 0 for a null vnode, else the vnode's stable v_key when set (immutable extents) or its v_id for tmpfs, the key used by the hash and LRU. */
+/* 中文：空 vnode 返回 0；否则优先返回已设置的稳定 v_key（不可变数据区），tmpfs 则返回 v_id，作为哈希与 LRU 使用的键。 */
 unsigned
 pagecache_key(struct vnode *vp)
 {
@@ -78,6 +81,8 @@ pagecache_key(struct vnode *vp)
 	return (vp->v_id);		/* tmpfs: tied to this vnode */
 }
 
+/* EN: Computes the hash bucket index as (key * 2654435761 + pindex) % PCHASH. */
+/* 中文：按 (key * 2654435761 + pindex) % PCHASH 计算哈希桶下标。 */
 static unsigned
 pc_hashfn(unsigned key, unsigned pindex)
 {
@@ -87,6 +92,8 @@ pc_hashfn(unsigned key, unsigned pindex)
 
 /* ---------------------------------------------------------------- LRU */
 
+/* EN: Unlinks entry i from the doubly linked LRU index list, repairing pc_lru_head/pc_lru_tail, and clears its links and onlru; no-op if it is not on the LRU. */
+/* 中文：把条目 i 从双向 LRU 索引链中摘除并修正 pc_lru_head/pc_lru_tail，清空链指针与 onlru；不在 LRU 上则直接返回。 */
 static void
 pc_lru_del(int i)
 {
@@ -106,6 +113,8 @@ pc_lru_del(int i)
 	e->onlru = 0;
 }
 
+/* EN: Appends entry i to the tail of the LRU list (most recently used end), fixing the head when the list was empty and setting onlru; no-op if already queued. */
+/* 中文：把条目 i 追加到 LRU 链尾（最近使用端），链表为空时同步更新表头并置 onlru；已在链上则不重复插入。 */
 static void
 pc_lru_add(int i)
 {
@@ -125,6 +134,8 @@ pc_lru_add(int i)
 
 /* ---------------------------------------------------------------- hash */
 
+/* EN: Walks the hash bucket chain for (key, pindex) and returns the index of the first used entry whose key and page index match, or -1 when absent. */
+/* 中文：沿 (key, pindex) 对应的哈希桶链查找，返回首个 used 且 key 与页索引均匹配的条目下标，未命中返回 -1。 */
 static int
 pc_find(unsigned key, unsigned pindex)
 {
@@ -137,6 +148,8 @@ pc_find(unsigned key, unsigned pindex)
 	return (-1);
 }
 
+/* EN: Unlinks entry i from its hash bucket by chasing the chain pointers, so later pc_find() calls for that key and pindex no longer see it. */
+/* 中文：沿桶链指针把条目 i 从其哈希桶中摘除，使后续对该 key 与页索引的 pc_find() 不再命中。 */
 static void
 pc_hash_remove(int i)
 {
@@ -153,6 +166,8 @@ pc_hash_remove(int i)
 	}
 }
 
+/* EN: Pushes entry i onto the head of the bucket selected by pc_hashfn() from its key and pindex, making it visible to pc_find(). */
+/* 中文：按条目的 key 与 pindex 经 pc_hashfn() 定位桶，把条目 i 头插入该桶，使其可被 pc_find() 查到。 */
 static void
 pc_hash_insert(int i)
 {
@@ -162,6 +177,8 @@ pc_hash_insert(int i)
 	pc_hash[b] = i;
 }
 
+/* EN: If entry i is used, unhooks it from the hash, clears used/refs/key/pindex and puts it back on the LRU; the mapped page itself is kept for reuse. */
+/* 中文：若条目 i 正在使用，则将其从哈希表摘除、清空 used/refs/key/pindex 并重新挂回 LRU；已映射的页本身保留以便复用。 */
 static void
 pc_release(int i)
 {
@@ -181,6 +198,8 @@ pc_release(int i)
  * mapped into a process (or being copied) and are not on the LRU at all, so
  * they can never be chosen here: returning 0 means "cache full".
  */
+/* EN: Takes the LRU head entry for reuse, unlinking it and clearing refs/key/pindex while bumping pc_evicts if it held a cached page; returns -1 when nothing is evictable. */
+/* 中文：取 LRU 表头条目复用：先摘链并清空 refs/key/pindex，若原本缓存着页则累加 pc_evicts；无页可淘汰时返回 -1。 */
 static int
 pc_take(void)
 {
@@ -202,6 +221,8 @@ pc_take(void)
 
 /* ---------------------------------------------------------------- init */
 
+/* EN: Idempotent setup: clears hash buckets and LRU, allocates and kernel-maps one page per NPCACHE entry at PCACHE_VA, queues every entry on the LRU and zeroes all counters. */
+/* 中文：幂等的一次性初始化：清空哈希桶与 LRU，为 NPCACHE 个条目各分配一个物理页并映射到 PCACHE_VA，把全部条目挂入 LRU，并将各计数清零。 */
 void
 pagecache_init(void)
 {
@@ -237,6 +258,8 @@ pagecache_init(void)
  * Returns its physical address and stores the kernel VA in *vap; the page
  * comes back referenced, so the caller must pagecache_unref() it.
  */
+/* EN: Fetches page pindex of vp: hit bumps pc_hits and refs; miss zeroes an LRU page, fills it via ops->readraw and hashes it; returns pa and *vap, 0 when full (schedules SOFT_RECLAIM). */
+/* 中文：查找 vp 的页 pindex：命中则累加 pc_hits 并增加引用，未命中则从 LRU 取页清零、经 ops->readraw 填充、插入哈希并累加 misses/fills；返回物理地址并置 *vap，缓存满时调度 SOFT_RECLAIM 并返回 0。 */
 unsigned
 pagecache_get(struct vnode *vp, unsigned pindex, unsigned char **vap)
 {
@@ -261,8 +284,11 @@ pagecache_get(struct vnode *vp, unsigned pindex, unsigned char **vap)
 		return (e->pa);
 	}
 	i = pc_take();
-	if (i < 0)
+	if (i < 0) {
+		/* S21: ask the softirq thread to reclaim in its own context */
+		softint_schedule(SOFT_RECLAIM);
 		return (0);
+	}
 	e = &pcs[i];
 	e->used = 1;
 	e->key = key;
@@ -296,6 +322,8 @@ pagecache_get(struct vnode *vp, unsigned pindex, unsigned char **vap)
  * Copy len bytes at file offset off through the page cache.  Returns the
  * number of bytes copied, or -ENOMEM if the cache has no unreferenced page.
  */
+/* EN: Copies len bytes at offset off through the page cache, clamped to st_size, calling pagecache_get() and pagecache_unref_key(); returns bytes copied, or -ENOMEM if no page is free. */
+/* 中文：把 vp 在偏移 off 处的 len 字节经页缓存复制到 buf，先用 ops->getattr 按 st_size 截断，逐页调用 pagecache_get() 与 pagecache_unref_key()；返回复制字节数，首片页即不可得时返回 -ENOMEM。 */
 int
 pagecache_read(struct vnode *vp, unsigned off, void *buf, unsigned len)
 {
@@ -333,6 +361,8 @@ pagecache_read(struct vnode *vp, unsigned off, void *buf, unsigned len)
 	return ((int)done);
 }
 
+/* EN: Drops one reference on the (key, pindex) entry and re-queues it on the LRU once refs reaches zero; returns 1 if found, 0 if uninitialised, key 0 or not cached. */
+/* 中文：释放 (key, pindex) 条目的一次引用，refs 归零时重新挂回 LRU；找到返回 1，未初始化、key 为 0 或未缓存则返回 0。 */
 unsigned
 pagecache_unref_key(unsigned key, unsigned pindex)
 {
@@ -351,6 +381,8 @@ pagecache_unref_key(unsigned key, unsigned pindex)
 	return (1);
 }
 
+/* EN: Thin wrapper over pagecache_unref_key() that derives the key from vp with pagecache_key() and returns 0 for a null vnode. */
+/* 中文：对 pagecache_unref_key() 的简单封装：用 pagecache_key() 从 vp 求出键，vp 为空时返回 0。 */
 unsigned
 pagecache_unref(struct vnode *vp, unsigned pindex)
 {
@@ -363,6 +395,8 @@ pagecache_unref(struct vnode *vp, unsigned pindex)
  * mmap) stay: munmap()/exit drops the reference later.  Only called for
  * mutable (tmpfs) vnodes; ISO9660 pages are immutable and keyed by LBA.
  */
+/* EN: Releases every used, unreferenced page whose key equals vp->v_id; returns early for a null vnode or an immutable vnode with v_key set, and leaves referenced (mapped) pages alone. */
+/* 中文：释放 key 等于 vp->v_id 的所有 used 且引用计数为 0 的页；vp 为空或 v_key 非 0（不可变）时直接返回，仍被映射引用的页保持不动。 */
 void
 pagecache_purge_vp(struct vnode *vp)
 {
@@ -381,6 +415,8 @@ pagecache_purge_vp(struct vnode *vp)
 			pc_release(i);
 }
 
+/* EN: Counts used entries and reports NPCACHE as total plus the accumulated hit, miss, fill and evict counters through the six output pointers. */
+/* 中文：统计 used 条目数，并通过六个输出指针返回总条目数 NPCACHE 以及累计的命中、缺失、填充、淘汰计数。 */
 void
 pagecache_stats(unsigned *total, unsigned *used, unsigned *hits,
     unsigned *misses, unsigned *fills, unsigned *evicts)
@@ -395,4 +431,28 @@ pagecache_stats(unsigned *total, unsigned *used, unsigned *hits,
 	*misses = pc_misses;
 	*fills = pc_fills;
 	*evicts = pc_evicts;
+}
+
+/*
+ * S21: drop up to n unreferenced cached pages.  Called by the softirq
+ * thread's reclaim handler, not by the allocating thread.
+ */
+/* EN: Evicts up to n unreferenced cached pages by repeatedly calling pc_take() and returns how many were evicted; the eviction count is already booked in pc_evicts by pc_take(). */
+/* 中文：反复调用 pc_take() 最多淘汰 n 个未被引用的缓存页并返回实际淘汰数；淘汰计数已由 pc_take() 记入 pc_evicts。 */
+int
+pagecache_reclaim(unsigned n)
+{
+	int i, count = 0;
+
+	if (!pc_inited)
+		return (0);
+	while (count < (int)n) {
+		i = pc_take();
+		if (i < 0)
+			break;
+		count++;
+	}
+	if (count > 0)
+		pc_evicts += 0;		/* pc_take already counted */
+	return (count);
 }

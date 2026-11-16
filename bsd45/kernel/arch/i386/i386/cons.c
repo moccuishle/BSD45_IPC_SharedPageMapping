@@ -71,6 +71,8 @@ struct	tty *constty = 0;	/* virtual console output device */
 struct	consdev *cn_tab;	/* physical console device info */
 struct	tty *cn_tty;		/* XXX: console tty struct for tprintf */
 
+/* EN: Probes every constab entry, selects the highest-priority console above CN_DEAD as cn_tab, records its tty in cn_tty and calls its cn_init; leaves cn_tab NULL if none. */
+/* 中文：遍历 constab 逐个调用 cn_probe，选取优先级高于 CN_DEAD 的最高优先级控制台作为 cn_tab，记录 cn_tty 并调用 cn_init；无可用控制台时 cn_tab 为 NULL。 */
 cninit()
 {
 	register struct consdev *cp;
@@ -97,6 +99,8 @@ cninit()
 	(*cp->cn_init)(cp);
 }
 
+/* EN: Thin wrapper: if no console is selected returns 0, else substitutes cn_tab->cn_dev and calls that device's cdevsw d_open entry. */
+/* 中文：薄封装：未选中控制台时返回 0，否则用 cn_tab->cn_dev 替换 dev 并调用该设备 cdevsw 的 d_open。 */
 cnopen(dev, flag, mode, p)
 	dev_t dev;
 	int flag, mode;
@@ -108,6 +112,8 @@ cnopen(dev, flag, mode, p)
 	return ((*cdevsw[major(dev)].d_open)(dev, flag, mode, p));
 }
  
+/* EN: Thin wrapper: returns 0 when cn_tab is NULL, otherwise calls the selected console device's cdevsw d_close with cn_tab->cn_dev. */
+/* 中文：薄封装：cn_tab 为 NULL 时返回 0，否则以 cn_tab->cn_dev 调用选中控制台设备的 cdevsw d_close。 */
 cnclose(dev, flag, mode, p)
 	dev_t dev;
 	int flag, mode;
@@ -119,6 +125,8 @@ cnclose(dev, flag, mode, p)
 	return ((*cdevsw[major(dev)].d_close)(dev, flag, mode, p));
 }
  
+/* EN: Thin wrapper: returns 0 without a console, else forwards the uio to the selected console's cdevsw d_read using cn_tab->cn_dev. */
+/* 中文：薄封装：无控制台时返回 0，否则用 cn_tab->cn_dev 把 uio 读请求转给选中控制台的 d_read。 */
 cnread(dev, uio, flag)
 	dev_t dev;
 	struct uio *uio;
@@ -129,6 +137,8 @@ cnread(dev, uio, flag)
 	return ((*cdevsw[major(dev)].d_read)(dev, uio, flag));
 }
  
+/* EN: Thin wrapper: returns 0 without a console, else forwards the uio to the selected console's cdevsw d_write using cn_tab->cn_dev. */
+/* 中文：薄封装：无控制台时返回 0，否则用 cn_tab->cn_dev 把 uio 写请求转给选中控制台的 d_write。 */
 cnwrite(dev, uio, flag)
 	dev_t dev;
 	struct uio *uio;
@@ -139,6 +149,8 @@ cnwrite(dev, uio, flag)
 	return ((*cdevsw[major(dev)].d_write)(dev, uio, flag));
 }
  
+/* EN: Handles TIOCCONS while a virtual console (constty) exists: requires superuser, clears constty and returns 0; all other commands go to the console's d_ioctl. */
+/* 中文：存在虚拟控制台 constty 时处理 TIOCCONS：检查超级用户权限后清除 constty 并返回 0；其余命令转交选中控制台的 d_ioctl。 */
 cnioctl(dev, cmd, data, flag, p)
 	dev_t dev;
 	caddr_t data;
@@ -164,6 +176,8 @@ cnioctl(dev, cmd, data, flag, p)
 }
 
 /*ARGSUSED*/
+/* EN: Returns 1 (always ready) when cn_tab is NULL, otherwise delegates the select request to ttselect on the selected console's cn_dev. */
+/* 中文：cn_tab 为 NULL 时返回 1(总就绪)，否则把 select 请求交给 ttselect 在选中控制台的 cn_dev 上处理。 */
 cnselect(dev, rw, p)
 	dev_t dev;
 	int rw;
@@ -174,6 +188,8 @@ cnselect(dev, rw, p)
 	return (ttselect(cn_tab->cn_dev, rw, p));
 }
 
+/* EN: Polled character input: returns 0 if no console is selected, otherwise calls cn_tab->cn_getc(cn_tab->cn_dev) to read one character in the kernel. */
+/* 中文：轮询取字符：未选中控制台时返回 0，否则调用 cn_tab->cn_getc(cn_tab->cn_dev) 在内核态读入一个字符。 */
 cngetc()
 {
 	if (cn_tab == NULL)
@@ -181,6 +197,8 @@ cngetc()
 	return ((*cn_tab->cn_getc)(cn_tab->cn_dev));
 }
 
+/* EN: Puts character c through cn_tab->cn_putc, following a newline with a carriage return and ignoring c == 0; a no-op when no console is selected. */
+/* 中文：经 cn_tab->cn_putc 输出字符 c，遇换行符再补发回车，c 为 0 时忽略；未选中控制台时不做任何输出。 */
 cnputc(c)
 	register int c;
 {

@@ -56,6 +56,8 @@ static char sccsid[] = "@(#)genassym.c	8.2 (Berkeley) 9/23/93";
 #include <vm/vm.h>
 #include <sys/user.h>
 
+/* EN: Host-side genassym program: prints #define lines with struct field offsets, sizes and flag values that the assembly sources consume, then calls exit(0). */
+/* 中文：主机端 genassym 程序：为汇编源码打印 #define 行，输出结构体字段偏移、大小及标志值，最后调用 exit(0)。 */
 main()
 {
 	struct proc *p = (struct proc *)0;

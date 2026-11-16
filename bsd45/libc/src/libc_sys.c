@@ -9,6 +9,7 @@
  */
 
 #include <sys/param.h>
+#include <syscall_arch.h>
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <sys/time.h>
@@ -102,33 +103,23 @@ syscall_rv(int r)
 static int
 sys3(int n, int a, int b, int c)
 {
-	int r;
 
-	__asm__ volatile("int $0x80"
-	    : "=a"(r) : "a"(n), "b"(a), "c"(b), "d"(c) : "memory");
-	return (r);
+	return (__syscall3(n, a, b, c));
 }
 
 static int
 sys4(int n, int a, int b, int c, int d)
 {
-	int r;
 
-	__asm__ volatile("int $0x80"
-	    : "=a"(r) : "a"(n), "b"(a), "c"(b), "d"(c), "S"(d) : "memory");
-	return (r);
+	return (__syscall4(n, a, b, c, d));
 }
 
 /* S17: five register arguments (mmap uses addr/len/prot/flags/fd). */
 static int
 sys5(int n, int a, int b, int c, int d, int e)
 {
-	int r;
 
-	__asm__ volatile("int $0x80"
-	    : "=a"(r) : "a"(n), "b"(a), "c"(b), "d"(c), "S"(d), "D"(e)
-	    : "memory");
-	return (r);
+	return (__syscall5(n, a, b, c, d, e));
 }
 
 static int

@@ -48,6 +48,8 @@
  * Return -1 if not found.
  */
 
+/* EN: Searches the 126 entries of a dkbad table for the cylinder/track/sector key, returning its index or -1, stopping early once the sorted entries pass the key. */
+/* 中文：在 dkbad 表的 126 项坏区中查找匹配的柱面/磁道/扇区，命中返回下标，未命中返回 -1；表已排序，越过目标即提前结束。 */
 isbad(bt, cyl, trk, sec)
 	register struct dkbad *bt;
 {

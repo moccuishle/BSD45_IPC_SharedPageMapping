@@ -254,6 +254,8 @@ int nfs_numasync = 0;
 /*
  * nfs null call from vfs.
  */
+/* EN: Sends the argument-less NFSPROC_NULL RPC to probe the server and returns the RPC error, 0 on success. */
+/* 中文：发送不带参数的 NFSPROC_NULL RPC 以探测服务器，返回该 RPC 的错误码（成功为 0）。 */
 int
 nfs_null(vp, cred, procp)
 	struct vnode *vp;
@@ -276,6 +278,8 @@ nfs_null(vp, cred, procp)
  * For nfs version 3, use the access rpc to check accessibility. If file modes
  * are changed on the server, accesses might still fail later.
  */
+/* EN: Rejects writes on a read-only mount (EROFS); v3 issues NFSPROC_ACCESS with NFSV3ACCESS_* bits from a_mode, EACCES if a requested bit is missing; v2 uses nfsspec_access. */
+/* 中文：只读挂载上的写访问直接返回 EROFS；v3 把 a_mode 翻译成 NFSV3ACCESS_* 位发起 ACCESS RPC，返回权限位未覆盖请求时返回 EACCES；v2 交给 nfsspec_access 本地判断。 */
 int
 nfs_access(ap)
 	struct vop_access_args /* {
@@ -363,6 +367,8 @@ nfs_access(ap)
  * if consistency is lost.
  */
 /* ARGSUSED */
+/* EN: Validates type (EACCES otherwise), for NQNFS gets a read lease and flushes stale cache on revoke, else invalidates buffers when NMODIFIED or mtime changed; clears n_attrstamp. */
+/* 中文：校验 vnode 类型（非普通/目录/符号链接返回 EACCES），NQNFS 下获取读租约并在租约失效时清缓存，否则按 NMODIFIED 或 mtime 变化失效缓冲，最后清零 n_attrstamp。 */
 int
 nfs_open(ap)
 	struct vop_open_args /* {
@@ -466,6 +472,8 @@ nfs_open(ap)
  *                     cases where write errors are important.
  */
 /* ARGSUSED */
+/* EN: On close of a modified regular file flushes it: nfs_flush() without commit for v3, nfs_vinvalbuf(V_SAVE) for v2; clears n_attrstamp and returns any latched NWRITEERR. */
+/* 中文：关闭被修改的普通文件时按版本刷写：v3 调 nfs_flush（不强制 commit），v2 调 nfs_vinvalbuf(V_SAVE)，随后清 n_attrstamp 并上报之前锁存的 NWRITEERR 错误。 */
 int
 nfs_close(ap)
 	struct vop_close_args /* {
@@ -500,6 +508,8 @@ nfs_close(ap)
 /*
  * nfs getattr call from vfs.
  */
+/* EN: Serves attributes from nfs_getattrcache when valid, otherwise issues an NFSPROC_GETATTR RPC and loads the reply into vap; sets NCHG if NACC/NUPD are pending. */
+/* 中文：先查 nfs_getattrcache，命中即返回 0；否则发起 NFSPROC_GETATTR RPC 并用 nfsm_loadattr 填充 vattr，若存在 NACC/NUPD 标志则同时置 NCHG。 */
 int
 nfs_getattr(ap)
 	struct vop_getattr_args /* {
@@ -542,6 +552,8 @@ nfs_getattr(ap)
 /*
  * nfs setattr call.
  */
+/* EN: Checks read-only mount (EROFS) and type (EISDIR for dirs), invalidates dirty buffers, sets n_size and pager size, then calls nfs_setattrrpc, restoring the old size if it fails. */
+/* 中文：检查只读挂载(EROFS)与文件类型(目录返回EISDIR)，按需失效脏缓冲区，更新n_size并调用vnode_pager_setsize，然后发起nfs_setattrrpc，失败时恢复原大小。 */
 int
 nfs_setattr(ap)
 	struct vop_setattr_args /* {
@@ -623,6 +635,8 @@ nfs_setattr(ap)
 /*
  * Do an nfs setattr rpc.
  */
+/* EN: Builds and sends an NFSv3 SETATTR RPC (mode/uid/gid/size with true flags, atime/mtime as TOSERVER or TOCLIENT) or an NFSv2 sattr, then applies wcc or loadattr and returns error. */
+/* 中文：构造并发送NFSv3 SETATTR请求(mode/uid/gid/size带true标志位，atime/mtime按TOSERVER或TOCLIENT编码)或NFSv2 sattr，随后处理wcc/loadattr并返回错误码。 */
 int
 nfs_setattrrpc(vp, vap, cred, procp)
 	register struct vnode *vp;
@@ -736,6 +750,8 @@ nfs_setattrrpc(vp, vap, cred, procp)
  * First look in cache
  * If not found, unlock the directory nfsnode and do the rpc
  */
+/* EN: Cache-first lookup: verifies cached vnode ctime via GETATTR, else sends LOOKUP, builds or reuses the vnode with nfs_nget, caches it for MAKEENTRY and maps ENOENT to EJUSTRETURN. */
+/* 中文：先查名字缓存并用GETATTR校验ctime，未命中则发LOOKUP请求，用nfs_nget建立或复用vnode，MAKEENTRY时写入缓存，CREATE/RENAME遇ENOENT转为EJUSTRETURN。 */
 int
 nfs_lookup(ap)
 	struct vop_lookup_args /* {
@@ -889,6 +905,8 @@ nfs_lookup(ap)
  * nfs read call.
  * Just call nfs_bioread() to do the work.
  */
+/* EN: Thin VOP wrapper: rejects non-regular vnodes with EPERM, otherwise forwards the uio, ioflag and credentials to nfs_bioread for the actual read. */
+/* 中文：薄封装：非常规文件返回EPERM，否则把uio、ioflag和凭证转交给nfs_bioread完成实际读取。 */
 int
 nfs_read(ap)
 	struct vop_read_args /* {
@@ -908,6 +926,8 @@ nfs_read(ap)
 /*
  * nfs readlink call
  */
+/* EN: Thin VOP wrapper: returns EPERM unless the vnode is a symlink, then reads the link target through nfs_bioread with ioflag 0. */
+/* 中文：薄封装：vnode非符号链接时返回EPERM，否则以ioflag为0调用nfs_bioread读取链接目标。 */
 int
 nfs_readlink(ap)
 	struct vop_readlink_args /* {
@@ -927,6 +947,8 @@ nfs_readlink(ap)
  * Do a readlink rpc.
  * Called by nfs_doio() from below the buffer cache.
  */
+/* EN: Sends a READLINK RPC with the file handle, refreshes v3 postop attributes, and copies the returned path string into the caller's uio; counts NFSPROC_READLINK. */
+/* 中文：带文件句柄发送READLINK请求，更新v3 postop属性，并把返回的路径串拷贝到调用者的uio；统计NFSPROC_READLINK。 */
 int
 nfs_readlinkrpc(vp, uiop, cred)
 	register struct vnode *vp;
@@ -959,6 +981,8 @@ nfs_readlinkrpc(vp, uiop, cred)
  * nfs read rpc call
  * Ditto above
  */
+/* EN: Loops READ RPCs of at most nm_rsize bytes from uio_offset, copying each reply into the uio and stopping on v3 eof or a short read; NFSv2 offsets past 4G return EFBIG. */
+/* 中文：以nm_rsize为上限循环发送READ请求，把每次应答拷入uio，遇v3 eof或短读即停止；NFSv2下偏移超过4G返回EFBIG。 */
 int
 nfs_readrpc(vp, uiop, cred)
 	register struct vnode *vp;
@@ -1023,6 +1047,8 @@ nfsmout:
 /*
  * nfs write call
  */
+/* EN: Loops WRITE RPCs of at most nm_wsize bytes, rewinding the uio on short writes, tracking the lowest commit level in *iomode and flagging *must_commit when the v3 verifier changes. */
+/* 中文：以nm_wsize为上限循环发送WRITE请求，短写时回退uio，在*iomode记录最低提交级别，并在v3写验证符变化时置*must_commit。 */
 int
 nfs_writerpc(vp, uiop, cred, iomode, must_commit)
 	register struct vnode *vp;
@@ -1128,6 +1154,8 @@ nfsmout:
  * For NFS v2 this is a kludge. Use a create rpc but with the IFMT bits of the
  * mode set to specify the file type and the size field for rdev.
  */
+/* EN: Creates device/fifo/socket via MKNOD RPC (v3 type+major/minor, v2 rdev in the size field), falls back to nfs_lookitup if no handle returns, rejects other types with EOPNOTSUPP. */
+/* 中文：通过MKNOD请求创建设备/FIFO/套接字(v3带type和主次设备号，v2把rdev放在size字段)，无句柄返回时用nfs_lookitup补齐，其他类型返回EOPNOTSUPP。 */
 int
 nfs_mknodrpc(dvp, vpp, cnp, vap)
 	register struct vnode *dvp;
@@ -1226,6 +1254,8 @@ nfs_mknodrpc(dvp, vpp, cnp, vap)
  * just call nfs_mknodrpc() to do the work.
  */
 /* ARGSUSED */
+/* EN: Thin wrapper over nfs_mknodrpc: returns its error and, on success, releases the new vnode with vrele instead of handing it back to the caller. */
+/* 中文：nfs_mknodrpc的薄封装：返回其错误码，成功时用vrele释放新vnode而不交给调用者。 */
 int
 nfs_mknod(ap)
 	struct vop_mknod_args /* {
@@ -1248,6 +1278,8 @@ static u_long create_verf;
 /*
  * nfs file create call
  */
+/* EN: Creates a file via CREATE RPC (v3 EXCLUSIVE+verifier for O_EXCL, else UNCHECKED+sattr), retries unchecked on NFSERR_NOTSUPP, applies setattr for O_EXCL and caches the result. */
+/* 中文：通过CREATE请求创建文件(O_EXCL时用v3 EXCLUSIVE加验证符，否则UNCHECKED加sattr)，遇NFSERR_NOTSUPP退化重试，O_EXCL成功后补发setattr并入缓存。 */
 int
 nfs_create(ap)
 	struct vop_create_args /* {
@@ -1367,6 +1399,8 @@ again:
  *     else
  *	  do the remove rpc
  */
+/* EN: At v_usecount==1 purges the name cache, flushes buffers and sends the REMOVE RPC (ENOENT mapped to 0); otherwise starts nfs_sillyrename, then drops the dvp and vp references. */
+/* 中文：v_usecount为1时清除名字缓存、丢弃缓冲区并发REMOVE请求(ENOENT映射为0)，否则改走nfs_sillyrename，最后释放dvp和vp引用。 */
 int
 nfs_remove(ap)
 	struct vop_remove_args /* {
@@ -1435,6 +1469,8 @@ nfs_remove(ap)
 /*
  * nfs file remove rpc called from nfs_inactive
  */
+/* EN: Thin wrapper used by nfs_inactive: re-sends the REMOVE RPC for a saved sillyrename using its stored directory, name, length and duplicated credentials with a NULL proc. */
+/* 中文：供nfs_inactive调用的薄封装：用sillyrename保存的目录、名字、长度和复制凭证、proc传NULL，重新发送REMOVE请求。 */
 int
 nfs_removeit(sp)
 	register struct sillyrename *sp;
@@ -1447,6 +1483,8 @@ nfs_removeit(sp)
 /*
  * Nfs remove rpc, called from nfs_remove() and nfs_removeit().
  */
+/* EN: Sends a REMOVE RPC with the directory handle and name, collects v3 wcc data, marks the directory NMODIFIED and clears its attribute stamp when no wcc arrived. */
+/* 中文：发送携带目录句柄和文件名的REMOVE请求，收集v3 wcc数据，把目录标为NMODIFIED，无wcc时清除其属性时间戳。 */
 int
 nfs_removerpc(dvp, name, namelen, cred, proc)
 	register struct vnode *dvp;
@@ -1481,6 +1519,8 @@ nfs_removerpc(dvp, name, namelen, cred, proc)
 /*
  * nfs file rename call
  */
+/* EN: Rejects cross-device renames with EXDEV, sillyrenames an in-use target, sends RENAME, purges directory caches for dir renames, releases the four vnodes and maps ENOENT to 0. */
+/* 中文：跨设备改名返回EXDEV，先对仍被占用的目标做sillyrename，再发RENAME请求，目录改名时清除父目录缓存，释放四个vnode并把ENOENT映射为0。 */
 int
 nfs_rename(ap)
 	struct vop_rename_args  /* {
@@ -1551,6 +1591,8 @@ out:
 /*
  * nfs file rename rpc called from nfs_remove() above
  */
+/* EN: Thin wrapper that calls nfs_renamerpc to rename the source name to the sillyrename's stored name in the same directory, taking credentials and proc from the componentname. */
+/* 中文：薄封装：调用nfs_renamerpc在同一目录内把源名字改名为sillyrename保存的名字，凭证和进程取自componentname。 */
 int
 nfs_renameit(sdvp, scnp, sp)
 	struct vnode *sdvp;
@@ -1564,6 +1606,8 @@ nfs_renameit(sdvp, scnp, sp)
 /*
  * Do an nfs rename rpc. Called from nfs_rename() and nfs_renameit().
  */
+/* EN: Sends a RENAME RPC carrying both directory handles and both names, collects v3 wcc data for each directory, marks both NMODIFIED and clears attribute stamps where wcc is missing. */
+/* 中文：发送含两个目录句柄和两个名字的RENAME请求，分别收集两目录的v3 wcc数据，把两者标为NMODIFIED，缺失wcc时清除对应属性时间戳。 */
 int
 nfs_renamerpc(fdvp, fnameptr, fnamelen, tdvp, tnameptr, tnamelen, cred, proc)
 	register struct vnode *fdvp;
@@ -1609,6 +1653,8 @@ nfs_renamerpc(fdvp, fnameptr, fnamelen, tdvp, tnameptr, tnamelen, cred, proc)
 /*
  * nfs hard link create call
  */
+/* EN: Returns EXDEV across mounts, fsyncs the source vnode, sends a LINK RPC with both handles and the name, updates wcc/attrs, drops the tdvp reference and maps EEXIST to 0. */
+/* 中文：跨挂载返回EXDEV，先fsync源vnode，再发带两个句柄和新文件名的LINK请求，更新wcc/属性，释放tdvp引用并把EEXIST映射为0。 */
 int
 nfs_link(ap)
 	struct vop_link_args /* {
@@ -1674,6 +1720,8 @@ nfs_link(ap)
 /*
  * nfs symbolic link create call
  */
+/* EN: Sends a SYMLINK RPC with the link name, target string and v3 or v2 sattr (mode VLNK, size -1), releases any returned vnode, frees the name buffer and maps EEXIST to 0. */
+/* 中文：发送带链接名、目标串以及v3或v2 sattr(模式VLNK、size为-1)的SYMLINK请求，释放返回的vnode，释放名字缓冲区并把EEXIST映射为0。 */
 int
 nfs_symlink(ap)
 	struct vop_symlink_args /* {
@@ -1744,6 +1792,8 @@ nfs_symlink(ap)
 /*
  * nfs make dir call
  */
+/* EN: Gets parent attributes for the gid, sends a MKDIR RPC with name and sattr (size -1), and on EEXIST or a missing handle looks the name up, requiring a directory else EEXIST. */
+/* 中文：先取父目录属性以获得gid，发送带名字和sattr(size为-1)的MKDIR请求，遇EEXIST或缺句柄时用nfs_lookitup查找，结果非目录则返回EEXIST。 */
 int
 nfs_mkdir(ap)
 	struct vop_mkdir_args /* {
@@ -1834,6 +1884,8 @@ nfs_mkdir(ap)
 /*
  * nfs remove directory call
  */
+/* EN: Rejects removing the directory itself with EINVAL, sends an RMDIR RPC, collects v3 wcc, purges both name cache entries, drops the vp/dvp references and maps ENOENT to 0. */
+/* 中文：目录自删时释放引用并返回EINVAL，否则发RMDIR请求、收集v3 wcc、清除两个名字缓存项、释放vp与dvp引用，并把ENOENT映射为0。 */
 int
 nfs_rmdir(ap)
 	struct vop_rmdir_args /* {
@@ -1887,6 +1939,8 @@ nfs_rmdir(ap)
 /*
  * nfs readdir call
  */
+/* EN: Rejects non-directories with EPERM, answers offsets past n_direofoffset from the EOF cache when unmodified and attrs match, else calls nfs_bioread and counts a miss. */
+/* 中文：非目录返回EPERM；目录未修改且属性匹配时对超过n_direofoffset的偏移直接命中EOF缓存返回0，否则调nfs_bioread并统计未命中。 */
 int
 nfs_readdir(ap)
 	struct vop_readdir_args /* {
@@ -1935,6 +1989,8 @@ nfs_readdir(ap)
  * Readdir rpc call.
  * Called from below the buffer cache by nfs_doio().
  */
+/* EN: Loops READDIR RPCs converting entries into BSD dirents, pads records to DIRBLKSIZ, saves the cookie verifier and either sets n_direofoffset at EOF or stores the resume cookie. */
+/* 中文：循环发送READDIR请求，把目录项转换为BSD dirent并按DIRBLKSIZ补齐，保存cookie验证符，到EOF时记录n_direofoffset，否则存下续读cookie。 */
 int
 nfs_readdirrpc(vp, uiop, cred)
 	struct vnode *vp;
@@ -2120,6 +2176,8 @@ nfsmout:
 /*
  * NFS V3 readdir plus RPC. Used in place of nfs_readdirrpc().
  */
+/* EN: NFSv3 READDIRPLUS readdir loop: also decodes each entry's postop attributes and handle, builds or reuses a vnode with nfs_nget, sets d_type and enters it in the name cache. */
+/* 中文：READDIRPLUS(NFSv3)版本的目录读取循环：额外解析每项的postop属性与文件句柄，用nfs_nget建立或复用vnode，填充d_type并写入名字缓存。 */
 int
 nfs_readdirplusrpc(vp, uiop, cred)
 	struct vnode *vp;
@@ -2354,6 +2412,8 @@ static char hextoasc[] = "0123456789abcdef";
  * to create the same funny name between the nfs_lookitup() fails and the
  * nfs_rename() completes, but...
  */
+/* EN: Renames an in-use file to a generated .nfsAxxxx4.4 name (pid in hex, bumped until free), then attaches the sillyrename struct to the looked-up nfsnode for removal at last close. */
+/* 中文：把仍被占用的文件改名成.nfsAxxxx4.4(含pid十六进制、冲突则递增字符)，再用nfs_lookitup取回nfsnode并挂上sillyrename，供最后关闭时删除。 */
 int
 nfs_sillyrename(dvp, vp, cnp)
 	struct vnode *dvp, *vp;
@@ -2415,6 +2475,8 @@ bad:
  *			handled too
  * *npp != NULL --> update the file handle in the vnode
  */
+/* EN: Internal LOOKUP RPC by name: with npp NULL only probes existence; with *npp NULL gets or creates a vnode via nfs_nget; with *npp set updates that nfsnode's file handle in place. */
+/* 中文：按名字发内部LOOKUP请求：npp为NULL仅探测是否存在；*npp为NULL时用nfs_nget取得vnode；*npp非空则就地更新该nfsnode的文件句柄。 */
 int
 nfs_lookitup(dvp, name, len, cred, procp, npp)
 	register struct vnode *dvp;
@@ -2488,6 +2550,8 @@ nfs_lookitup(dvp, name, len, cred, procp, npp)
 /*
  * Nfs Version 3 commit rpc
  */
+/* EN: Sends NFSv3 COMMIT RPC for offset/count, returning 0 early if no write verifier is known; compares the reply verifier to nm_verf and returns NFSERR_STALEWRITEVERF on mismatch. */
+/* 中文：对指定偏移和长度发NFSv3 COMMIT请求，尚无写验证符时直接返回0；比较应答验证符与nm_verf，不一致则返回NFSERR_STALEWRITEVERF。 */
 int
 nfs_commit(vp, offset, cnt, cred, procp)
 	register struct vnode *vp;
@@ -2537,6 +2601,8 @@ nfs_commit(vp, offset, cnt, cred, procp)
  *    a lot more work than bcopy() and also it currently happens in the
  *    context of the swapper process (2).
  */
+/* EN: Deliberately a no-op translation: sets *a_vpp to the vnode itself and *a_bnp to bn converted by btodb(f_iosize), leaving run information unset, and always returns 0. */
+/* 中文：有意做成空转换：把*a_vpp指向vnode本身，*a_bnp由bn按btodb(f_iosize)换算得来，不填连续块信息，始终返回0。 */
 int
 nfs_bmap(ap)
 	struct vop_bmap_args /* {
@@ -2562,6 +2628,8 @@ nfs_bmap(ap)
  * calling nfs_asyncio(), otherwise just all nfs_doio() to do the
  * request.
  */
+/* EN: Panics on B_PHYS, picks curproc or NULL for async plus the read/write credentials, then queues the buffer via nfs_asyncio for async requests, else does a synchronous nfs_doio. */
+/* 中文：B_PHYS直接panic，异步请求用NULL进程、否则用curproc并选读/写凭证，异步时先nfs_asyncio入队，否则退回同步nfs_doio执行。 */
 int
 nfs_strategy(ap)
 	struct vop_strategy_args *ap;
@@ -2598,6 +2666,8 @@ nfs_strategy(ap)
  * NB Currently unsupported.
  */
 /* ARGSUSED */
+/* EN: Stub that unconditionally returns EINVAL: memory mapping of files on this NFS client is not supported, so VOP_MMAP callers always fail. */
+/* 中文：空实现，无条件返回EINVAL：该NFS客户端不支持对文件做内存映射，所有VOP_MMAP调用都会失败。 */
 int
 nfs_mmap(ap)
 	struct vop_mmap_args /* {
@@ -2615,6 +2685,8 @@ nfs_mmap(ap)
  * fsync vnode op. Just call nfs_flush() with commit == 1.
  */
 /* ARGSUSED */
+/* EN: VOP wrapper that forwards a_vp, a_cred, a_waitfor and a_p to nfs_flush() with commit=1, so NFSv3 uncommitted buffers are committed before the flush. */
+/* 中文：VOP 包装函数，把 a_vp、a_cred、a_waitfor、a_p 转交给 nfs_flush() 且 commit=1，使 NFSv3 的待提交缓冲在刷出前先被 commit。 */
 int
 nfs_fsync(ap)
 	struct vop_fsync_args /* {
@@ -2634,6 +2706,8 @@ nfs_fsync(ap)
  * 	Walk through the buffer pool and push any dirty pages
  *	associated with the vnode.
  */
+/* EN: Commits up to 20 B_NEEDCOMMIT buffers per RPC, then VOP_BWRITE()s remaining dirty blocks in two passes; MNT_WAIT tsleeps on v_numoutput (EINTR on signal), returns np->n_error. */
+/* 中文：每轮最多对 20 个 B_NEEDCOMMIT 脏缓冲做一次 commit RPC，再分两趟用 VOP_BWRITE() 写出剩余脏块；MNT_WAIT 时在 v_numoutput 上 tsleep（被信号打断返回 EINTR），清除 NWRITEERR 后返回 np->n_error。 */
 int
 nfs_flush(vp, cred, waitfor, p, commit)
 	register struct vnode *vp;
@@ -2802,6 +2876,8 @@ loop:
  * for V2.
  */
 /* ARGSUSED */
+/* EN: Unconditionally returns EINVAL without writing a_retval, because the NFS V2 protocol supplies no pathconf information. */
+/* 中文：无条件返回 EINVAL 且不写 a_retval，因为 NFS V2 协议不提供任何 pathconf 信息。 */
 int
 nfs_pathconf(ap)
 	struct vop_pathconf_args /* {
@@ -2818,6 +2894,8 @@ nfs_pathconf(ap)
  * NFS advisory byte-level locks.
  * Currently unsupported.
  */
+/* EN: Returns EOPNOTSUPP for every request; NFS advisory byte-level locking is unimplemented, so no lock is granted or recorded. */
+/* 中文：对任何请求都直接返回 EOPNOTSUPP，NFS 建议性字节范围加锁未实现，不会授予或记录任何锁。 */
 int
 nfs_advlock(ap)
 	struct vop_advlock_args /* {
@@ -2835,6 +2913,8 @@ nfs_advlock(ap)
 /*
  * Print out the contents of an nfsnode.
  */
+/* EN: Diagnostic dump: prints the nfsnode's va_fileid and va_fsid as 'tag VT_NFS', adds fifo_printinfo() output for VFIFO vnodes, then a newline; returns 0. */
+/* 中文：调试输出：以 'tag VT_NFS' 打印 nfsnode 的 va_fileid 与 va_fsid，VFIFO 类型再输出 fifo_printinfo() 的信息，最后换行并返回 0。 */
 int
 nfs_print(ap)
 	struct vop_print_args /* {
@@ -2856,6 +2936,8 @@ nfs_print(ap)
  * NFS directory offset lookup.
  * Currently unsupported.
  */
+/* EN: Returns EOPNOTSUPP at once; the NFS directory-offset blkatoff lookup is unsupported, so *a_res and *a_bpp are never assigned. */
+/* 中文：立即返回 EOPNOTSUPP；NFS 目录偏移查找 blkatoff 不受支持，因此 *a_res 和 *a_bpp 都不会被赋值。 */
 int
 nfs_blkatoff(ap)
 	struct vop_blkatoff_args /* {
@@ -2873,6 +2955,8 @@ nfs_blkatoff(ap)
  * NFS flat namespace allocation.
  * Currently unsupported.
  */
+/* EN: Returns EOPNOTSUPP without allocating anything; NFS flat-namespace vnode allocation is unsupported, so *a_vpp is left untouched. */
+/* 中文：直接返回 EOPNOTSUPP 且不分配任何对象；NFS 平坦命名空间的 vnode 分配未实现，*a_vpp 保持原值不变。 */
 int
 nfs_valloc(ap)
 	struct vop_valloc_args /* {
@@ -2890,6 +2974,8 @@ nfs_valloc(ap)
  * NFS flat namespace free.
  * Currently unsupported.
  */
+/* EN: A no-op returning EOPNOTSUPP; freeing an inode through the NFS flat-namespace vfree operation is unsupported. */
+/* 中文：空操作，返回 EOPNOTSUPP；通过 NFS 平坦命名空间的 vfree 操作释放 inode 未实现。 */
 int
 nfs_vfree(ap)
 	struct vop_vfree_args /* {
@@ -2905,6 +2991,8 @@ nfs_vfree(ap)
 /*
  * NFS file truncation.
  */
+/* EN: Does not truncate: prints 'nfs_truncate: need to implement!!' to the console and returns EOPNOTSUPP, leaving the file length unchanged. */
+/* 中文：并未真正截断：向控制台打印 'nfs_truncate: need to implement!!' 后返回 EOPNOTSUPP，文件长度保持不变。 */
 int
 nfs_truncate(ap)
 	struct vop_truncate_args /* {
@@ -2924,6 +3012,8 @@ nfs_truncate(ap)
 /*
  * NFS update.
  */
+/* EN: Stub: prints 'nfs_update: need to implement!!' and returns EOPNOTSUPP without updating times or writing anything back to the server. */
+/* 中文：桩函数：打印 'nfs_update: need to implement!!' 并返回 EOPNOTSUPP，既不更新时间戳也不向服务器回写数据。 */
 int
 nfs_update(ap)
 	struct vop_update_args /* {
@@ -2942,6 +3032,8 @@ nfs_update(ap)
 /*
  * Just call nfs_writebp() with the force argument set to 1.
  */
+/* EN: Thin wrapper: calls nfs_writebp(ap->a_bp, 1), i.e. force is 1 so B_WRITEINPROG gets set, and returns the buffered write's result. */
+/* 中文：薄封装：调用 nfs_writebp(ap->a_bp, 1)，即 force 为 1 从而置 B_WRITEINPROG，并返回该缓冲写操作的结果。 */
 int
 nfs_bwrite(ap)
 	struct vop_bwrite_args /* {
@@ -2956,6 +3048,8 @@ nfs_bwrite(ap)
  * This is a clone of vn_bwrite(), except that B_WRITEINPROG isn't set unless
  * the force flag is one and it also handles the B_NEEDCOMMIT flag.
  */
+/* EN: vn_bwrite clone: panics if bp lacks B_BUSY, bumps v_numoutput, tries nfs_commit for B_NEEDCOMMIT; sync callers biowait then brelse and get the error, async callers return 0. */
+/* 中文：vn_bwrite 的克隆：bp 未置 B_BUSY 即 panic，递增 v_numoutput，对 B_NEEDCOMMIT 先尝试 nfs_commit；同步调用者 biowait 后 reassignbuf、brelse 并返回 I/O 错误，异步则返回 0。 */
 int
 nfs_writebp(bp, force)
 	register struct buf *bp;
@@ -3022,6 +3116,8 @@ nfs_writebp(bp, force)
  * Essentially just get vattr and then imitate iaccess() since the device is
  * local to the client.
  */
+/* EN: Local-device access check: EROFS for VWRITE on a read-only mount of VREG/VDIR/VLNK, uid 0 always passes, else VOP_GETATTR then owner/group/other mode bits give 0 or EACCES. */
+/* 中文：客户端本地设备的访问检查：只读挂载上的 VWRITE 对 VREG/VDIR/VLNK 返回 EROFS，uid 0 直接通过，否则 VOP_GETATTR 后按属主/属组/其他权限位返回 0 或 EACCES。 */
 int
 nfsspec_access(ap)
 	struct vop_access_args /* {
@@ -3083,6 +3179,8 @@ found:
 /*
  * Read wrapper for special devices.
  */
+/* EN: Sets NACC on the nfsnode and stamps n_atim from the current time, then forwards the read vnode op to spec_vnodeop_p through VOCALL(). */
+/* 中文：在 nfsnode 上置 NACC 并用当前时间记录 n_atim，然后通过 VOCALL() 把读操作转发给 spec_vnodeop_p。 */
 int
 nfsspec_read(ap)
 	struct vop_read_args /* {
@@ -3106,6 +3204,8 @@ nfsspec_read(ap)
 /*
  * Write wrapper for special devices.
  */
+/* EN: Sets NUPD on the nfsnode and stamps n_mtim with the current time, then dispatches the write vnode op to spec_vnodeop_p via VOCALL(). */
+/* 中文：在 nfsnode 上置 NUPD 并用当前时间记录 n_mtim，随后通过 VOCALL() 将写操作分派给 spec_vnodeop_p。 */
 int
 nfsspec_write(ap)
 	struct vop_write_args /* {
@@ -3131,6 +3231,8 @@ nfsspec_write(ap)
  *
  * Update the times on the nfsnode then do device close.
  */
+/* EN: If NACC/NUPD is set it marks NCHG and, when it is the last reference on a writable mount, VOP_SETATTR()s the cached times; then calls spec_vnodeop_p's close via VOCALL(). */
+/* 中文：若置有 NACC/NUPD 则标记 NCHG，并在引用计数为 1 且挂载非只读时用 VOP_SETATTR() 写回缓存的时间戳，随后经 VOCALL() 调用 spec_vnodeop_p 的 close。 */
 int
 nfsspec_close(ap)
 	struct vop_close_args /* {
@@ -3162,6 +3264,8 @@ nfsspec_close(ap)
 /*
  * Read wrapper for fifos.
  */
+/* EN: FIFO read wrapper: sets NACC and n_atim on the nfsnode, then forwards vop_read to fifo_vnodeop_p with VOCALL(). */
+/* 中文：FIFO 读封装：在 nfsnode 上置 NACC 和 n_atim，再通过 VOCALL() 把 vop_read 转发给 fifo_vnodeop_p。 */
 int
 nfsfifo_read(ap)
 	struct vop_read_args /* {
@@ -3186,6 +3290,8 @@ nfsfifo_read(ap)
 /*
  * Write wrapper for fifos.
  */
+/* EN: FIFO write wrapper: sets NUPD and n_mtim, then dispatches vop_write to fifo_vnodeop_p via VOCALL(). */
+/* 中文：FIFO 写封装：置 NUPD 和 n_mtim，然后通过 VOCALL() 将 vop_write 分派给 fifo_vnodeop_p。 */
 int
 nfsfifo_write(ap)
 	struct vop_write_args /* {
@@ -3212,6 +3318,8 @@ nfsfifo_write(ap)
  *
  * Update the times on the nfsnode then do fifo close.
  */
+/* EN: Refreshes n_atim/n_mtim to now when NACC/NUPD is set, marks NCHG, VOP_SETATTR()s the times if usecount is 1 and the mount is writable, then calls fifo_vnodeop_p's close. */
+/* 中文：当 NACC/NUPD 存在时把 n_atim/n_mtim 刷新为当前时间并置 NCHG，引用计数为 1 且挂载可写时用 VOP_SETATTR() 写回时间，最后调用 fifo_vnodeop_p 的 close。 */
 int
 nfsfifo_close(ap)
 	struct vop_close_args /* {

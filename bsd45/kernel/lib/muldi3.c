@@ -100,6 +100,8 @@ static char sccsid[] = "@(#)muldi3.c	8.1 (Berkeley) 6/4/93";
  */
 static quad_t __lmulq(u_long, u_long);
 
+/* EN: Signed 64-bit multiply: takes absolute values, XORs the sign, uses the direct u0*v0 path when both high words are zero, else combines low, high and mid products, then re-signs. */
+/* 中文：有符号 64 位乘法：先取绝对值并用异或记录符号，两高字均为 0 时走低位直接相乘的快速路径，否则由低位积、高位积和基于差值的中项积组装结果，最后按符号取负。 */
 quad_t
 __muldi3(a, b)
 	quad_t a, b;
@@ -185,6 +187,8 @@ __muldi3(a, b)
  *
  * splits into high and low longs as HHALF(l) and LHUP(l) respectively.
  */
+/* EN: Multiply two u_long into a 64-bit quad_t: splits operands into halves and combines high<<2N, high<<N, +/- mid<<N, low<<N and low with explicit carries; static helper for __muldi3. */
+/* 中文：把两个 u_long 相乘得到完整 64 位积：将操作数拆成高低半部，按 high<<2N、high<<N 加减 mid<<N 再累加 low<<N 与 low，并显式传播进位；是 __muldi3 的静态辅助函数。 */
 static quad_t
 __lmulq(u_long u, u_long v)
 {

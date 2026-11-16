@@ -94,6 +94,8 @@ int nfsrvw_procrastinate = NFS_GATHERDELAY * 1000;
 /*
  * nfs v3 access service
  */
+/* EN: ACCESS RPC: decodes fh and access mask, tests VREAD plus type-dependent VWRITE/VEXEC via nfsrv_access, clears denied bits, replies granted mask and postop attrs. */
+/* 中文：ACCESS RPC：解析文件句柄和访问掩码，按 vnode 类型分别用 nfsrv_access 检查 VREAD、VWRITE、VEXEC，剔除被拒位，回送允许掩码与后置属性。 */
 int
 nfsrv3_access(nfsd, slp, procp, mrq)
 	struct nfsrv_descript *nfsd;
@@ -161,6 +163,8 @@ nfsrv3_access(nfsd, slp, procp, mrq)
 /*
  * nfs getattr service
  */
+/* EN: GETATTR: maps the fh to a vnode, takes a read lease with nqsrv_getl, calls VOP_GETATTR, vputs the vnode and returns the encoded nfs_fattr (V2 or V3 size). */
+/* 中文：GETATTR：把文件句柄转换成 vnode，用 nqsrv_getl 取读租约，调用 VOP_GETATTR，随后 vput 并回送按 V2/V3 尺寸编码的 nfs_fattr。 */
 int
 nfsrv_getattr(nfsd, slp, procp, mrq)
 	struct nfsrv_descript *nfsd;
@@ -207,6 +211,8 @@ nfsrv_getattr(nfsd, slp, procp, mrq)
 /*
  * nfs setattr service
  */
+/* EN: SETATTR: decodes sattr (V3 ctime guard gives NFSERR_NOT_SYNC on mismatch, V2 works around Sun's 0xffff mode), needs VWRITE for size changes, calls VOP_SETATTR, replies wcc. */
+/* 中文：SETATTR：解析 sattr（V3 校验 ctime guard，不符返回 NFSERR_NOT_SYNC；V2 修正 Sun 的 0xffff 模式 bug），改长度须有 VWRITE，调用 VOP_SETATTR 并回送 wcc。 */
 int
 nfsrv_setattr(nfsd, slp, procp, mrq)
 	struct nfsrv_descript *nfsd;
@@ -338,6 +344,8 @@ out:
 /*
  * nfs lookup rpc
  */
+/* EN: LOOKUP: resolves the name via nfs_namei with LOCKLEAF|SAVESTART, takes a read lease on the start dir, builds the fh with VFS_VPTOFH, replies fh, file and dir attrs. */
+/* 中文：LOOKUP：用 nfs_namei（LOCKLEAF|SAVESTART）解析名字，对起始目录取读租约，经 VFS_VPTOFH 生成文件句柄，回送句柄、文件属性与目录属性。 */
 int
 nfsrv_lookup(nfsd, slp, procp, mrq)
 	struct nfsrv_descript *nfsd;
@@ -413,6 +421,8 @@ nfsrv_lookup(nfsd, slp, procp, mrq)
 /*
  * nfs readlink service
  */
+/* EN: READLINK: preallocates a cluster mbuf chain for NFS_MAXPATHLEN, requires a VLNK vnode (EINVAL/ENXIO), runs VOP_READLINK into it and fixes XDR padding before replying the length. */
+/* 中文：READLINK：预分配最大 NFS_MAXPATHLEN 的 mbuf 簇链，要求 vnode 为 VLNK（否则 EINVAL/ENXIO），用 VOP_READLINK 读入，调整 XDR 填充后回送长度。 */
 int
 nfsrv_readlink(nfsd, slp, procp, mrq)
 	struct nfsrv_descript *nfsd;
@@ -516,6 +526,8 @@ out:
 /*
  * nfs read service
  */
+/* EN: READ: decodes offset and count, requires a VREG vnode with VREAD (else VEXEC), clamps count to va_size, calls VOP_READ over per-mbuf iovecs and trims the result for XDR. */
+/* 中文：READ：解析偏移与长度，要求 VREG 且具备 VREAD（否则试 VEXEC），按 va_size 裁剪长度，用逐 mbuf 的 iovec 调用 VOP_READ 并为 XDR 截断结果。 */
 int
 nfsrv_read(nfsd, slp, procp, mrq)
 	struct nfsrv_descript *nfsd;
@@ -681,6 +693,8 @@ nfsrv_read(nfsd, slp, procp, mrq)
 /*
  * nfs write service
  */
+/* EN: WRITE: decodes offset, stability and count, trims request mbufs to the payload, sets IO flags from stability, VOP_WRITEs, bumps srvvop_writes, replies wcc and verifier. */
+/* 中文：WRITE：解析偏移、stable 与长度，把请求 mbuf 裁成纯数据，按 stable 选 IO_NODELOCKED/IO_SYNC/IO_METASYNC 调用 VOP_WRITE，递增 srvvop_writes，回送 wcc 与校验值。 */
 int
 nfsrv_write(nfsd, slp, procp, mrq)
 	struct nfsrv_descript *nfsd;
@@ -869,6 +883,8 @@ nfsrv_write(nfsd, slp, procp, mrq)
  * in Proc. of the Winter 1994 Usenix Conference, pg. 247-259, San Franscisco,
  * Jan. 1994.
  */
+/* EN: Delayed writes: queues descriptors on ns_tq by nd_time and on the fh/offset hash, coalesces contiguous same-credential writes, later does VOP_WRITE and returns one reply mbuf. */
+/* 中文：延迟写服务：按 nd_time 把描述符挂到 ns_tq，并按文件句柄与偏移挂入延迟哈希，合并相邻同凭证写请求，到期后执行 VOP_WRITE 并返回对应应答 mbuf。 */
 int
 nfsrv_writegather(ndp, slp, procp, mrq)
 	struct nfsrv_descript **ndp;
@@ -1185,6 +1201,8 @@ loop1:
  * - put nfsd on owp's nd_coalesce list
  * NB: Must be called at splsoftclock().
  */
+/* EN: At splsoftclock merges write request nfsd into owp: unlinks both queues, m_adj's the overlap, chains the mbufs, extends nd_eoff, raises nd_stable and links nfsd onto nd_coalesce. */
+/* 中文：在 splsoftclock 下把写请求 nfsd 合并进 owp：从两个队列摘除，用 m_adj 去掉重叠，链接 mbuf 链，更新 nd_eoff、提升 nd_stable 并挂到 nd_coalesce。 */
 void
 nfsrvw_coalesce(owp, nfsd)
         register struct nfsrv_descript *owp;
@@ -1222,6 +1240,8 @@ nfsrvw_coalesce(owp, nfsd)
  * (Insertion sort by Chris Torek, who was grossed out by the bubble sort
  *  that used to be here.)
  */
+/* EN: Sorts num gid entries into increasing order with an in-place insertion sort so that credentials can be compared bytewise with bcmp. */
+/* 中文：用原地插入排序把 num 个 gid 按数值升序排列，使凭证可以用 bcmp 按字节比较。 */
 void
 nfsrvw_sort(list, num)
         register gid_t *list;
@@ -1243,6 +1263,8 @@ nfsrvw_sort(list, num)
 /*
  * copy credentials making sure that the result can be compared with bcmp().
  */
+/* EN: Builds a bcmp-comparable ucred: zeroes outcred, sets cr_ref to 1, copies cr_uid, cr_ngroups and the group list, then sorts the groups with nfsrvw_sort. */
+/* 中文：构造可用 bcmp 比较的 ucred：清零 outcred，置 cr_ref 为 1，复制 cr_uid、cr_ngroups 和组列表，再用 nfsrvw_sort 对组排序。 */
 void
 nfsrv_setcred(incred, outcred)
 	register struct ucred *incred, *outcred;
@@ -1262,6 +1284,8 @@ nfsrv_setcred(incred, outcred)
  * nfs create service
  * now does a truncate to 0 length via. setattr if it already exists
  */
+/* EN: CREATE: nfs_namei with LOCKPARENT|LOCKLEAF|SAVESTART, handles V3 guarded/unchecked/exclusive verifier and V2 type, VOP_CREATEs or truncates, suser for devices, replies fh and wcc. */
+/* 中文：CREATE：用 nfs_namei（LOCKPARENT|LOCKLEAF|SAVESTART）解析，处理 V3 的 guarded/unchecked/exclusive 校验值及 V2 类型，调用 VOP_CREATE 或截断，设备需 suser，回送句柄与 wcc。 */
 int
 nfsrv_create(nfsd, slp, procp, mrq)
 	struct nfsrv_descript *nfsd;
@@ -1497,6 +1521,8 @@ nfsmout:
 /*
  * nfs v3 mknod service
  */
+/* EN: V3 MKNOD: decodes vtype (only VCHR/VBLK/VSOCK/VFIFO, else NFSERR_BADTYPE) and major/minor, EEXIST if the name exists, VOP_CREATE for sockets, suser-guarded VOP_MKNOD otherwise. */
+/* 中文：V3 MKNOD：解析 vtype（仅 VCHR/VBLK/VSOCK/VFIFO，否则 NFSERR_BADTYPE）和主次设备号，名字已存在返回 EEXIST，套接字走 VOP_CREATE，其余经 suser 检查后走 VOP_MKNOD。 */
 int
 nfsrv_mknod(nfsd, slp, procp, mrq)
 	struct nfsrv_descript *nfsd;
@@ -1648,6 +1674,8 @@ nfsmout:
 /*
  * nfs remove service
  */
+/* EN: REMOVE: nfs_namei with DELETE|LOCKPARENT|LOCKLEAF, suser to remove a directory, EBUSY for a mount root, uncaches VTEXT vnodes, write-leases parent and victim, then VOP_REMOVE. */
+/* 中文：REMOVE：以 nfs_namei（DELETE|LOCKPARENT|LOCKLEAF）解析，删目录需 suser，挂载点根返回 EBUSY，对 VTEXT 做 uncache，给父目录和目标加写租约后调用 VOP_REMOVE。 */
 int
 nfsrv_remove(nfsd, slp, procp, mrq)
 	struct nfsrv_descript *nfsd;
@@ -1734,6 +1762,8 @@ out:
 /*
  * nfs rename service
  */
+/* EN: RENAME: two nfs_namei calls (source DELETE|WANTPARENT, target RENAME|LOCKPARENT), rejects type mismatch, mountpoint, cross-mount, no-ops same name, write-leased VOP_RENAME. */
+/* 中文：RENAME：两次 nfs_namei（源用 DELETE|WANTPARENT，目标用 RENAME|LOCKPARENT），恢复保存的 cr_uid，拒绝类型不符、挂载点与跨挂载，同名视为空操作，写租约下 VOP_RENAME。 */
 int
 nfsrv_rename(nfsd, slp, procp, mrq)
 	struct nfsrv_descript *nfsd;
@@ -1939,6 +1969,8 @@ nfsmout:
 /*
  * nfs link service
  */
+/* EN: LINK: maps the target fh to a vnode, suser to link a directory, nfs_namei CREATE|LOCKPARENT for the new name, EEXIST if present, EXDEV across mounts, VOP_LINK with write leases. */
+/* 中文：LINK：把目标文件句柄转换为 vnode，链接目录需 suser，用 nfs_namei（CREATE|LOCKPARENT）解析新名字，已存在返回 EEXIST、跨挂载返回 EXDEV，在写租约下调用 VOP_LINK。 */
 int
 nfsrv_link(nfsd, slp, procp, mrq)
 	struct nfsrv_descript *nfsd;
@@ -2036,6 +2068,8 @@ out1:
 /*
  * nfs symbolic link service
  */
+/* EN: Parses path/attrs, creates the symlink with VOP_SYMLINK under the directory write lock, reports EEXIST if the name exists, and replies v3 post-op handle, attrs and WCC. */
+/* 中文：解析路径与属性，取得目录写锁后用VOP_SYMLINK创建符号链接；名字已存在则返回EEXIST，并回复v3的后置句柄、属性与WCC数据。 */
 int
 nfsrv_symlink(nfsd, slp, procp, mrq)
 	struct nfsrv_descript *nfsd;
@@ -2179,6 +2213,8 @@ nfsmout:
 /*
  * nfs mkdir service
  */
+/* EN: Resolves the parent with nfs_namei, rejects an existing name with EEXIST, takes the write lock and calls VOP_MKDIR, replying the new dir's handle, attributes and WCC data. */
+/* 中文：用nfs_namei解析父目录，已存在同名项则返回EEXIST，取写锁后调用VOP_MKDIR，回复新目录的句柄、属性与WCC数据。 */
 int
 nfsrv_mkdir(nfsd, slp, procp, mrq)
 	struct nfsrv_descript *nfsd;
@@ -2295,6 +2331,8 @@ nfsmout:
 /*
  * nfs rmdir service
  */
+/* EN: Deletes a directory after checking VDIR, not the dot entry (EINVAL) and not a mount root (VROOT/EBUSY); nqsrv_getl write-locks parent and victim, then VOP_RMDIR replies only WCC. */
+/* 中文：校验目标为VDIR、不是点目录（EINVAL）、非挂载根（VROOT/EBUSY）后用nqsrv_getl对父目录与目标加写锁并调用VOP_RMDIR，仅回复WCC数据。 */
 int
 nfsrv_rmdir(nfsd, slp, procp, mrq)
 	struct nfsrv_descript *nfsd;
@@ -2424,6 +2462,8 @@ struct flrep {
 	u_long		fl_nfh[NFSX_V3FH / sizeof (u_long)];
 };
 
+/* EN: NFS readdir: checks the cookie verifier vs va_filerev and VEXEC, reads dirents into M_TEMP, drops zero-fileno entries, packs them into mbuf clusters up to count and sets eofflag. */
+/* 中文：提供NFS readdir服务：用va_filerev校验cookie、检查VEXEC权限，把目录项读入M_TEMP，丢弃d_fileno为0的项，其余打包进mbuf簇并按count截断，设置eofflag。 */
 int
 nfsrv_readdir(nfsd, slp, procp, mrq)
 	struct nfsrv_descript *nfsd;
@@ -2672,6 +2712,8 @@ again:
 	nfsm_srvdone;
 }
 
+/* EN: VFS_VGETs each directory entry by d_fileno to append its file handle and attributes (flrep); entries failing vget/fh/attr are skipped, and dircount and maxcount are enforced. */
+/* 中文：对每个目录项按d_fileno执行VFS_VGET，附加其文件句柄与属性（flrep）；vget/句柄/属性失败的项被跳过，并同时限制dircount与maxcount。 */
 int
 nfsrv_readdirplus(nfsd, slp, procp, mrq)
 	struct nfsrv_descript *nfsd;
@@ -2954,6 +2996,8 @@ invalid:
 /*
  * nfs commit service
  */
+/* EN: Handles NFS commit: resolves the file handle, calls VOP_FSYNC with MNT_WAIT (offset/count ignored), and replies a boottime write verifier plus before/after WCC attributes. */
+/* 中文：处理NFS commit：解析文件句柄后以MNT_WAIT调用VOP_FSYNC（offset/count被忽略），回复boottime写校验值及前后WCC属性，出错时在WCC之后返回。 */
 int
 nfsrv_commit(nfsd, slp, procp, mrq)
 	struct nfsrv_descript *nfsd;
@@ -3015,6 +3059,8 @@ nfsrv_commit(nfsd, slp, procp, mrq)
 /*
  * nfs statfs service
  */
+/* EN: Returns fs statistics: VFS_STATFS on the vnode's mount and a GETATTR; v3 converts block counts to bytes with txdr_hyper, v2 sends tsiz/bsize/blocks/bfree/bavail. */
+/* 中文：返回文件系统统计：对vnode挂载点调用VFS_STATFS并取属性；v3用txdr_hyper把块数换算为字节，v2回复tsiz/bsize/blocks/bfree/bavail。 */
 int
 nfsrv_statfs(nfsd, slp, procp, mrq)
 	struct nfsrv_descript *nfsd;
@@ -3093,6 +3139,8 @@ nfsrv_statfs(nfsd, slp, procp, mrq)
 /*
  * nfs fsinfo service
  */
+/* EN: NFSv3 FSINFO reply: rt/wt max of NFS_MAXDATA, UDP-reduced preferred size, NFS_FABLKSIZE multiples, 2^64-1 maxfilesize, 1ns delta and LINK/SYMLINK/HOMOGENEOUS/CANSETTIME. */
+/* 中文：NFSv3 FSINFO：回复rt/wt最大值NFS_MAXDATA、UDP下降低的推荐值、NFS_FABLKSIZE倍数、2^64-1最大文件长度、1ns时间粒度及LINK/SYMLINK/HOMOGENEOUS/CANSETTIME属性。 */
 int
 nfsrv_fsinfo(nfsd, slp, procp, mrq)
 	struct nfsrv_descript *nfsd;
@@ -3163,6 +3211,8 @@ nfsrv_fsinfo(nfsd, slp, procp, mrq)
 /*
  * nfs pathconf service
  */
+/* EN: PATHCONF: VOP_PATHCONF queries for link max, name max, chown-restricted and no-trunc (stopping at the first error); replies caseinsensitive=false, casepreserving=true. */
+/* 中文：PATHCONF：依次用VOP_PATHCONF查询链接数上限、名字上限、chown限制与no-trunc（遇错即停），并回复caseinsensitive=false、casepreserving=true。 */
 int
 nfsrv_pathconf(nfsd, slp, procp, mrq)
 	struct nfsrv_descript *nfsd;
@@ -3233,6 +3283,8 @@ nfsrv_pathconf(nfsd, slp, procp, mrq)
  * Null operation, used by clients to ping server
  */
 /* ARGSUSED */
+/* EN: NULL: ignores all arguments, emits an empty void RPC reply with nfsm_reply(0) and always returns 0; clients use it to ping the server. */
+/* 中文：NULL过程：忽略全部参数，用nfsm_reply(0)发出空的void RPC回复并总是返回0，客户端用于探测服务器。 */
 int
 nfsrv_null(nfsd, slp, procp, mrq)
 	struct nfsrv_descript *nfsd;
@@ -3260,6 +3312,8 @@ nfsrv_null(nfsd, slp, procp, mrq)
  * No operation, used for obsolete procedures
  */
 /* ARGSUSED */
+/* EN: Obsolete-procedure handler: replies the status saved in nd_repstat, or EPROCUNAVAIL when none is set, sending a void body and returning 0. */
+/* 中文：已废弃过程的处理函数：用nd_repstat中的状态码回复，未设置则回复EPROCUNAVAIL，消息体为空并返回0。 */
 int
 nfsrv_noop(nfsd, slp, procp, mrq)
 	struct nfsrv_descript *nfsd;
@@ -3297,6 +3351,8 @@ nfsrv_noop(nfsd, slp, procp, mrq)
  *     this because it opens a security hole, but since the nfs server opens
  *     a security hole the size of a barn door anyhow, what the heck.
  */
+/* EN: Access check for handle vnodes: VWRITE gives EROFS on rdonly/MNT_RDONLY for VREG/VDIR/VLNK and ETXTBSY if text uncache fails; VOP_ACCESS runs, but the owner bypasses mode bits. */
+/* 中文：针对文件句柄vnode的访问检查：VWRITE时若导出只读或MNT_RDONLY，对VREG/VDIR/VLNK返回EROFS，共享正文去缓存失败返回ETXTBSY；随后VOP_ACCESS，但属主可绕过模式位。 */
 int
 nfsrv_access(vp, flags, cred, rdonly, p)
 	register struct vnode *vp;

@@ -40,7 +40,9 @@ fi
 fail=0
 for t in test_s3 test_s4 test_proc test_tty test_s7 test_s8 test_s9 test_s10 \
          test_sig test_s10_3 test_s10_4 test_dev test_tools test_mount test_ps \
-         test_cache test_mmap; do
+         test_cache test_mmap test_subsys test_kthread \
+         test_pthread test_wpath \
+         test_ipl test_preempt test_cow test_fault test_badptr; do
 	out=$(run "$t")
 	v=$(printf '%s' "$out" | grep -E 'PASSED|FAILED' | tail -1)
 	printf '%-12s %s\n' "$t" "${v:-NO VERDICT}"

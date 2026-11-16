@@ -168,6 +168,8 @@ static wdc;
 /*
  * Probe routine
  */
+/* EN: Probe: store id_iobase in wdc, write 0x5a/0xa5 to the error and cylinder-low registers, return 1 only if error reads back wrong while cyllo reads 0xa5. */
+/* 中文：探测：把 id_iobase 存入 wdc，向错误寄存器和柱面低位写 0x5a/0xa5，仅当错误寄存器读回不符且柱面低位读回 0xa5 时返回 1。 */
 wdprobe(dvp)
 	struct isa_device *dvp;
 {
@@ -187,6 +189,8 @@ wdc = dvp->id_iobase;
 /*
  * attach each drive if possible.
  */
+/* EN: Attach: write 12 to the wdc controller register, DELAY(1000) microseconds, then write 8; unit is unused and no driver state is recorded. */
+/* 中文：附加：向已探测的 wdc 控制寄存器写 12，延时 1000 微秒后再写 8；unit 变量未使用，不记录任何驱动状态。 */
 wdattach(dvp)
 	struct isa_device *dvp;
 {
@@ -202,6 +206,8 @@ wdattach(dvp)
  * to complete.  Multi-page transfers are supported.  All I/O requests must
  * be a multiple of a sector in length.
  */
+/* EN: Validate unit, write-protect and partition bounds (EOF returns resid, tail truncated), then disksort at splhigh and start drive/controller; bad requests get EINVAL+biodone. */
+/* 中文：校验单元号、写保护与分区边界（正好到末尾则返回 resid，超出部分截断），在 splhigh 下 disksort 并启动驱动器/控制器；非法请求置 EINVAL 并 biodone。 */
 wdstrategy(bp)
 	register struct buf *bp;	/* IO operation to perform */
 {
@@ -299,6 +305,8 @@ bad:
  * linked into the active list for the controller.  If the controller is idle,
  * the transfer is started.
  */
+/* EN: If wdutab[unit] has a queued request and the drive is idle, link the drive onto the controller's wdtab active list and set dp->b_active; it starts no I/O itself. */
+/* 中文：若 wdutab[unit] 有排队请求且驱动器空闲，就把该驱动器挂到控制器 wdtab 活动链表并置 dp->b_active；本身不启动 I/O。 */
 wdustart(du)
 	register struct disk *du;
 {
@@ -329,6 +337,8 @@ wdustart(du)
 
 static wd_sebyse;
 
+/* EN: Start one 512-byte sector: call wdcontrol while state <= RDLABEL, else map blkno to cylin/head/sector with bad-block forwarding, program registers, outsw data on writes. */
+/* 中文：启动单个 512 字节扇区传输：状态 <= RDLABEL 时先调 wdcontrol，否则把 blkno 换算为柱面/磁头/扇区（含坏块转发）、写寄存器，写操作立即用 outsw 送出数据。 */
 wdstart()
 {
 	register struct disk *du;	/* disk unit for IO */
@@ -477,6 +487,8 @@ unsigned char wd_errstat;
  * the next request.  Also check for a partially done transfer, and
  * continue with the next chunk if so.
  */
+/* EN: Interrupt handler: reject when the controller is idle, retry hard errors up to RETRIES, insw the read data, then biodone and chain to wdustart/wdstart; logs soft ECC errors. */
+/* 中文：中断处理：控制器空闲则报“多余中断”返回；硬错误重试至 RETRIES 次，用 insw 取回读数据，随后 biodone 并继续 wdustart/wdstart；软 ECC 错误记日志。 */
 wdintr(unit)
 {
 	register struct	disk *du;
@@ -612,6 +624,8 @@ done:
 /*
  * Initialize a drive.
  */
+/* EN: Open: get an iobuf, read the label and bad-sector table, set dk_state to OPEN/OPENRAW, warn on overlapping partitions, mark the part bit in dk_openpart; returns ENXIO or 0. */
+/* 中文：打开：取 iobuf 读标签与坏扇区表，置 dk_state 为 OPEN 或 OPENRAW，告警重叠分区并在 dk_openpart 中置该分区位；返回 ENXIO 或 0。 */
 wdopen(dev, flags, fmt)
         dev_t dev;
         int flags, fmt;
@@ -749,6 +763,8 @@ done:
  * Uses finite-state-machine to track progress of operation in progress.
  * Returns 0 if operation still in progress, 1 if completed.
  */
+/* EN: Open state machine from wdstart/wdintr: issue RESTORE, read LABELSECTOR into the buffer, adopt dk_dd if DISKMAGIC, step WANTOPEN->RECAL->RDLABEL; 1 done, 0 busy. */
+/* 中文：由 wdstart/wdintr 调用的打开状态机：发 RESTORE、把 LABELSECTOR 读入缓冲区，若 DISKMAGIC 则采用该 dk_dd，推进 WANTOPEN->RECAL->RDLABEL；完成返回 1，未完成返回 0。 */
 wdcontrol(bp)
 	register struct buf *bp;
 {
@@ -884,6 +900,8 @@ wdsetctlr(dev, du) dev_t dev; struct disk *du; {
 }
 
 /* ARGSUSED */
+/* EN: Decrement du->dk_open only; dk_state is deliberately not reset to CLOSED because the commented-out code is noted as not working. */
+/* 中文：仅递减 du->dk_open；有意不把 dk_state 重置为 CLOSED，因为被注释掉的代码已注明行不通。 */
 wdclose(dev, flags, fmt)
         dev_t dev;
         int flags, fmt;
@@ -895,6 +913,8 @@ wdclose(dev, flags, fmt)
 	/*if (du->dk_open == 0) du->dk_state = CLOSED ; does not work */
 }
 
+/* EN: Handle DIOCGDINFO/DIOCGPART/DIOCSDINFO/DIOCWLABEL/DIOCWDINFO: fetch or set the label, require FWRITE to modify, call wdsetctlr after setdisklabel; else EBADF/ENOTTY. */
+/* 中文：处理 DIOCGDINFO/DIOCGPART/DIOCSDINFO/DIOCWLABEL/DIOCWDINFO：取出或设置标签，修改类命令要求 FWRITE，setdisklabel 后调 wdsetctlr；否则返回 EBADF/ENOTTY。 */
 wdioctl(dev,cmd,addr,flag)
 	dev_t dev;
 	caddr_t addr;
@@ -1009,6 +1029,8 @@ wdioctl(dev,cmd,addr,flag)
 /*
  * Routines to do raw IO for a unit.
  */
+/* EN: Raw character read: reject unit >= NWD with ENXIO, otherwise hand the uio to physio with wdstrategy, that unit's rwdbuf and B_READ. */
+/* 中文：原始字符读：unit >= NWD 返回 ENXIO，否则用 wdstrategy、该单元的 rwdbuf 和 B_READ 把 uio 交给 physio。 */
 wdread(dev, uio)			/* character read routine */
 	dev_t dev;
 	struct uio *uio;
@@ -1020,6 +1042,8 @@ wdread(dev, uio)			/* character read routine */
 }
 
 
+/* EN: Raw character write: reject unit >= NWD with ENXIO, otherwise call physio with wdstrategy, rwdbuf[unit] and B_WRITE. */
+/* 中文：原始字符写：unit >= NWD 返回 ENXIO，否则用 wdstrategy、rwdbuf[unit] 和 B_WRITE 调用 physio。 */
 wdwrite(dev, uio)			/* character write routine */
 	dev_t dev;
 	struct uio *uio;
@@ -1030,6 +1054,8 @@ wdwrite(dev, uio)			/* character write routine */
 	return(physio(wdstrategy, &rwdbuf[unit], dev, B_WRITE, minphys, uio));
 }
 
+/* EN: Return dk_dd.d_partitions[part].p_size converted to 512-byte blocks; opens the drive first if dk_state is 0; returns -1 for a bad unit or open failure. */
+/* 中文：返回按 512 字节块换算的分区 p_size；若 dk_state 为 0 则先打开驱动器；单元号非法或打开失败返回 -1。 */
 wdsize(dev)
 	dev_t dev;
 {
@@ -1051,6 +1077,8 @@ wdsize(dev)
 
 extern        char *vmmap;            /* poor name! */
 
+/* EN: Crash-dump: verify unit, dk_state>=OPEN, dumplo bounds and wddoingadump guard, RESTORE plus wdsetctlr, then pmap_enter(CADDR1) and polled 512-byte writes; EIO on error. */
+/* 中文：崩溃转储：校验单元号、dk_state>=OPEN、dumplo 边界与 wddoingadump 重入标志，做 RESTORE 和 wdsetctlr，再 pmap_enter(CADDR1) 并轮询写 512 字节扇区；出错返回 EIO。 */
 wddump(dev)			/* dump core after a system crash */
 	dev_t dev;
 {

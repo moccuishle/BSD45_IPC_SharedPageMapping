@@ -60,6 +60,8 @@
 
 extern        char *vmmap;            /* poor name! */
 /*ARGSUSED*/
+/* EN: Serves /dev/mem (maps each phys page into vmmap then pmap_remove), /dev/kmem (kernacc checked, else EFAULT), null (2) and zero (12, CLBYTES zbuf) per iovec; else ENXIO. */
+/* 中文：按 iovec 逐个搬运：minor 0 把物理页 pmap_enter 到 vmmap 再 pmap_remove，minor 1 先用 kernacc 校验否则 EFAULT，minor 2 读得 EOF、写丢弃，minor 12 用 CLBYTES 零缓冲，其余 minor 返回 ENXIO。 */
 mmrw(dev, uio, flags)
 	dev_t dev;
 	struct uio *uio;

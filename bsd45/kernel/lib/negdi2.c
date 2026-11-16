@@ -44,6 +44,8 @@ static char sccsid[] = "@(#)negdi2.c	8.1 (Berkeley) 6/4/93";
 /*
  * Return -a (or, equivalently, 0 - a), in quad.  See subdi3.c.
  */
+/* EN: Two's-complement negation of a quad_t: negates the low word, then the high word minus one extra when the low result is non-zero, propagating the borrow; pure, returns -a. */
+/* 中文：以二补码对 64 位整数取负：低字取负，高字取负后若低字结果非零再减 1 以传播借位，纯函数返回 -a。 */
 quad_t
 __negdi2(a)
 	quad_t a;

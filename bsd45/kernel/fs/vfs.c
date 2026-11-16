@@ -57,6 +57,8 @@ static void vn_free(struct vnode *vp);
  * recycled.  vn_newid() is also used by the two statically allocated mount
  * roots (ISO and tmpfs), which do not come from vn_alloc().
  */
+/* EN: Returns the current vn_next_id and then increments it, handing out a monotonically increasing unique vnode id; the read-modify-write is un locked. */
+/* 中文：返回 vn_next_id 的当前值后自增，发放单调递增的唯一 vnode id；该读-改-写过程未加锁。 */
 unsigned
 vn_newid(void)
 {
@@ -64,6 +66,8 @@ vn_newid(void)
 	return (vn_next_id++);
 }
 
+/* EN: Boot reset: rebuilds the vnode_free[] LIFO with indices VNODES-1..0, clears vnode_used[]/vnode_dcached[], zeroes dir_cache[] and resets dir_cache_next. */
+/* 中文：启动时重置 vnode 记账：从 VNODES-1 递减到 0 重建 vnode_free[] 后进先出表，清除 vnode_used[] 与 vnode_dcached[]，清零 dir_cache[] 并复位 dir_cache_next。 */
 static void
 vn_init(void)
 {
@@ -85,6 +89,8 @@ vn_init(void)
  * reusable.  vn_put() calls this only when the vnode is not an actively
  * used directory.
  */
+/* EN: Frees a slot: ignores NULL, iso_rootv, the tmpfs root and bad indices, purges name and page cache entries, clears ref/v_id/v_key and vnode_used/vnode_dcached. */
+/* 中文：把 vnode 槽归还池中：忽略 NULL、iso_rootv、tmpfs 根以及越界下标，然后清除其名字缓存与页缓存项，将 ref/v_id/v_key 与 vnode_used/vnode_dcached 清零。 */
 static void
 vn_free(struct vnode *vp)
 {
@@ -109,6 +115,8 @@ vn_free(struct vnode *vp)
  * cache entries under it remain valid; the small ring evicts the oldest
  * directory once all slots are taken.
  */
+/* EN: Keeps an unreferenced dir vnode in the NDCACHE ring so its name cache stays valid: takes a free slot, else vn_free()s the oldest unreferenced entry, else vn_free()s vp itself. */
+/* 中文：把未引用的目录 vnode 保留在 NDCACHE 环中以免其名字缓存项失效：有空槽则占空槽，否则淘汰最旧的未引用项并用 vn_free() 释放它；若全部被引用则直接 vn_free() vp。 */
 static void
 dir_cache_keep(struct vnode *vp)
 {
@@ -144,6 +152,8 @@ dir_cache_keep(struct vnode *vp)
 	vn_free(vp);
 }
 
+/* EN: Finds the first unused slot, marks it used, bumps vn_alloc_total, zeroes the vnode, sets ref=1, node=-1 and a fresh v_id via vn_newid(); 0 when the pool is full. */
+/* 中文：扫描池中第一个空闲槽并标记已用，递增 vn_alloc_total，清零 vnode，设置 ref=1、node=-1 以及由 vn_newid() 取得的新 v_id；VNODES 个槽全忙时返回 0。 */
 struct vnode *
 vn_alloc(void)
 {
@@ -163,6 +173,8 @@ vn_alloc(void)
 	return (0);
 }
 
+/* EN: Drops a reference (ignoring NULL, iso_rootv, tmpfs root); at ref 0 it clears ref and sends VDIR with nonzero v_key (ISO9660 dirs) to dir_cache_keep(), others to vn_free(). */
+/* 中文：递减一个引用，忽略 NULL、iso_rootv 与 tmpfs 根；ref 降到 0 时清零 ref，并把 v_key 非 0 的 VDIR 节点（ISO9660 目录）交给 dir_cache_keep()，其余交给 vn_free()。 */
 void
 vn_put(struct vnode *vp)
 {
@@ -186,6 +198,8 @@ vn_put(struct vnode *vp)
 	}
 }
 
+/* EN: Counts used slots by summing vnode_used[], reports VNODES as *vtotal, that sum as *vused and the remainder as *vfree, then lets vfs_page_stats() fill *pnalloc/*pnfree/*pninuse. */
+/* 中文：累加 vnode_used[] 统计已用槽数，输出 *vtotal=VNODES、*vused=已用数、*vfree=剩余数，再由 vfs_page_stats() 填写 *pnalloc/*pnfree/*pninuse。 */
 void
 vfs_stats(unsigned *vtotal, unsigned *vused, unsigned *vfree,
     unsigned *pnalloc, unsigned *pnfree, unsigned *pninuse)
@@ -202,6 +216,8 @@ vfs_stats(unsigned *vtotal, unsigned *vused, unsigned *vfree,
 }
 /* ---------------------------------------------------------------- ISO9660 */
 
+/* EN: Walks the ISO dir via iso_readdir() from cookie 0 for the name, then vn_alloc()s a vnode (-ENOMEM) with type, ops, lba, size, v_key = 0x80000000|lba; -EIO on error, else -ENOENT. */
+/* 中文：用 iso_readdir() 从 cookie 0 遍历 ISO9660 目录直到名字相等，随后 vn_alloc() 分配 vnode（失败返回 -ENOMEM）并填 type、iso_vnodeops、lba、size 及只读页缓存键 v_key = 0x80000000|lba；readdir 出错返回 -EIO，否则 -ENOENT。 */
 static int
 iso_scan(struct vnode *dv, const char *name, struct vnode **vpp)
 {
@@ -229,6 +245,8 @@ iso_scan(struct vnode *dv, const char *name, struct vnode **vpp)
 	return (rv < 0 ? -EIO : -ENOENT);
 }
 
+/* EN: Needs a directory (-ENOTDIR), calls iso_scan(); on -ENOENT with no '.' in name it retries with '.elf' appended when it fits want[48], returning first success or last error. */
+/* 中文：要求是目录（否则 -ENOTDIR）并调用 iso_scan()；若返回 -ENOENT 且名字不含 '.'，则在能放入 want[48] 时追加 .elf 再扫一次，返回首次成功或最后的错误。 */
 static int
 iso_lookup_op(struct vnode *dv, const char *name, struct vnode **vpp)
 {
@@ -250,6 +268,8 @@ iso_lookup_op(struct vnode *dv, const char *name, struct vnode **vpp)
 	return (rv);
 }
 
+/* EN: Reports ISO9660 entries uniformly as mode 0040755 for a directory or 0100755 (executable) for a file, copies vp->size into *size and returns 0. */
+/* 中文：对 ISO9660 项统一报告权限：目录为 0040755、文件为 0100755（可执行），把 vp->size 写入 *size 并返回 0。 */
 static int
 iso_getattr_op(struct vnode *vp, unsigned *mode, unsigned *size)
 {
@@ -265,6 +285,8 @@ iso_getattr_op(struct vnode *vp, unsigned *mode, unsigned *size)
  * through the buffer cache, so a 4K page costs two cached 2K sectors and
  * sequential access gets readahead.
  */
+/* EN: Uncached page fill: -EISDIR for a dir, 0 past EOF, clips len; bread()s 2048-byte sectors with bcopy/brelse and breada()s up to 4 sectors of readahead; -EIO on failure. */
+/* 中文：无缓存填页读取：目录返回 -EISDIR，越过 EOF 返回 0，先截断 len；按 2048 字节扇区循环 bread() 并 bcopy/brelse，最多 4 扇区 breada() 预读且受文件长度限制；失败返回 -EIO。 */
 static int
 iso_readraw_op(struct vnode *vp, unsigned off, void *buf, unsigned len)
 {
@@ -305,6 +327,8 @@ iso_readraw_op(struct vnode *vp, unsigned off, void *buf, unsigned len)
 	return ((int)done);
 }
 
+/* EN: Thin wrapper that returns -EISDIR for a directory vnode and otherwise delegates the read to pagecache_read() on the ISO9660 file vnode. */
+/* 中文：薄封装：vnode 为目录时返回 -EISDIR，否则把读取交给 ISO9660 文件 vnode 的 pagecache_read()。 */
 static int
 iso_read_op(struct vnode *vp, unsigned off, void *buf, unsigned len)
 {
@@ -314,6 +338,8 @@ iso_read_op(struct vnode *vp, unsigned off, void *buf, unsigned len)
 	return (pagecache_read(vp, off, buf, len));
 }
 
+/* EN: Rejects non-directories (-ENOTDIR), delegates to iso_readdir() with vp->lba/vp->size passing cookie, name and isdir, maps negative returns to -EIO and passes 0/1 through. */
+/* 中文：非目录返回 -ENOTDIR；用 vp->lba/vp->size 调用 iso_readdir() 并透传 cookie、name 与 isdir，负返回值映射为 -EIO，0（有项）和 1（结束）原样返回。 */
 static int
 iso_readdir_op(struct vnode *vp, unsigned *cookie, char *name, int *isdir)
 {
@@ -341,6 +367,8 @@ struct vnodeops iso_vnodeops = {
  * absolute paths exactly as before, so a backend's "dv == my root" identity
  * checks are unaffected.
  */
+/* EN: Canonicalizes in into out (outlen bytes), prefixing cwd for relative paths, collapsing //, . and .., trimming a trailing slash; returns 0 or -ENOENT/-ENAMETOOLONG. */
+/* 中文：把 in 规范化成绝对路径写入 out（长度 outlen），相对路径先拼接 cwd，折叠 // 、. 和 ..，去掉末尾斜杠；成功返回 0，否则 -ENOENT/-ENAMETOOLONG。 */
 int
 vfs_absolutize(const char *cwd, const char *in, char *out, unsigned outlen)
 {
@@ -401,6 +429,8 @@ vfs_absolutize(const char *cwd, const char *in, char *out, unsigned outlen)
 
 static void mount_add(const char *path, struct vnode *root);
 
+/* EN: One-shot VFS setup guarded by a static flag: initializes vnode, name, buffer and page caches, fills iso_rootv as the VDIR ISO9660 root and registers the / and /tmp mounts. */
+/* 中文：由静态标志保证只执行一次的 VFS 初始化：建立 vnode/名字/缓冲/页缓存，把 iso_rootv 填成 VDIR 的 ISO9660 根并登记 / 与 /tmp 两个挂载点。 */
 void
 vfs_init(void)
 {
@@ -438,6 +468,8 @@ vfs_init(void)
  * Resolve an absolute path.  "/tmp" (and anything under it) is a mount of
  * the tmpfs root; everything else lives on the ISO9660 image.
  */
+/* EN: Walks an absolute path from rootvnode, mapping /tmp to the tmpfs root and asking the name cache before ops->lookup; returns a referenced vnode in vpp, or a negative errno. */
+/* 中文：从 rootvnode 逐段解析绝对路径，/tmp 直接映射到 tmpfs 根，其余先查名字缓存再调 ops->lookup；成功在 vpp 返回带引用的 vnode，失败返回负 errno。 */
 int
 vfs_namei(const char *path, struct vnode **vpp)
 {
@@ -498,6 +530,49 @@ vfs_namei(const char *path, struct vnode **vpp)
  * Split path into the parent directory vnode and the last component, used
  * by creation/removal.
  */
+/*
+ * S29: kstr path entry points.  Backends still store ASCII names for now, so
+ * the conversion happens once here; when the FAT/CNFS backends land they use
+ * kstr names natively and this shim disappears.
+ */
+/* EN: kstr shim: converts the path into a 256-byte ASCII buffer with kstr_to_a, returning -ENAMETOOLONG if it will not fit, then forwards to vfs_namei(). */
+/* 中文：kstr 适配层：先用 kstr_to_a 把路径转成 256 字节的 ASCII 缓冲，放不下则返回 -ENAMETOOLONG，然后转发给 vfs_namei()。 */
+int
+vfs_namei_k(const struct kstr *path, struct vnode **vpp)
+{
+	char buf[256];
+
+	if (kstr_to_a(path, buf, sizeof(buf)) < 0)
+		return (-ENAMETOOLONG);
+	return (vfs_namei(buf, vpp));
+}
+
+/* EN: kstr shim around vfs_create(): converts path to a 256-byte ASCII buffer (else -ENAMETOOLONG) and forwards isdir and vpp unchanged. */
+/* 中文：vfs_create() 的 kstr 适配层：把路径转成 256 字节 ASCII 缓冲（越界返回 -ENAMETOOLONG），再把 isdir 和 vpp 原样传给 vfs_create()。 */
+int
+vfs_create_k(const struct kstr *path, int isdir, struct vnode **vpp)
+{
+	char buf[256];
+
+	if (kstr_to_a(path, buf, sizeof(buf)) < 0)
+		return (-ENAMETOOLONG);
+	return (vfs_create(buf, isdir, vpp));
+}
+
+/* EN: kstr shim around vfs_remove(): converts path to a 256-byte ASCII buffer, returning -ENAMETOOLONG on overflow, then removes the file or directory via vfs_remove(). */
+/* 中文：vfs_remove() 的 kstr 适配层：把路径转成 256 字节 ASCII 缓冲，溢出时返回 -ENAMETOOLONG，然后调用 vfs_remove() 删除文件或目录。 */
+int
+vfs_remove_k(const struct kstr *path, int isdir)
+{
+	char buf[256];
+
+	if (kstr_to_a(path, buf, sizeof(buf)) < 0)
+		return (-ENAMETOOLONG);
+	return (vfs_remove(buf, isdir));
+}
+
+/* EN: Splits path at its last slash, copying the directory part into a 128-byte buffer and the final component (max 48 bytes) into name, then resolves the parent with vfs_namei(). */
+/* 中文：在路径最后一个斜杠处切分，把目录部分复制进 128 字节缓冲、末段名字（最多 48 字节）写入 name，再用 vfs_namei() 解析父目录。 */
 int
 vfs_lookup_parent(const char *path, struct vnode **dvp, char *name)
 {
@@ -530,6 +605,8 @@ vfs_lookup_parent(const char *path, struct vnode **dvp, char *name)
 	return (vfs_namei(dir, dvp));
 }
 
+/* EN: Resolves the parent (-EROFS if it lacks create/mkdir), calls mkdir+lookup for dirs or create for files, purges the name-cache entry on success and vn_put()s the parent. */
+/* 中文：先用 vfs_lookup_parent() 找父目录（无 create/mkdir 操作则返回 -EROFS），目录走 mkdir+lookup、文件走 create，成功后清除名字缓存项并 vn_put() 父目录。 */
 int
 vfs_create(const char *path, int isdir, struct vnode **vpp)
 {
@@ -562,6 +639,8 @@ vfs_create(const char *path, int isdir, struct vnode **vpp)
  * S17: unlink/rmdir with name-cache invalidation, so a removed file is not
  * found again through a stale positive entry.
  */
+/* EN: Resolves the parent, calls rmdir or remove according to isdir (-EROFS when the op is absent), purges the name-cache entry on success, and always vn_put()s the parent vnode. */
+/* 中文：解析父目录后按 isdir 调用 rmdir 或 remove（对应操作缺失则返回 -EROFS），成功后清除名字缓存项，最后总是 vn_put() 父目录 vnode。 */
 int
 vfs_remove(const char *path, int isdir)
 {
@@ -586,6 +665,8 @@ vfs_remove(const char *path, int isdir)
  * Rename within one directory.  The ISO9660 root is read-only, so only
  * the tmpfs mount can do this; mv(1) falls back to cp+unlink otherwise.
  */
+/* EN: Resolves both parents, returns -EXDEV unless they are the same vnode with a rename op; calls it, then on success purges both cached names and vn_put()s both parents. */
+/* 中文：解析新旧两个父目录，若二者不是同一 vnode 或缺少 rename 操作则返回 -EXDEV；调用 rename 后在成功时清除新旧两个名字缓存并 vn_put() 两个父目录。 */
 int
 vfs_rename(const char *oldpath, const char *newpath)
 {
@@ -622,6 +703,8 @@ struct vfs_mount {
 static struct vfs_mount mounts[2];
 static int nmounts;
 
+/* EN: Appends a path and root vnode pair to the fixed two-slot mounts[] table and bumps nmounts, silently doing nothing once both slots are taken. */
+/* 中文：把路径与根 vnode 追加到只有 2 个槽位的 mounts[] 表并递增 nmounts，表满后静默忽略，不再登记。 */
 static void
 mount_add(const char *path, struct vnode *root)
 {
@@ -635,6 +718,8 @@ mount_add(const char *path, struct vnode *root)
 
 /* ---- S12: render the mount table for the /dev/mounts pseudo file ---- */
 
+/* EN: Copies string s into buf starting at offset o, stopping once o + 1 reaches len, and returns the advanced offset without writing a terminating NUL. */
+/* 中文：从偏移 o 处把字符串 s 复制进 buf，当 o+1 达到 len 时停止，返回新的偏移；不写结尾 NUL。 */
 static unsigned
 app_str(char *buf, unsigned o, unsigned len, const char *s)
 {
@@ -644,6 +729,8 @@ app_str(char *buf, unsigned o, unsigned len, const char *s)
 	return (o);
 }
 
+/* EN: Renders unsigned v as decimal by filling a small buffer in reverse, appends the digits to buf at offset o while space remains, and returns the advanced offset. */
+/* 中文：把无符号数 v 逆序拆成十进制数字暂存到小缓冲，再在空间允许时正序追加到 buf 的 o 偏移处，返回新的偏移。 */
 static unsigned
 app_num(char *buf, unsigned o, unsigned len, unsigned v)
 {
@@ -661,6 +748,8 @@ app_num(char *buf, unsigned o, unsigned len, unsigned v)
 	return (o);
 }
 
+/* EN: Formats every mount for the /dev/mounts pseudo file, one line each with path, tmpfs/iso9660 type, lba, size and rw/ro; NUL-terminates within len and returns the bytes written. */
+/* 中文：为 /dev/mounts 伪文件格式化全部挂载点，每行给出路径、tmpfs/iso9660 类型、lba、大小和 rw/ro，在 len 内补 NUL 并返回写入字节数。 */
 int
 vfs_mount_list(char *buf, unsigned len)
 {
@@ -684,6 +773,8 @@ vfs_mount_list(char *buf, unsigned len)
 
 /* ---- S17: render the cache state for the /dev/vmstat pseudo file ---- */
 
+/* EN: Snapshots buffer, name-cache, page-cache and vnode/page stats and renders the multi-line /dev/vmstat pseudo file, NUL-terminating within len and returning the byte count. */
+/* 中文：先快照缓冲缓存、名字缓存、页缓存和 vnode/物理页的统计值，再渲染成 /dev/vmstat 伪文件的多行文本，在 len 内补 NUL 并返回字节数。 */
 int
 vfs_cache_report(char *buf, unsigned len)
 {
@@ -757,4 +848,50 @@ vfs_cache_report(char *buf, unsigned len)
 	if (o < len)
 		buf[o] = 0;
 	return ((int)o);
+}
+
+/* ---------------------------------------------------------------- VFS I/O */
+/*
+ * Two explicit VFS interfaces.  The synchronous one runs the backend in the
+ * caller and returns the byte count; the asynchronous one queues a kiocb and
+ * returns -EIOCBQUEUED, with exactly one completion later.
+ * 两套显式 VFS 接口：同步接口在调用者上下文执行后端并返回字节数；异步接口
+ * 排队 kiocb 并返回 -EIOCBQUEUED，之后恰好完成一次。
+ */
+int
+vfs_read_sync(struct vnode *vp, unsigned off, void *buf, unsigned len)
+{
+
+	if (vp == 0 || vp->ops->read == 0)
+		return (-EINVAL);
+	return (vp->ops->read(vp, off, buf, len));
+}
+
+int
+vfs_write_sync(struct vnode *vp, unsigned off, const void *buf, unsigned len)
+{
+
+	if (vp == 0 || vp->ops->write == 0)
+		return (-EINVAL);
+	return (vp->ops->write(vp, off, buf, len));
+}
+
+int
+vfs_read_async(struct kiocb *ki)
+{
+
+	if (ki == 0 || ki->ki_vp == 0 || ki->ki_vp->ops->read == 0)
+		return (-EINVAL);
+	ki->ki_op = KI_READ;
+	return (vfs_submit_async(ki));
+}
+
+int
+vfs_write_async(struct kiocb *ki)
+{
+
+	if (ki == 0 || ki->ki_vp == 0 || ki->ki_vp->ops->write == 0)
+		return (-EINVAL);
+	ki->ki_op = KI_WRITE;
+	return (vfs_submit_async(ki));
 }

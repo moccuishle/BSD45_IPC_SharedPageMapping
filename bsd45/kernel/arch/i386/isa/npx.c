@@ -33,6 +33,7 @@
  *
  *	@(#)npx.c	8.1 (Berkeley) 6/11/93
  */
+#include "arch/i386/hal/hal.h"
 #include "npx.h"
 #if NNPX > 0
 
@@ -77,17 +78,17 @@ npxprobe(dvp)
 	/* insure EM bit off */
 	load_cr0(rcr0() & ~CR0_EM);
 
-	asm("	fninit ");	/* put device in known state */
+	npx_init();	/* put device in known state */
 
 	/* check for a proper status of zero */
 	status = 0xa5a5;	
-	asm ("	fnstsw	%0 " : "=m" (status) : "m" (status) );
+	status = npx_get_status();
 
 	if (status == 0) {
 
 		/* good, now check for a proper control word */
 		control = 0xa5a5;	
-		asm ("	fnstcw %0 " : "=m" (control) : "m" (control));
+		control = npx_get_control();
 
 		if ((control&0x103f) == 0x3f) {
 			/* then we have a numeric coprocessor */
@@ -104,6 +105,8 @@ npxprobe(dvp)
 /*
  * Attach routine - announce which it is, and wire into system
  */
+/* EN: Attaches the numeric coprocessor: calls npxinit(0x262), increments npxexists and records the device interrupt mask in npx0mask. */
+/* 中文：挂接数值协处理器：调用 npxinit(0x262) 初始化，递增 npxexists 并把设备中断屏蔽位记入 npx0mask。 */
 npxattach(dvp)
 	struct isa_device *dvp;
 {
@@ -123,12 +126,12 @@ npxinit(control) {
 
 	load_cr0(rcr0() & ~CR0_EM);	/* stop emulating */
 #ifdef INTEL_COMPAT
-	asm ("	finit");
-	asm("	fldcw %0" : : "g" (control));
-	asm("	fnsave %0 " : : "g" (curpcb->pcb_savefpu) );
+	npx_init_finite();
+	npx_set_control(control);
+	npx_save(curpcb->pcb_savefpu);
 #else
-	asm("fninit");
-	asm("	fnsave %0 " : : "g" (curpcb->pcb_savefpu) );
+	npx_init();
+	npx_save(curpcb->pcb_savefpu);
 #endif
 	load_cr0(rcr0() | CR0_EM);	/* start emulating */
 
@@ -137,6 +140,8 @@ npxinit(control) {
 /*
  * Record information needed in processing an exception and clear status word
  */
+/* EN: NPX exception interrupt: npxexists==0 reports a stray intr; else resets the coprocessor via outb(0xf0,0), saves state to npxproc's pcb, sends SIGFPE and clears the exception. */
+/* 中文：协处理器异常中断：npxexists==0 时报杂散中断；否则经 outb(0xf0,0) 复位，保存状态到 npxproc 的 pcb，发送 SIGFPE 并清除异常。 */
 npxintr(frame)
 	struct intrframe frame;
 {
@@ -156,17 +161,19 @@ npxintr(frame)
 		 * sync state in process context structure, in advance 
 		 * of debugger/process looking for it.
 		 */
-		asm("fnsave %0" :: "g" (npxproc->p_addr->u_pcb.pcb_savefpu));
+		npx_save(npxproc->p_addr->u_pcb.pcb_savefpu);
 		psignal(npxproc, SIGFPE);
 
 		/* clear the exception so we can catch others like it */
-		asm ("	fnclex");
+		npx_clear();
 	}
 }
 
 /*
  * Implement device not available (DNA) exception
  */
+/* EN: Device-not-available handler: returns 0 when no NPX exists, else clears CR0_EM, saves the old npxproc's FP state, restores curpcb's, sets npxproc=curproc and returns 1. */
+/* 中文：设备不可用(DNA)异常处理：无 NPX 返回 0，否则清 CR0_EM、保存旧 npxproc 的 FP 状态并恢复 curpcb 的，置 npxproc=curproc 后返回 1。 */
 npxdna()
 {
 	if (npxexists == 0)
@@ -175,9 +182,8 @@ npxdna()
 	load_cr0(rcr0() & ~CR0_EM);	/* stop emulating */
 	if (npxproc != curproc) {
 		if (npxproc)
-			asm(" fnsave %0 "::"g"
-			    (npxproc->p_addr->u_pcb.pcb_savefpu));
-		asm("	frstor %0 " : : "g" (curpcb->pcb_savefpu));
+			npx_save(npxproc->p_addr->u_pcb.pcb_savefpu);
+		npx_restore(curpcb->pcb_savefpu);
 		npxproc = curproc;
 	}
 	return (1);

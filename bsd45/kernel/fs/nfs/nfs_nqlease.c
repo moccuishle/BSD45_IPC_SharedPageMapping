@@ -150,6 +150,8 @@ extern int nfs_mount_type;
  *     is when a new lease is being allocated, since it is not in the timer
  *     queue yet. (Ditto for the splsoftclock() and splx(s) calls)
  */
+/* EN: Server NQNFS lease grant: clamps duration, sets *frev from va_filerev, finds or allocates the handle lease, adds host or evicts rivals, sets *cachablep and expiry; 0 or error. */
+/* 中文：服务器端 NQNFS 租约授予：把时长裁剪到 nqsrv_maxlease，用 va_filerev 填 *frev，按句柄哈希查找或新建租约，登记主机或驱逐冲突主机，设置 *cachablep 与到期时间；返回 0 或错误码。 */
 int
 nqsrv_getlease(vp, duration, flags, slp, procp, nam, cachablep, frev, cred)
 	struct vnode *vp;
@@ -315,6 +317,8 @@ doreply:
  * Local lease check for server syscalls.
  * Just set up args and let nqsrv_getlease() do the rest.
  */
+/* EN: Thin wrapper for local lease checks: calls nqsrv_getlease with ND_CHECK|a_flag and NQLOCALSLP, discards duration, cache and frev, and always returns 0. */
+/* 中文：本地租约检查的薄封装：以 ND_CHECK|a_flag 和 NQLOCALSLP 调用 nqsrv_getlease，丢弃时长、缓存标志与 frev 结果，总是返回 0。 */
 int
 nqnfs_vop_lease_check(ap)
 	struct vop_lease_args /* {
@@ -336,6 +340,8 @@ nqnfs_vop_lease_check(ap)
 /*
  * Add a host to an nqhost structure for a lease.
  */
+/* EN: Records the lease holder in an nqhost: LC_LOCAL for NQLOCALSLP, LC_UDP plus sin_addr/port for the UDP socket, LC_CLTP with a copied mbuf for TCP, else LC_SREF and ns_sref++. */
+/* 中文：把租约持有者记入 nqhost：NQLOCALSLP 置 LC_LOCAL，UDP 套接字置 LC_UDP 并保存 sin_addr/sin_port，TCP 置 LC_CLTP 并复制 mbuf，其他情况置 LC_SREF 并递增 ns_sref。 */
 void
 nqsrv_addhost(lph, slp, nam)
 	register struct nqhost *lph;
@@ -364,6 +370,8 @@ nqsrv_addhost(lph, slp, nam)
 /*
  * Update the lease expiry time and position it in the timer queue correctly.
  */
+/* EN: Sets the lease expiry to time+duration+nqsrv_clockskew and repositions it in the nqtimerhead circle queue so entries stay expiry-ordered; an unchanged expiry returns early. */
+/* 中文：把租约到期时间设为 time+duration+nqsrv_clockskew，并重新插入 nqtimerhead 环形队列以保持按到期时间有序；到期时间未变则提前返回。 */
 void
 nqsrv_instimeq(lp, duration)
 	register struct nqlease *lp;
@@ -403,6 +411,8 @@ nqsrv_instimeq(lp, duration)
  * This is somewhat messy due to the union in the nqhost structure.
  * The local host is indicated by the special value of NQLOCALSLP for slp.
  */
+/* EN: Compares lease host entry lph with RPC address nam or the slp's socket address, matching AF_INET/AF_ISO/UDP/TCP forms; returns 1 on match, 0 otherwise. */
+/* 中文：把租约主机条目 lph 与 RPC 来源地址 nam 或 slp 的套接字地址比较，按 AF_INET/AF_ISO/UDP/TCP 形式匹配；匹配返回 1，否则返回 0。 */
 int
 nqsrv_cmpnam(slp, nam, lph)
 	register struct nfssvc_sock *slp;
@@ -444,6 +454,8 @@ nqsrv_cmpnam(slp, nam, lph)
 /*
  * Send out eviction notice messages to all other hosts for the lease.
  */
+/* EN: Walks the lease host list, marks matching hosts LC_VACATED, and sends an NQNFSPROC_EVICTED RPC with the file handle to every other host, freeing mbufs on failure. */
+/* 中文：遍历租约主机列表，把匹配的主机标记为 LC_VACATED，并向其余主机发送携带文件句柄的 NQNFSPROC_EVICTED RPC；发送失败时释放 mbuf。 */
 void
 nqsrv_send_eviction(vp, lp, slp, nam, cred)
 	struct vnode *vp;
@@ -555,6 +567,8 @@ nextone:
  * This will occur when all clients have sent "vacated" messages to
  * this server OR when it expires do to timeout.
  */
+/* EN: Sleeps on lp->lc_flag ("nqexp") until all non-local hosts of the lease have sent vacated, retrying via tryagain while the lease has not yet expired. */
+/* 中文：在 lp->lc_flag 上以 "nqexp" 睡眠，直到租约中所有非本地主机都发来 vacated；未到期时置 LC_EXPIREDWANTED 并从 tryagain 重试。 */
 void
 nqsrv_waitfor_expiry(lp)
 	register struct nqlease *lp;
@@ -598,6 +612,8 @@ tryagain:
  * - when one is found, wakeup anyone waiting for it
  *   else dequeue and free
  */
+/* EN: Scans the server lease timer queue: wakes LC_EXPIREDWANTED waiters, extends write leases by nqsrv_writeslack, else frees lease plus host blocks and decrements srvnqnfs_leases. */
+/* 中文：扫描服务器租约定时队列：唤醒 LC_EXPIREDWANTED 的等待者，对写租约按 nqsrv_writeslack 延期，否则释放租约与主机块并递减 srvnqnfs_leases。 */
 void
 nqnfs_serverd()
 {
@@ -683,6 +699,8 @@ nqnfs_serverd()
  * Do the from/to xdr translation and call nqsrv_getlease() to
  * do the real work.
  */
+/* EN: GETLEASE RPC: decodes fh, flags and duration, rejects a write lease on a read-only export with EROFS, calls nqsrv_getlease, replies cache flag, duration, frev and attrs. */
+/* 中文：GETLEASE RPC：解析文件句柄、flags 与时长，对只读导出上的写租约返回 EROFS，调用 nqsrv_getlease 后回送 cache 标志、时长、frev 和属性。 */
 int
 nqnfsrv_getlease(nfsd, slp, procp, mrq)
 	struct nfsrv_descript *nfsd;
@@ -741,6 +759,8 @@ nqnfsrv_getlease(nfsd, slp, procp, mrq)
  * Called from nfssvc_nfsd() when a "vacated" message is received from a
  * client. Find the entry and expire it.
  */
+/* EN: VACATED RPC: finds the lease by fsid and fid in the fh hash, marks the sender's host LC_VACATED, wakes an LC_EXPIREDWANTED waiter; returns EPERM either way. */
+/* 中文：VACATED RPC：按 fsid 和 fid 在文件句柄哈希中查找租约，把发送方主机标记为 LC_VACATED，唤醒 LC_EXPIREDWANTED 等待者；两种情况都返回 EPERM。 */
 int
 nqnfsrv_vacated(nfsd, slp, procp, mrq)
 	struct nfsrv_descript *nfsd;
@@ -818,6 +838,8 @@ nfsmout:
 /*
  * Client get lease rpc function.
  */
+/* EN: Client GETLEASE: sends NQNFSPROC_GETLEASE with rwflag and nm_leaseterm; if the granted expiry is still future, calls nqnfs_clientlease and reloads attrs, else NQNFS_EXPIRED. */
+/* 中文：客户端 GETLEASE：以 rwflag 和 nm_leaseterm 发送 NQNFSPROC_GETLEASE；授权到期时间仍在未来时调用 nqnfs_clientlease 并重载属性，否则返回 NQNFS_EXPIRED。 */
 int
 nqnfs_getlease(vp, rwflag, cred, p)
 	register struct vnode *vp;
@@ -863,6 +885,8 @@ nqnfs_getlease(vp, rwflag, cred, p)
 /*
  * Client vacated message function.
  */
+/* EN: Client VACATED: builds and sends an NQNFSPROC_VACATED RPC for the vnode's fh without waiting for a reply, taking the nm_flag send lock for connection-oriented mounts. */
+/* 中文：客户端 VACATED：构造并发送携带该 vnode 文件句柄的 NQNFSPROC_VACATED RPC，不等待应答；面向连接的挂载先取 nm_flag 发送锁。 */
 int
 nqnfs_vacated(vp, cred)
 	register struct vnode *vp;
@@ -912,6 +936,8 @@ nfsmout:
 /*
  * Called for client side callbacks
  */
+/* EN: Handles a server callback: anything but NQNFSPROC_EVICTED gives EPERM; nfs_nget's the nfsnode, zeroes n_expiry, sets NQNFSEVICTED and moves it to the timer queue head. */
+/* 中文：处理服务器回调：非 NQNFSPROC_EVICTED 一律返回 EPERM；用 nfs_nget 取得 nfsnode 后清零 n_expiry、置 NQNFSEVICTED 并移到定时队列头部。 */
 int
 nqnfs_callback(nmp, mrep, md, dpos)
 	struct nfsmount *nmp;
@@ -974,6 +1000,8 @@ nqnfs_callback(nmp, mrep, md, dpos)
  * "sleep" since nfs_reclaim() called from vclean() can pull a node off
  * the list asynchronously.
  */
+/* EN: NQNFS client daemon loop: stores Kerb auth from NFSSVC_GOTAUTH, pokes callbacks on pending receive data, each second expires or renews leases, frees nfsuid/nfsmount on dismount. */
+/* 中文：NQNFS 客户端守护循环：在 NFSSVC_GOTAUTH 时保存 Kerb 认证串，接收队列有数据即触发回调，每秒到期或续订租约，卸载时释放 nfsuid 与 nfsmount。 */
 int
 nqnfs_clientd(nmp, cred, ncd, flag, argp, p)
 	register struct nfsmount *nmp;
@@ -1131,6 +1159,8 @@ nqnfs_clientd(nmp, cred, ncd, flag, argp, p)
  * Adjust all timer queue expiry times when the time of day clock is changed.
  * Called from the settimeofday() syscall.
  */
+/* EN: After a clock change, adds deltat to every server lease lc_expiry and to each nqnfs mount's nfsnode n_expiry, walking the mount list under mountlist_slock with vfs_busy. */
+/* 中文：时钟变更后把 deltat 加到每个服务器租约的 lc_expiry 和各 nqnfs 挂载中 nfsnode 的 n_expiry 上；遍历挂载表时持有 mountlist_slock 并用 vfs_busy。 */
 void
 nqnfs_lease_updatetime(deltat)
 	register int deltat;
@@ -1180,6 +1210,8 @@ nqnfs_lease_updatetime(deltat)
 /*
  * Lock a server lease.
  */
+/* EN: Sleep-locks a server lease: while LC_LOCKED is set, sets LC_WANTED and tsleeps on lp ("nqlc"); once free sets LC_LOCKED and clears LC_WANTED. */
+/* 中文：对服务器租约加睡眠锁：LC_LOCKED 置位时设置 LC_WANTED 并在 lp 上以 "nqlc" 睡眠；拿到后置 LC_LOCKED 并清除 LC_WANTED。 */
 void
 nqsrv_locklease(lp)
 	struct nqlease *lp;
@@ -1196,6 +1228,8 @@ nqsrv_locklease(lp)
 /*
  * Unlock a server lease.
  */
+/* EN: Unlocks a server lease by clearing LC_LOCKED and, if LC_WANTED is set, waking processes sleeping on lp. */
+/* 中文：解锁服务器租约：清除 LC_LOCKED，若 LC_WANTED 已置位则唤醒在 lp 上睡眠的进程。 */
 void
 nqsrv_unlocklease(lp)
 	struct nqlease *lp;
@@ -1209,6 +1243,8 @@ nqsrv_unlocklease(lp)
 /*
  * Update a client lease.
  */
+/* EN: Updates the client lease on an nfsnode: sets or clears NQNFSWRITE and NQNFSNONCACHE, stores n_expiry and n_lrev, and reinserts the node into nm_timerhead sorted by expiry. */
+/* 中文：更新 nfsnode 上的客户端租约：按 rwflag 与 cachable 设置或清除 NQNFSWRITE、NQNFSNONCACHE，保存 n_expiry 与 n_lrev，并按到期时间插入 nm_timerhead。 */
 void
 nqnfs_clientlease(nmp, np, rwflag, cachable, expiry, frev)
 	register struct nfsmount *nmp;

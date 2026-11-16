@@ -53,6 +53,8 @@ static char sccsid[] = "@(#)mcount.c	8.1 (Berkeley) 6/4/93";
  * both frompcindex and frompc.  Any reasonable, modern compiler will
  * perform this optimization.
  */
+/* EN: mcount: bails unless gmon is GMON_PROF_ON, skips frompc outside [lowpc,textsize], else bumps or allocates its tostruct arc, links it at the chain head; GMON_PROF_ERROR at tolimit. */
+/* 中文：mcount 调用弧统计：gmon 状态非 GMON_PROF_ON 时直接返回，丢弃落在 [lowpc,textsize] 之外的 frompc，然后累加或分配 selfpc 对应的 tostruct 弧并移到哈希链首；超过 tolimit 置 GMON_PROF_ERROR。 */
 _MCOUNT_DECL(frompc, selfpc)	/* _mcount; may be static, inline, etc */
 	register u_long frompc, selfpc;
 {

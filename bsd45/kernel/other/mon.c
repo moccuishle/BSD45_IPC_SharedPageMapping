@@ -22,6 +22,12 @@
 
 #include "isofs.h"
 #include "vfs.h"
+#include "subsys/subsys.h"
+#include "thread/kthread.h"
+#include "hal/ipl.h"
+#include "hal/clock.h"
+#include "vm/zcomp.h"
+extern void cow_print(void);
 
 extern vm_offset_t avail_start, avail_end, virtual_avail, virtual_end;
 extern int KPTphys;
@@ -141,6 +147,28 @@ cmd_vstat(void)
 	/* S17: buffer/name/page cache counters (/dev/vmstat has the same) */
 	vfs_cache_report(buf, sizeof(buf));
 	printf("%s", buf);
+}
+
+static void
+cmd_wtest(void)
+{
+#ifdef KERNEL_UNICODE
+	unsigned short buf[64];
+#else
+	char buf[64];
+#endif
+	struct kstr s;
+	struct vnode *vp = 0;
+
+	kstr_init(&s, buf, sizeof(buf));
+	if (kstr_set_a(&s, "/readme.txt") < 0 ||
+	    vfs_namei_k(&s, &vp) < 0 || vp == 0) {
+		printf("wtest: FAIL\n");
+		return;
+	}
+	vn_put(vp);
+	printf("wtest: kstr path %s\n", KSTR_UTF16 ? "utf16" : "ascii");
+	printf("wtest: PASS\n");
 }
 
 /*
@@ -284,13 +312,79 @@ monitor(void)
 
 		if (!strcmp(line, "help"))
 			printf("help  mem  vstat  vstress  pte <addr>  map  banner  "
-			    "usermode  shell  test  cd  reboot  halt\n");
+			    "usermode  shell  test  cd  reboot  halt\n"
+			    "      subsys  subsystest\n"
+			    "      kthread  softirq  kthreadtest  softirqtest\n"
+			    "      ipl  ipltest  clock  lat  cow  ipltrace\n"
+			    "      zcomp  zcomptest\n"
+			    "      aio  aiotest\n"
+			    "      wtest\n");
 		else if (!strcmp(line, "mem"))
 			cmd_mem();
 		else if (!strcmp(line, "vstat"))
 			cmd_vstat();
 		else if (!strcmp(line, "vstress"))
 			cmd_vstress();
+		else if (!strcmp(line, "subsys"))
+			subsys_print();
+		else if (!strcmp(line, "subsystest")) {
+			int rv = subsys_selftest();
+
+			if (rv != 0)
+				printf("subsystest: FAIL\n");
+		}
+		else if (!strcmp(line, "kthread"))
+			kthread_print();
+		else if (!strcmp(line, "softirq"))
+			softirq_print();
+		else if (!strcmp(line, "kthreadtest")) {
+			unsigned n = kthread_selftest();
+
+			printf("kthreadtest: counter %d %s\n", n,
+			    n == 3 ? "PASS" : "FAIL");
+		}
+		else if (!strcmp(line, "softirqtest")) {
+			int n = softirq_selftest();
+
+			printf("softirqtest: count %d %s\n", n,
+			    n > 0 ? "PASS" : "FAIL");
+		}
+		else if (!strcmp(line, "ipl"))
+			ipl_print();
+		else if (!strcmp(line, "ipltrace"))
+			ipl_trace_print(64);
+		else if (!strcmp(line, "clock"))
+			clock_print();
+		else if (!strcmp(line, "lat"))
+			clock_lat_print();
+		else if (!strcmp(line, "zcomp"))
+			zcomp_print();
+		else if (!strcmp(line, "zcomptest")) {
+			if (zcomp_selftest() != 0)
+				printf("zcomptest: FAIL\n");
+		}
+		else if (!strcmp(line, "aio")) {
+			unsigned q, d, p;
+
+			vfs_aio_stats(&q, &d, &p);
+			printf("aio: queued %d done %d pending %d\n",
+			    q, d, p);
+		}
+		else if (!strcmp(line, "aiotest")) {
+			if (vfs_aio_selftest() != 0)
+				printf("aiotest: FAIL\n");
+		}
+		else if (!strcmp(line, "cow"))
+			cow_print();
+		else if (!strcmp(line, "ipltest")) {
+			int rv = ipl_selftest();
+			int rv2 = kthread_ipl_selftest();
+
+			printf("ipltest: %s\n",
+			    (rv == 0 && rv2 == 0) ? "PASS" : "FAIL");
+		}
+		else if (!strcmp(line, "wtest"))
+			cmd_wtest();
 		else if (!strncmp(line, "pte", 3))
 			cmd_pte(line + 3);
 		else if (!strcmp(line, "usermode"))

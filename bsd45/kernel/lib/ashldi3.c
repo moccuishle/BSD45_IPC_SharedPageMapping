@@ -45,6 +45,8 @@ static char sccsid[] = "@(#)ashldi3.c	8.1 (Berkeley) 6/4/93";
  * Shift a (signed) quad value left (arithmetic shift left).
  * This is the same as logical shift left!
  */
+/* EN: Left-shift a quad_t by a runtime count: >= 32 moves the low word into the high word and zeroes the low, >= 64 gives 0; a normal count ORs low bits into the high word. */
+/* 中文：按运行期位数对 64 位整数左移：移位 >=32 时把低字移入高字并清零低字，>=64 时结果清零；常规移位则把低字高位部分补入高字。 */
 quad_t
 __ashldi3(a, shift)
 	quad_t a;

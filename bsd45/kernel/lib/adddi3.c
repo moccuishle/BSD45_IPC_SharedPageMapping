@@ -46,6 +46,8 @@ static char sccsid[] = "@(#)adddi3.c	8.1 (Berkeley) 6/4/93";
  * u_long addition x+y occurs if and only if the sum x+y is less than
  * either x or y (the choice to compare with x or y is arbitrary).
  */
+/* EN: Add two signed 64-bit quads by summing the low 32-bit halves, then the high halves plus the carry detected as sum.ul[L] < bb.ul[L]; pure, returns the wrapped sum. */
+/* 中文：先把两个 64 位有符号数的低 32 位半部相加，再相加高半部并以 sum.ul[L] 小于 bb.ul[L] 判定进位一并计入，返回二补码回绕的和，纯函数无副作用。 */
 quad_t
 __adddi3(a, b)
 	quad_t a, b;

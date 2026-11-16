@@ -63,6 +63,8 @@ u_long nfsnodehash;
  * Initialize hash links for nfsnodes
  * and build nfsnode free list.
  */
+/* EN: Initializes the nfsnode hash table: warns if sizeof(struct nfsnode) is not a power of two, then allocates desiredvnodes buckets via hashinit into nfsnodehashtbl/nfsnodehash. */
+/* 中文：初始化 nfsnode 哈希表：若 sizeof(struct nfsnode) 不是 2 的幂就打印告警，然后用 hashinit 按 desiredvnodes 分配桶数组，存入 nfsnodehashtbl 与 nfsnodehash。 */
 void
 nfs_nhinit()
 {
@@ -77,6 +79,8 @@ nfs_nhinit()
 /*
  * Compute an entry in the NFS hash table structure
  */
+/* EN: Sums the fhsize bytes of a file handle into a u_long checksum, which callers reduce modulo the hash size via NFSNOHASH; the hash is purely additive. */
+/* 中文：把文件句柄的 fhsize 个字节累加成 u_long 校验和，调用者再用 NFSNOHASH 对桶数取模；该哈希只是简单加和。 */
 u_long
 nfs_hash(fhp, fhsize)
 	register nfsfh_t *fhp;
@@ -99,6 +103,8 @@ nfs_hash(fhp, fhsize)
  * In all cases, a pointer to a
  * nfsnode structure is returned.
  */
+/* EN: Returns the nfsnode for (mount, file handle): vget's the hashed one, else allocates a vnode and nfsnode, hashes it and copies the handle; sets *npp, returns 0 or an error. */
+/* 中文：取得 (挂载点, 文件句柄) 对应的 nfsnode：命中则 vget 后直接返回，否则分配 vnode 与 nfsnode、插入哈希表并复制句柄；结果写入 *npp，返回 0 或错误码。 */
 int
 nfs_nget(mntp, fhp, fhsize, npp)
 	struct mount *mntp;
@@ -150,6 +156,8 @@ loop:
 	return (0);
 }
 
+/* EN: VOP_INACTIVE: flushes and removes a pending sillyrename file, freeing it, its cred and dvp reference; then keeps only persistent flags, unlocks the vnode and returns 0. */
+/* 中文：VOP_INACTIVE：若有待处理的 sillyrename 文件，先刷新缓冲并调用 nfs_removeit 删除，再释放其 cred、dvp 引用和结构；随后只保留持久标志并解锁 vnode，返回 0。 */
 int
 nfs_inactive(ap)
 	struct vop_inactive_args /* {
@@ -189,6 +197,8 @@ nfs_inactive(ap)
 /*
  * Reclaim an nfsnode so that it can be used for other purposes.
  */
+/* EN: VOP_RECLAIM: unhashes the nfsnode, removes it from the NQNFS timer queue, frees dir cookies and any large fh, purges name cache, frees the nfsnode, clears v_data; returns 0. */
+/* 中文：VOP_RECLAIM：把 nfsnode 从哈希表摘除、移出 NQNFS 定时队列，释放目录 cookie 与大句柄缓冲，清理名字缓存后释放 nfsnode 并清空 v_data，返回 0。 */
 int
 nfs_reclaim(ap)
 	struct vop_reclaim_args /* {
@@ -241,6 +251,8 @@ nfs_reclaim(ap)
  * done. Currently nothing to do.
  */
 /* ARGSUSED */
+/* EN: VOP_ABORTOP: frees the namei buffer cn_pnbuf (M_NAMEI) when HASBUF is set without SAVESTART, so an aborted lookup/create does not leak it; always returns 0. */
+/* 中文：VOP_ABORTOP：当 cn_flags 含 HASBUF 但不含 SAVESTART 时，释放 namei 缓冲区 cn_pnbuf（M_NAMEI），避免中止的查找/创建泄漏内存；总是返回 0。 */
 int
 nfs_abortop(ap)
 	struct vop_abortop_args /* {

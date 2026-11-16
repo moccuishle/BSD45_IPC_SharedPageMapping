@@ -1,11 +1,16 @@
-# BSD45_cache-mmap_filesystem — 4.5BSD i386 ELF 内核 / VFS / 缓存 / mmap
+# BSD_object_orient_kernel — 对象化 4.5BSD 内核
 
-这个仓库是 **BSD45-ELF-x86** 的完整工程：在 4.5BSD-Lite2 i386 内核上实现了
-VFS（ISO9660 + tmpfs）、`init(8)`、`execve`、fork/wait4、控制台 tty、管道、
-目录遍历、信号/作业控制、mount/chdir，以及 **S17 缓存系统**（buffer cache +
-name cache + 文件页缓存 + `mmap(2)`/`msync(2)`），并把 4.5BSD 的 libc /
-`/bin/sh` 交叉编译成 i386 ELF 放进 ISO。启动后进入用户态就是真正的 BSD
-`/bin/sh`（`# ` 提示符）。
+在 BSD45（4.5BSD-Lite2 i386 ELF 内核）基础上做对象化改造：
+
+- **对象管理器**：目录/进程/线程/事件都是对象，共享 `\` 命名空间，每进程句柄表；
+- **线程一等公民**：线程对象挂在进程对象下，内核线程 + softirq 有独立执行载体；
+- **UTF-16 / ASCII 双构建**：`KERNEL_UNICODE` 宏切换，Unicode 构建同时提供
+  A/W 两套 API，ASCII 构建只保留 A 套；
+- **API 子系统**：unix / posix / linux / win32 四个 personality，与内核服务 ABI 解耦；
+- **分层单内核**：对象管理器 / VM / IO / FS / HAL 通过明确接口调用（微内核式模块化）。
+
+当前 21 套验收全绿（BSD45 原有 17 套 + test_obj / test_subsys / test_kthread）。
+设计、路线与 CNFS 规划见 [`docs/object-kernel.md`](docs/object-kernel.md)。
 
 ![BSD45 启动到 BSD /bin/sh：ls /bin、/tmp 读写与管道](screenshot.png)
 
@@ -51,11 +56,11 @@ bash tools/test_s9.sh
 bsd45/
   boot/            每架构引导代码：i386/（stage1、stage2、kernel.ld）+ arm/ amd64/ mips/ riscv/
   kernel/          完整 4.5BSD sys 树 + 本项目的 VFS/驱动/用户态装载代码
-  libc/            用户态 C 库、工具源码，以及 libc/bsd/（4.5BSD 用户态源码）
+  libc/            用户态 C 库、工具源码，以及 libc/arch/bsd/（4.5BSD 用户态源码）
   rootfs_overlay/  ISO 根目录覆盖层（/etc、/readme.txt 等）
   tools/           测试与辅助脚本
   vms/             VMware 虚拟机定义
-  src/             已删除（已合并进 kernel/ + libc/bsd/，构建不再需要 tarball）
+  src/             已删除（已合并进 kernel/ + libc/arch/bsd/，构建不再需要 tarball）
 ```
 
 ## 状态
@@ -82,6 +87,6 @@ bsd45/
 
 ## 许可
 
-`bsd45/kernel/` 与 `bsd45/libc/bsd/` 中的 4.5BSD 代码遵循其原始 BSD 版权
+`bsd45/kernel/` 与 `bsd45/libc/arch/bsd/` 中的 4.5BSD 代码遵循其原始 BSD 版权
 许可与 UC Berkeley advertising 条款；本项目新增的脚本、引导器与 glue 代码
 可视为同一 BSD 风格许可。

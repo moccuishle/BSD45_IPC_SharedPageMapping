@@ -35,6 +35,8 @@
 
 #include <lib/libkern.h>
 
+/* EN: Scan size bytes at cp and return the distance from the end to the first byte whose table entry has any mask0 bit set; returns 0 when no byte matches the mask. */
+/* 中文：从 cp 起扫描 size 个字节，返回第一个其 table 表项含有 mask0 任一标志位的字节到缓冲区末尾的距离；没有任何字节匹配时返回 0。 */
 int
 scanc(size, cp, table, mask0)
 	u_int size;

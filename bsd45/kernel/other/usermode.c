@@ -34,10 +34,20 @@
 #include "atapi.h"
 #include "isofs.h"
 #include "vfs.h"
+#include "subsys/subsys.h"
+#include "thread/kthread.h"
+/* platform-independent context hooks live in kernel/hal/context.h */
+#include "hal/context.h"
+#include "hal/ipl.h"
+#include "hal/clock.h"
+#include "vm/zcomp.h"
+#include "fs/uring.h"
 
 #define	USER_LOAD	0x08048000
 #define	USER_STACK_TOP	0xBFC00000
 #define	USER_STACK_SIZE	0x8000
+#define	PG_COW		0x00000200	/* software COW marker (PG_FOD bit) */
+#define	PG_ZCOMP	0x00000400	/* not-present compressed-page entry */
 #define	USER_ARG_PAGE	(USER_STACK_TOP - PAGE_SIZE)
 #define	USER_ARGS_MAX	4096
 
@@ -167,11 +177,7 @@ struct fd {
 	struct vnode		*vp;		/* file/dir through the VFS */
 };
 
-/* saved user context, filled by syscall_entry/enter_user */
-struct sysregs {
-	unsigned ds, es, edi, esi, ebp, esp, ebx, edx, ecx, eax;
-	unsigned eip, cs, eflags, uesp, ss;
-};
+/* saved user context lives in subsys/subsys.h so personalities can see it */
 
 #define	NPROC		8
 #define	P_FREE		0
@@ -199,6 +205,12 @@ struct sysregs {
 #define	SIGTTOU		22
 #define	SIGUSR1		30
 #define	SIGUSR2		31
+/* fault-generated signals (os.md mechanism 1: a bad app must not wedge us) */
+#define	SIGILL		4
+#define	SIGTRAP		5
+#define	SIGFPE		8
+#define	SIGBUS		10
+#define	SIGSEGV		11
 
 #define	SIG_DFL		0
 #define	SIG_IGN		1
@@ -238,16 +250,25 @@ struct uproc {
 	/* S17: mmap bookkeeping */
 	unsigned	p_mmap_base;	/* next unused VA for a non-FIXED map */
 	struct vma	p_vma[NMAP];
+	struct kthread	*p_thread;
+	struct kthread	*p_threads;
+	int		p_nthreads;
+	int		p_next_tid;
+	int		aio_wait_token;	/* token this process is blocked on */
+	int		uring_wait;	/* blocked in uring_enter */
 };
 
 static struct uproc	procs[NPROC];
 static struct uproc	*cur;		/* current process */
+static struct kthread	*cur_thread;	/* current execution flow */
 static int		next_pid = 2;
 
 static unsigned next_pa = 0x200000;
 static unsigned page_alloc(void);
 static void *map_page(unsigned va, unsigned pa);
 static void page_free(unsigned pa);
+static int ucopyin(void *udaddr, void *kaddr, unsigned len);
+static int ucopyout(void *kaddr, void *udaddr, unsigned len);
 
 /*
  * Physical page allocator.  New pages come from the bump pointer, but a
@@ -260,6 +281,67 @@ static int console_fg_pgrp;
 
 static unsigned page_free_list;
 static unsigned page_nalloc, page_nfree, page_ninuse;
+
+/*
+ * COW reference counts (os.md mechanism 2/3).  One byte per physical page.
+ * 16384 entries cover the 64 MB guest used by the test harness; pages above
+ * that are not COW-shared (page_index()==0 leaves them unaccounted).
+ * Keep this table small: the PE/ELF boot loader stages the kernel at
+ * 0x10000, and stage 2 lives at 0x90000, so .data must stay below it.
+ */
+#define	MAX_PHYS_PAGES	(1u << 14)
+static unsigned char	page_ref[MAX_PHYS_PAGES];
+unsigned	cow_faults;
+unsigned	cow_copies;
+unsigned	cow_shared;
+
+static unsigned
+page_index(unsigned pa)
+{
+	unsigned i = pa >> 12;
+
+	return (i < MAX_PHYS_PAGES ? i : 0);
+}
+
+static void
+page_ref_set(unsigned pa, unsigned v)
+{
+	unsigned i = page_index(pa);
+
+	if (i != 0)
+		page_ref[i] = (unsigned char)v;
+}
+
+static unsigned
+page_ref_get(unsigned pa)
+{
+	unsigned i = page_index(pa);
+
+	return (i != 0 ? page_ref[i] : 1);
+}
+
+static void
+page_ref_inc(unsigned pa)
+{
+	unsigned i = page_index(pa);
+
+	if (i != 0 && page_ref[i] < 255)
+		page_ref[i]++;
+}
+
+static void
+page_put(unsigned pa)
+{
+	unsigned i = page_index(pa);
+
+	if (i != 0 && page_ref[i] > 1) {
+		page_ref[i]--;
+		return;
+	}
+	if (i != 0)
+		page_ref[i] = 0;
+	page_free(pa);
+}
 
 #define	CD_IMAGE_VA	0xFE400000	/* kernel window for a file read from CD */
 static unsigned cd_mapped;		/* bytes mapped at CD_IMAGE_VA */
@@ -327,11 +409,29 @@ vfs_page_stats(unsigned *nalloc, unsigned *nfreed, unsigned *ninuse)
 	*ninuse = page_ninuse;
 }
 
+static int zcomp_reclaim(int n);
+static int in_zcomp;
+static int user_ok(unsigned p, unsigned len);
+static int user_ok_w(unsigned p, unsigned len);
+static void proc_sched(void);
+
 static unsigned
 page_alloc(void)
 {
 	unsigned pa;
 
+	/*
+	 * Memory-pressure hook: before bumping into more RAM, try to compress
+	 * a few private anonymous pages.  The compressed pages stay in RAM,
+	 * so this trades CPU for headroom instead of going to swap (there is
+	 * no swap device in this port).
+	 * 内存压力钩子：在继续向物理内存推进之前，先压缩少量进程私有匿名页。
+	 * 压缩后的页仍在 RAM 中，用 CPU 换空间，而不是写 swap（本端口没有
+	 * swap 设备）。
+	 */
+	if (page_free_list == 0 && page_ninuse > 4096 && !in_zcomp &&
+	    cur != 0)
+		(void)zcomp_reclaim(8);
 	if (page_free_list != 0) {
 		unsigned *p = map_page(SCRATCH_PAGE, page_free_list);
 
@@ -339,6 +439,7 @@ page_alloc(void)
 		page_free_list = *p;
 		page_nalloc++;
 		page_ninuse++;
+		page_ref_set(pa, 1);
 		return (pa);
 	}
 	pa = next_pa;
@@ -347,6 +448,7 @@ page_alloc(void)
 		panic("usermode: out of physical memory");
 	page_nalloc++;
 	page_ninuse++;
+	page_ref_set(pa, 1);
 	return (pa);
 }
 
@@ -360,6 +462,7 @@ page_free(unsigned pa)
 	p = map_page(SCRATCH_PAGE, pa);
 	*p = page_free_list;
 	page_free_list = pa;
+	page_ref_set(pa, 0);
 	page_nfree++;
 	if (page_ninuse > 0)
 		page_ninuse--;
@@ -383,9 +486,14 @@ free_address_space(unsigned pdpa)
 		if ((pd[i] & PG_V) == 0)
 			continue;
 		pt = map_page(SCRATCH_PT, pd[i] & PG_FRAME);
-		for (j = 0; j < PAGE_SIZE / 4; j++)
-			if (pt[j] & PG_V)
-				page_free(pt[j] & PG_FRAME);
+		for (j = 0; j < PAGE_SIZE / 4; j++) {
+			if (pt[j] & PG_ZCOMP) {
+				/* compressed page: release its pool slot */
+				zcomp_free_slot((pt[j] & PG_FRAME) >> 12);
+				pt[j] = 0;
+			} else if (pt[j] & PG_V)
+				page_put(pt[j] & PG_FRAME);
+		}
 		page_free(pd[i] & PG_FRAME);
 		pd[i] = 0;
 	}
@@ -569,7 +677,7 @@ do_mmap(unsigned addr, unsigned len, int prot, int flags, int fd)
 {
 	struct vma *v;
 	struct vnode *vp = 0;
-	unsigned vid = 0, start, i;
+	unsigned vid = 0, start;
 	int share = flags & (MAP_SHARED | MAP_PRIVATE);
 	int file = (flags & MAP_ANON) == 0;
 
@@ -615,53 +723,13 @@ do_mmap(unsigned addr, unsigned len, int prot, int flags, int fd)
 			vn_put(vp);
 		return (-ENOMEM);
 	}
-	for (i = 0; i < len; i += PAGE_SIZE) {
-		unsigned va = start + i;
-		unsigned pa;
-
-		if (!file) {
-			pa = page_alloc();
-			zero_page(pa);
-			user_map_prot(cur->pd, va, pa, prot);
-			continue;
-		}
-		{
-			unsigned char *src;
-
-			pa = pagecache_get(vp, i / PAGE_SIZE, &src);
-			if (pa == 0) {
-				/* out of unreferenced cache pages */
-				unsigned k;
-
-				for (k = 0; k < i; k += PAGE_SIZE) {
-					unsigned q = user_getpa(cur->pd,
-					    start + k);
-
-					user_unmap(cur->pd, start + k);
-					if (share == MAP_SHARED)
-						pagecache_unref_key(vid,
-						    k / PAGE_SIZE);
-					else if (q)
-						page_free(q);
-				}
-				bzero(v, sizeof(*v));
-				if (vp)
-					vn_put(vp);
-				return (-ENOMEM);
-			}
-			if (share == MAP_SHARED) {
-				user_map_prot(cur->pd, va, pa, prot);
-			} else {
-				unsigned pa2 = page_alloc();
-				char *dst = map_page(SCRATCH_PAGE, pa2);
-
-				zero_page(pa2);
-				bcopy(src, dst, PAGE_SIZE);
-				user_map_prot(cur->pd, va, pa2, prot);
-				pagecache_unref(vp, i / PAGE_SIZE);
-			}
-		}
-	}
+	/*
+	 * Pages are populated on the first fault by mmap_fault(), not here:
+	 * mmap only records the VMA so a large mapping costs no memory until
+	 * it is touched (os.md mechanism 3, demand paging).
+	 * 页面在首次访问时由 mmap_fault() 填充；mmap 只记录 VMA，大映射在
+	 * 未触碰前不占物理页（os.md 机制 3，按需分页）。
+	 */
 	bzero(v, sizeof(*v));
 	v->used = 1;
 	v->start = start;
@@ -674,6 +742,552 @@ do_mmap(unsigned addr, unsigned len, int prot, int flags, int fd)
 	if (!(flags & MAP_FIXED))
 		cur->p_mmap_base = start + len;
 	return ((int)start);
+}
+
+static int
+mmap_fault(unsigned va)
+{
+	struct vma *v = vma_find(cur, va);
+	unsigned idx, pa;
+	unsigned char *src;
+
+	if (v == 0)
+		return (0);
+	idx = (v->off + (va - v->start)) / PAGE_SIZE;
+	if (v->vp == 0) {
+		/* anonymous mapping: zero page on first touch */
+		pa = page_alloc();
+		zero_page(pa);
+		user_map_prot(cur->pd, va, pa, v->prot);
+		return (1);
+	}
+	pa = pagecache_get(v->vp, idx, &src);
+	if (pa == 0)
+		return (0);
+	if (v->flags & MAP_SHARED) {
+		/* shared file page: map the page-cache page itself */
+		user_map_prot(cur->pd, va, pa, v->prot);
+		return (1);
+	}
+	/* private file page: copy the cache page into a process-owned page */
+	{
+		unsigned pa2 = page_alloc();
+		char *dst = map_page(SCRATCH_PAGE, pa2);
+
+		zero_page(pa2);
+		bcopy(src, dst, PAGE_SIZE);
+		user_map_prot(cur->pd, va, pa2, v->prot);
+		pagecache_unref(v->vp, idx);
+	}
+	return (1);
+}
+
+static int
+zcomp_refault(unsigned va)
+{
+	unsigned *pt;
+	unsigned pti, slot, pa;
+	char *dst;
+
+	pti = user_pte_ptr(cur->pd, va & ~(PAGE_SIZE - 1), &pt);
+	if (pt == 0 || (pt[pti] & PG_V) != 0 ||
+	    (pt[pti] & PG_ZCOMP) == 0)
+		return (0);
+	slot = (pt[pti] & PG_FRAME) >> 12;
+	pa = page_alloc();
+	dst = map_page(SCRATCH_PAGE, pa);
+	if (zcomp_load(slot, dst) < 0) {
+		page_put(pa);
+		pt[pti] = 0;
+		return (0);
+	}
+	pt[pti] = pa | PG_V | PG_RW | PG_u;
+	hal_address_space_activate(cur->pd);
+	return (1);
+}
+
+/*
+ * Compress up to n private anonymous pages of the current process.  Only
+ * present, writable, user, non-COW pages outside a VMA are candidates;
+ * file-backed and shared pages are left alone (they can be re-read).
+ * 压缩当前进程最多 n 个私有匿名页。候选必须 present、可写、用户态、
+ * 非 COW，且不在 VMA 内；文件页与共享页不压缩（可以重新读取）。
+ */
+/*
+ * User-space asynchronous I/O ABI (os.md mechanism 5).
+ *
+ * submit returns a token immediately; the VFS aio worker runs the shared
+ * read_iter/write_iter backend and completes through an IPL_AIO softirq.
+ * A read completes into the per-slot kernel page and is copied out before
+ * the waiting process is woken; a write copies the user buffer in at submit.
+ * 用户态异步 I/O ABI：submit 立即返回 token；VFS aio worker 执行共享的
+ * read_iter/write_iter 后端，并通过 IPL_AIO 软中断完成。读先落到每槽内核
+ * 页，在唤醒等待进程前拷回用户；写在提交时先把用户缓冲拷入。
+ */
+#define	NAIO		8
+#define	AIO_VA		0xFE500000
+
+struct aio_slot {
+	int		 a_used;
+	int		 a_token;
+	int		 a_op;
+	int		 a_pid;
+	int		 a_done;
+	int		 a_woken;
+	int		 a_result;
+	unsigned	 a_ubuf;
+	unsigned	 a_len;
+	unsigned	 a_off;
+	unsigned a_user_data;	/* ring CQE payload */
+	void		*a_ring;	/* struct uring_ring * when from a ring */
+	unsigned char	*a_kbuf;
+	struct uproc	*a_proc;
+	struct kiocb	 a_ki;
+};
+
+#define	NURING		2
+#define	URING_KVA	0xFE700000
+#define	URING_UVA	0x31000000
+
+struct uring_ring {
+	int		 r_used;
+	struct uproc	*r_proc;
+	unsigned	 r_pd;
+	unsigned	 r_uva;
+	unsigned	 r_pa;
+	unsigned	 r_entries;
+	int		 r_wait_pid;
+	int		 r_wait_result;
+	int		 r_expected;	/* completions this batch must produce */
+	int		 r_done;	/* completions seen for this batch */
+	struct uring_header *r_hdr;
+	struct uring_sqe *r_sq;
+	struct uring_cqe *r_cq;
+};
+
+static struct uring_ring rings[NURING];
+static int		uring_inited;
+
+static void uring_wake(struct uring_ring *r);
+static int uring_cqe_push(struct uring_ring *r, unsigned user_data, int res);
+
+static struct aio_slot	aios[NAIO];
+static int		aio_next_token;
+
+static void aio_soft(void *arg);
+
+void
+aio_user_init(void)
+{
+	int i;
+	unsigned pa;
+
+	bzero(aios, sizeof(aios));
+	aio_next_token = 1;
+	for (i = 0; i < NAIO; i++) {
+		pa = vfs_page_alloc();
+		pmap_map((vm_offset_t)(AIO_VA + i * PAGE_SIZE),
+		    (vm_offset_t)pa, (vm_offset_t)pa + PAGE_SIZE,
+		    VM_PROT_READ | VM_PROT_WRITE);
+		aios[i].a_kbuf = (unsigned char *)(AIO_VA + i * PAGE_SIZE);
+	}
+	ipl_register(IPL_AIO, aio_soft, 0, "aio");
+	printf("aio: %d submission slots at %x\n", NAIO, AIO_VA);
+}
+
+static void
+aio_complete_kiocb(struct kiocb *ki, int r)
+{
+	struct aio_slot *s = (struct aio_slot *)ki->ki_private;
+	struct uproc *save = cur;
+	unsigned savepd = hal_address_space_current();
+
+	if (s == 0)
+		return;
+	s->a_result = r;
+	s->a_done = 1;
+	if (s->a_op == KI_READ && r > 0) {
+		cur = s->a_proc;
+		if (cur != 0) {
+			hal_address_space_activate(cur->pd);
+			if (user_ok_w(s->a_ubuf, (unsigned)r))
+				bcopy(s->a_kbuf, (void *)s->a_ubuf,
+				    (unsigned)r);
+		}
+		cur = save;
+		hal_address_space_activate(savepd);
+	}
+	if (s->a_ring != 0) {
+		struct uring_ring *rg = (struct uring_ring *)s->a_ring;
+		(void)uring_cqe_push(rg, s->a_user_data, r);
+		rg->r_done++;
+		uring_wake(rg);
+		return;
+	}
+	softirq_raise(IPL_AIO, aio_soft, s);
+}
+
+static void
+aio_soft(void *arg)
+{
+	struct aio_slot *s = (struct aio_slot *)arg;
+	struct uproc *p = 0;
+	int i;
+
+	if (s == 0 || s->a_woken)
+		return;
+	if (s->a_ring != 0)
+		return;			/* ring completion woke the caller */
+	for (i = 0; i < NPROC; i++)
+		if (procs[i].state != P_FREE && procs[i].pid == s->a_pid) {
+			p = &procs[i];
+			break;
+		}
+	if (p != 0 && p->state == P_BLOCKED &&
+	    p->aio_wait_token == s->a_token) {
+		p->aio_wait_token = 0;
+		p->regs.eax = (unsigned)s->a_result;
+		p->state = P_RUN;
+		vn_put(s->a_ki.ki_vp);
+		s->a_used = 0;
+		s->a_woken = 1;
+	}
+}
+
+static int
+aio_submit_sys(int fd, int op, unsigned ubuf, unsigned len, unsigned off)
+{
+	struct aio_slot *s = 0;
+	struct vnode *vp;
+	int i, token, r;
+
+	if (fd < 0 || fd >= NFD || !cur->fds[fd].used ||
+	    cur->fds[fd].vp == 0)
+		return (-EBADF);
+	vp = cur->fds[fd].vp;
+	if (len == 0 || len > PAGE_SIZE)
+		return (-EINVAL);
+	if (op == KI_READ ? !user_ok_w(ubuf, len) : !user_ok(ubuf, len))
+		return (-EFAULT);
+	for (i = 0; i < NAIO; i++)
+		if (!aios[i].a_used) {
+			s = &aios[i];
+			break;
+		}
+	if (s == 0)
+		return (-EAGAIN);
+	{
+		unsigned char *kbuf = s->a_kbuf;
+
+		bzero(s, sizeof(*s));
+		s->a_kbuf = kbuf;
+	}
+	s->a_used = 1;
+	token = aio_next_token++;
+	if (aio_next_token <= 0)
+		aio_next_token = 1;
+	s->a_token = token;
+	s->a_op = op;
+	s->a_pid = cur->pid;
+	s->a_proc = cur;
+	s->a_ubuf = ubuf;
+	s->a_len = len;
+	s->a_off = off;
+	if (op == KI_WRITE) {
+		if (ucopyin((void *)ubuf, s->a_kbuf, len) < 0) {
+			s->a_used = 0;
+			return (-EFAULT);
+		}
+	} else
+		bzero(s->a_kbuf, len);
+
+	s->a_ki.ki_vp = vp;
+	s->a_ki.ki_op = op;
+	s->a_ki.ki_flags = KI_ASYNC;
+	s->a_ki.ki_off = off;
+	s->a_ki.ki_buf = s->a_kbuf;
+	s->a_ki.ki_len = len;
+	s->a_ki.ki_complete = aio_complete_kiocb;
+	s->a_ki.ki_private = s;
+	vp->ref++;
+	r = (op == KI_READ) ? vfs_read_async(&s->a_ki) :
+	    vfs_write_async(&s->a_ki);
+	if (r != EIOCBQUEUED) {
+		vn_put(vp);
+		s->a_used = 0;
+		return (r < 0 ? r : -EIO);
+	}
+	return (token);
+}
+
+static int
+aio_wait_sys(int token, struct sysregs *r)
+{
+	struct aio_slot *s;
+	int i, res;
+
+	for (i = 0; i < NAIO; i++)
+		if (aios[i].a_used && aios[i].a_token == token) {
+			s = &aios[i];
+			goto found;
+		}
+	return (-EINVAL);
+found:
+	if (s->a_done) {
+		res = s->a_result;
+		vn_put(s->a_ki.ki_vp);
+		s->a_used = 0;
+		return (res);
+	}
+	/*
+	 * Block the calling process; aio_soft() writes the result into
+	 * p->regs.eax and makes it runnable again.
+	 * 阻塞调用进程；aio_soft() 把结果写进 p->regs.eax 并让它重新可运行。
+	 */
+	cur->aio_wait_token = token;
+	cur->regs = *r;
+	cur->state = P_BLOCKED;
+	proc_sched();
+	return (0);
+}
+
+static int
+aio_poll_sys(int token)
+{
+	struct aio_slot *s;
+	int i, res;
+
+	for (i = 0; i < NAIO; i++)
+		if (aios[i].a_used && aios[i].a_token == token) {
+			s = &aios[i];
+			if (!s->a_done)
+				return (-EAGAIN);
+			res = s->a_result;
+			vn_put(s->a_ki.ki_vp);
+			s->a_used = 0;
+			return (res);
+		}
+	return (-EINVAL);
+}
+
+static int
+uring_cqe_push(struct uring_ring *rg, unsigned user_data, int result)
+{
+	struct uring_cqe *cq;
+
+	if ((rg->r_hdr->cq_tail - rg->r_hdr->cq_head) >= rg->r_entries) {
+		rg->r_hdr->cq_overflow++;
+		return (0);
+	}
+	cq = &rg->r_cq[rg->r_hdr->cq_tail % rg->r_entries];
+	cq->cq_user_data = user_data;
+	cq->cq_result = result;
+	cq->cq_flags = 0;
+	rg->r_hdr->cq_tail++;
+	return (1);
+}
+
+static void
+uring_wake(struct uring_ring *rg)
+{
+	struct uproc *p = 0;
+	int i;
+
+	if (rg->r_wait_pid == 0)
+		return;
+	if (rg->r_done < rg->r_expected)
+		return;
+	for (i = 0; i < NPROC; i++)
+		if (procs[i].state != P_FREE && procs[i].pid == rg->r_wait_pid) {
+			p = &procs[i];
+			break;
+		}
+	if (p != 0 && p->state == P_BLOCKED) {
+		p->uring_wait = 0;
+		p->regs.eax = (unsigned)rg->r_wait_result;
+		p->state = P_RUN;
+	}
+	rg->r_wait_pid = 0;
+}
+
+static int
+uring_setup_sys(unsigned entries)
+{
+	struct uring_ring *rg = 0;
+	struct uring_header *h;
+	unsigned pa, kva, uva;
+	int i;
+
+	if (!uring_inited) {
+		bzero(rings, sizeof(rings));
+		uring_inited = 1;
+	}
+	if (entries == 0 || entries > URING_ENTRIES)
+		entries = URING_ENTRIES;
+	for (i = 0; i < NURING; i++)
+		if (!rings[i].r_used) {
+			rg = &rings[i];
+			break;
+		}
+	if (rg == 0)
+		return (-ENOMEM);
+	pa = vfs_page_alloc();
+	kva = URING_KVA + (unsigned)i * PAGE_SIZE;
+	pmap_map((vm_offset_t)kva, (vm_offset_t)pa,
+	    (vm_offset_t)pa + PAGE_SIZE, VM_PROT_READ | VM_PROT_WRITE);
+	bzero((void *)kva, PAGE_SIZE);
+	uva = URING_UVA + (unsigned)i * 0x10000;
+	user_map_prot(cur->pd, uva, pa, PROT_READ | PROT_WRITE);
+	hal_address_space_activate(cur->pd);
+
+	rg->r_used = 1;
+	rg->r_proc = cur;
+	rg->r_pd = cur->pd;
+	rg->r_uva = uva;
+	rg->r_pa = pa;
+	rg->r_entries = entries;
+	rg->r_wait_pid = 0;
+	rg->r_hdr = (struct uring_header *)kva;
+	rg->r_sq = (struct uring_sqe *)(kva + URING_OFF_SQ);
+	rg->r_cq = (struct uring_cqe *)(kva + URING_OFF_CQ);
+	h = rg->r_hdr;
+	h->magic = URING_MAGIC;
+	h->entries = entries;
+	h->sq_head = h->sq_tail = 0;
+	h->cq_head = h->cq_tail = 0;
+	printf("uring: ring %d entries %d uva %x\n", i, entries, uva);
+	return ((int)uva);
+}
+
+static int
+uring_enter_sys(unsigned to_submit, int wait, struct sysregs *r)
+{
+	struct uring_ring *rg = 0;
+	struct uring_header *h;
+	unsigned avail, submitted = 0;
+	int i;
+
+	for (i = 0; i < NURING; i++)
+		if (rings[i].r_used && rings[i].r_proc == cur) {
+			rg = &rings[i];
+			break;
+		}
+	if (rg == 0)
+		return (-EINVAL);
+	h = rg->r_hdr;
+	if (h->magic != URING_MAGIC)
+		return (-EINVAL);
+	avail = h->sq_tail - h->sq_head;
+	if (to_submit < avail)
+		avail = to_submit;
+	rg->r_expected = 0;
+	rg->r_done = 0;
+	while (avail > 0) {
+		struct uring_sqe *sqe;
+		int token, j;
+
+		if ((h->cq_tail - h->cq_head) >= rg->r_entries) {
+			h->sq_dropped += avail;
+			break;
+		}
+		sqe = &rg->r_sq[h->sq_head % rg->r_entries];
+		token = aio_submit_sys((int)sqe->sq_fd, (int)sqe->sq_op,
+		    sqe->sq_buf, sqe->sq_len, sqe->sq_off);
+		if (token > 0) {
+			for (j = 0; j < NAIO; j++)
+				if (aios[j].a_used &&
+				    aios[j].a_token == token) {
+					aios[j].a_ring = rg;
+					aios[j].a_user_data =
+					    sqe->sq_user_data;
+					break;
+				}
+		} else {
+			(void)uring_cqe_push(rg, sqe->sq_user_data, token);
+		}
+		h->sq_head++;
+		submitted++;
+		avail--;
+	}
+	if (wait && rg->r_done < submitted) {
+		rg->r_expected = (int)submitted;
+		rg->r_wait_pid = cur->pid;
+		rg->r_wait_result = (int)submitted;
+		cur->uring_wait = 1;
+		cur->regs = *r;
+		cur->state = P_BLOCKED;
+		proc_sched();
+	}
+	return ((int)submitted);
+}
+
+static int
+uring_teardown_sys(void)
+{
+	struct uring_ring *rg = 0;
+	int i;
+
+	for (i = 0; i < NURING; i++)
+		if (rings[i].r_used && rings[i].r_proc == cur) {
+			rg = &rings[i];
+			break;
+		}
+	if (rg == 0)
+		return (-EINVAL);
+	user_unmap(cur->pd, rg->r_uva);
+	vfs_page_unmap(URING_KVA + (unsigned)i * PAGE_SIZE);
+	page_free(rg->r_pa);
+	rg->r_used = 0;
+	hal_address_space_activate(cur->pd);
+	return (0);
+}
+
+static int
+zcomp_reclaim(int n)
+{
+	unsigned *pd;
+	int i, j, done = 0;
+
+	if (in_zcomp || cur == 0)
+		return (0);
+	in_zcomp = 1;
+	pd = map_page(SCRATCH_PD, cur->pd);
+	for (i = 0; i < 0x3f6 && n > 0; i++) {
+		unsigned *pt;
+		unsigned pte;
+
+		if ((pd[i] & PG_V) == 0)
+			continue;
+		pt = map_page(SCRATCH_PT, pd[i] & PG_FRAME);
+		for (j = 0; j < (int)(PAGE_SIZE / 4) && n > 0; j++) {
+			unsigned va = ((unsigned)i << 22) |
+			    ((unsigned)j << 12);
+			unsigned pa, slot, len;
+			unsigned char *src;
+
+			pte = pt[j];
+			if ((pte & PG_V) == 0 || (pte & PG_RW) == 0 ||
+			    (pte & PG_u) == 0)
+				continue;
+			if (pte & PG_COW)
+				continue;
+			if (vma_find(cur, va) != 0)
+				continue;
+			pa = pte & PG_FRAME;
+			if (page_ref_get(pa) > 1)
+				continue;
+			src = map_page(SCRATCH_PAGE, pa);
+			if (zcomp_store(src, &slot, &len) < 0)
+				continue;
+			pt[j] = (slot << 12) | PG_ZCOMP | PG_u;
+			page_put(pa);
+			done++;
+			n--;
+		}
+		hal_address_space_activate(cur->pd);
+	}
+	in_zcomp = 0;
+	return (done);
 }
 
 static int
@@ -691,8 +1305,11 @@ do_munmap(unsigned addr, unsigned len)
 		unsigned va = addr + i;
 
 		if (v->vp != 0 && (v->flags & MAP_SHARED)) {
+			unsigned pa = user_getpa(cur->pd, va);
+
 			user_unmap(cur->pd, va);
-			pagecache_unref_key(v->vid, i / PAGE_SIZE);
+			if (pa)
+				pagecache_unref_key(v->vid, i / PAGE_SIZE);
 		} else {
 			/* private/anon page is owned by the process */
 			unsigned pa = user_getpa(cur->pd, va);
@@ -773,6 +1390,8 @@ mmap_teardown(struct uproc *p)
 			continue;
 		if (v->vp != 0 && (v->flags & MAP_SHARED)) {
 			for (k = 0; k < v->len; k += PAGE_SIZE) {
+				if (user_getpa(p->pd, v->start + k) == 0)
+					continue;
 				user_unmap(p->pd, v->start + k);
 				pagecache_unref_key(v->vid,
 				    v->off / PAGE_SIZE + k / PAGE_SIZE);
@@ -798,6 +1417,9 @@ load_elf(unsigned pdpa, const unsigned char *img, unsigned len, unsigned *entry)
 		const unsigned *ph = (const unsigned *)(img + phoff + i * 32);
 		unsigned type = ph[0], off = ph[1], vaddr = ph[2];
 		unsigned filesz = ph[4], memsz = ph[5];
+		unsigned prot = PROT_READ |
+		    ((ph[6] & 2) ? PROT_WRITE : 0) |
+		    ((ph[6] & 1) ? PROT_EXEC : 0);
 		unsigned poff = vaddr & (PAGE_SIZE - 1);
 		unsigned base = vaddr - poff;
 		unsigned fbase = off - poff;	/* file offset of vaddr's page */
@@ -831,21 +1453,8 @@ load_elf(unsigned pdpa, const unsigned char *img, unsigned len, unsigned *entry)
 					c = chunk;
 				bcopy(img + pos, dst, c);
 			}
-			user_map(pdpa, base + n, pa);
+			user_map_prot(pdpa, base + n, pa, prot);
 		}
-	}
-}
-
-static void
-map_stack(unsigned pdpa)
-{
-	unsigned va, pa;
-
-	for (va = USER_STACK_TOP - USER_STACK_SIZE; va < USER_ARG_PAGE;
-	    va += PAGE_SIZE) {
-		pa = page_alloc();
-		zero_page(pa);
-		user_map(pdpa, va, pa);
 	}
 }
 
@@ -905,7 +1514,12 @@ build_image(const unsigned char *img, unsigned len, unsigned *entry,
 	unsigned pd = user_pd_create();
 
 	load_elf(pd, img, len, entry);
-	map_stack(pd);
+	/*
+	 * The stack is demand-paged too: only the argument page is mapped
+	 * here; the first push below USER_STACK_TOP faults in a zero page.
+	 * 栈也按需分页：这里只映射参数页；首次向 USER_STACK_TOP 以下压栈时
+	 * 由缺页处理分配零页。
+	 */
 	*uesp = build_args(pd, argv, argc, envp, envc);
 	return (pd);
 }
@@ -917,9 +1531,11 @@ user_str(unsigned p, char *dst, int max)
 {
 	int i;
 
-	if (p < USER_LOAD || p >= 0xC0000000)
+	if (p < USER_LOAD || p >= 0xC0000000 || max <= 1)
 		return (-1);
 	for (i = 0; i < max - 1; i++) {
+		if (user_getpa(cur->pd, (p + i) & ~(PAGE_SIZE - 1)) == 0)
+			return (-1);
 		dst[i] = ((const char *)p)[i];
 		if (dst[i] == 0)
 			return (i);
@@ -932,9 +1548,8 @@ static int
 user_word(unsigned p, unsigned *vp)
 {
 
-	if (p < USER_LOAD || p >= 0xC0000000)
+	if (ucopyin((void *)p, vp, sizeof(*vp)) < 0)
 		return (-1);
-	*vp = *(const unsigned *)p;
 	return (0);
 }
 
@@ -1220,13 +1835,13 @@ pipe_copy(unsigned pd, unsigned va, const void *kbuf, unsigned n, int touser)
 {
 	unsigned save;
 
-	__asm__ volatile("movl %%cr3,%0" : "=r"(save));
-	__asm__ volatile("movl %0,%%cr3" :: "r"(pd) : "memory");
+	save = hal_address_space_current();
+	hal_address_space_activate(pd);
 	if (touser)
 		bcopy(kbuf, (void *)va, n);
 	else
 		bcopy((const void *)va, (void *)kbuf, n);
-	__asm__ volatile("movl %0,%%cr3" :: "r"(save) : "memory");
+	hal_address_space_activate(save);
 }
 
 /*
@@ -1392,6 +2007,143 @@ copy_address_space(unsigned srcpd)
 	return (dstpd);
 }
 
+/*
+ * os.md mechanism 2/3: fork() installs copy-on-write mappings instead of
+ * copying every page.  Both parent and child point at the same physical
+ * page (PG_COW set, PG_RW clear); the first write in either one takes a
+ * page fault and gets a private copy.  Pages that were already read-only
+ * (text) are shared read-only as before.
+ */
+static unsigned
+copy_address_space_cow(unsigned srcpd)
+{
+	unsigned dstpd = user_pd_create();
+	unsigned *spd = map_page(SCRATCH_PD, srcpd);
+	unsigned *dpd = map_page(SCRATCH2_PD, dstpd);
+	int i, j;
+
+	for (i = 0; i < 0x3f6; i++) {
+		unsigned *spt, *dpt;
+		unsigned dptpa;
+
+		if ((spd[i] & PG_V) == 0)
+			continue;
+		dptpa = page_alloc();
+		spt = map_page(SCRATCH_PT, spd[i] & PG_FRAME);
+		dpt = map_page(SCRATCH2_PT, dptpa);
+		for (j = 0; j < PAGE_SIZE / 4; j++)
+			dpt[j] = 0;
+		for (j = 0; j < PAGE_SIZE / 4; j++) {
+			unsigned pa;
+
+			if ((spt[j] & PG_V) == 0)
+				continue;
+			pa = spt[j] & PG_FRAME;
+			if (spt[j] & PG_RW) {
+				spt[j] &= ~PG_RW;
+				spt[j] |= PG_COW;
+			}
+			dpt[j] = spt[j];
+			page_ref_inc(pa);
+			cow_shared++;
+		}
+		dpd[i] = dptpa | (spd[i] & 0xfff);
+	}
+	return (dstpd);
+}
+
+/*
+ * Demand-zero heap page: a not-present access below the current brk gets a
+ * fresh zero page mapped read/write.  Anything outside [heap_start, brk)
+ * is still an invalid access and becomes SIGSEGV.
+ * 按需零页：访问当前 brk 以下但尚未映射的地址时，分配并映射一个零页；
+ * 堆范围之外的访问仍是非法访问，最终投递 SIGSEGV。
+ */
+static int
+demand_page(unsigned va)
+{
+	unsigned page = va & ~(PAGE_SIZE - 1);
+	unsigned pa;
+
+	if (cur == 0)
+		return (0);
+	if (page >= USER_HEAP_START && page < cur->brk_mapped)
+		;			/* heap */
+	else if (page >= USER_STACK_TOP - USER_STACK_SIZE &&
+	    page < USER_STACK_TOP)
+		;			/* stack */
+	else
+		return (0);
+	pa = page_alloc();
+	zero_page(pa);
+	user_map(cur->pd, page, pa);
+	hal_address_space_activate(cur->pd);
+	return (1);
+}
+
+/*
+ * Write fault on a COW page: if we are the last user just make it
+ * writable, otherwise allocate and copy.  Returns 1 when handled.
+ */
+int
+user_page_fault(unsigned va, unsigned err)
+{
+	unsigned *pt;
+	unsigned pti, pa, npa;
+	char *s, *d;
+
+	if (cur == 0)
+		return (0);
+	if ((err & 4) == 0)		/* not a user access */
+		return (0);
+	if ((err & 1) == 0)		/* not present: compressed/heap/stack/mmap */
+		return (zcomp_refault(va) || demand_page(va) ||
+		    mmap_fault(va & ~(PAGE_SIZE - 1)));
+	if ((err & 7) != 7)		/* present + write + user */
+		return (0);
+	pti = user_pte_ptr(cur->pd, va & ~(PAGE_SIZE - 1), &pt);
+	if (pt == 0 || (pt[pti] & PG_V) == 0 || (pt[pti] & PG_COW) == 0)
+		return (0);
+	pa = pt[pti] & PG_FRAME;
+	cow_faults++;
+	if (page_ref_get(pa) <= 1) {
+		/* sole owner: keep the page, drop the COW marker */
+		pt[pti] = (pt[pti] & ~PG_COW) | PG_RW;
+	} else {
+		npa = page_alloc();
+		s = map_page(SCRATCH_PAGE, pa);
+		d = map_page(SCRATCH2_PAGE, npa);
+		bcopy(s, d, PAGE_SIZE);
+		page_put(pa);
+		pt[pti] = npa | PG_V | PG_RW | PG_u;
+		cow_copies++;
+	}
+	hal_address_space_activate(cur->pd);
+	return (1);
+}
+
+void
+cow_print(void)
+{
+
+	printf("cow: shared %d faults %d copies %d\n",
+	    cow_shared, cow_faults, cow_copies);
+}
+
+static struct kthread *
+proc_add_thread(struct uproc *p, int tid)
+{
+	struct kthread *t;
+
+	t = kthread_user_spawn(p, tid);
+	if (t == 0)
+		return (0);
+	p->p_thread = t;
+	p->p_threads = t;
+	p->p_nthreads = 1;
+	return (t);
+}
+
 static struct uproc *
 proc_alloc(void)
 {
@@ -1466,29 +2218,139 @@ static void
 proc_sched(void)
 {
 	struct uproc *me = cur;
+	struct kthread *mt = cur_thread;
 	int i;
 
-	for (i = 0; i < NPROC; i++) {
-		struct uproc *p = &procs[i];
+	for (;;) {
+		/*
+		 * S21: kernel threads (softirq, page reclaim, IRP workers)
+		 * get their own execution carrier first.
+		 */
+		kthread_run();
+		/*
+		 * S25: the scheduler walks threads, not processes.  Each
+		 * user thread names its address-space container through
+		 * t_proc; run state still lives on the process for now.
+		 */
+		for (i = 0; i < NKTHREAD; i++) {
+			struct kthread *t = &kthreads[i];
+			struct uproc *p;
+			struct sysregs *regs;
+			int main_thread;
 
-		if (p->state == P_RUN && p != me) {
+			if (!t->t_used || t->t_proc == 0 || t == mt)
+				continue;
+			p = t->t_proc;
+			main_thread = (t->t_tid == p->pid);
+			if (main_thread) {
+				if (p->state != P_RUN)
+					continue;
+				regs = &p->regs;
+			} else {
+				if (p->state == P_ZOMBIE ||
+				    t->t_state != KT_RUN)
+					continue;
+				regs = &t->t_regs;
+			}
 			cur = p;
-			__asm__ volatile("movl %0,%%cr3"
-			    :: "r"(p->pd) : "memory");
-			sig_deliver(p, &p->regs);
-			if (p->state == P_RUN)
-				resume_user(p->pd, &p->regs);
+			cur_thread = t;
+			hal_address_space_activate(p->pd);
+			hal_kernel_stack_set(t->t_stack_top);
+			sig_deliver(p, regs);
+			if (main_thread ? p->state == P_RUN :
+			    t->t_state == KT_RUN)
+				resume_user(p->pd, regs);
 		}
+		if (me->state == P_RUN && mt != 0) {
+			cur = me;
+			cur_thread = mt;
+			hal_kernel_stack_set(mt->t_stack_top);
+			sig_deliver(me, &me->regs);
+			if (me->state == P_RUN)
+				resume_user(me->pd, &me->regs);
+		}
+		/* nothing runnable: let deferred work drain, then halt */
+		kthread_run();
+		if (kthread_runnable())
+			continue;
+		printf("\n[no runnable process]\n");
+		for (;;)
+			hal_cpu_halt();
 	}
-	if (me->state == P_RUN) {
-		cur = me;
-		sig_deliver(me, &me->regs);
-		if (me->state == P_RUN)
-			resume_user(me->pd, &me->regs);
+}
+
+/*
+ * os.md mechanism 4, rule 1: the clock interrupt preempts a user thread.
+ *
+ * The interrupt frame on the shared kernel stack describes the interrupted
+ * user context.  We store it in that thread's slot, pick the next runnable
+ * thread in round-robin order, load its address space, and rewrite the
+ * frame; irq0_entry's iret then returns straight into the new thread.
+ * Interrupts are off (interrupt gate) for the whole switch, and we never
+ * switch while the interrupted context is in kernel mode: kernel-side
+ * deferred work is handled at preempt_point() instead.
+ */
+int	need_resched;
+unsigned sched_switches;
+
+void
+sched_tick(struct sysregs *r)
+{
+	struct kthread *me = cur_thread;
+	struct uproc *mp = cur;
+	int start, k;
+
+	if (cur == 0 || me == 0 || r == 0 || !hal_intr_from_user(r))
+		return;
+	if (me->t_base_ipl >= IPL_CLOCK)	/* this thread asked not to be preempted */
+		return;
+
+	/* save the interrupted context */
+	if (me->t_tid == mp->pid)
+		mp->regs = *r;
+	else
+		me->t_regs = *r;
+
+	if (!need_resched)
+		return;
+	need_resched = 0;
+
+	start = me - kthreads;
+	for (k = 1; k < NKTHREAD; k++) {
+		struct kthread *t = &kthreads[(start + k) % NKTHREAD];
+		struct uproc *p;
+		struct sysregs *regs;
+		int main_thread;
+
+		if (!t->t_used || t->t_proc == 0 || t == me)
+			continue;
+		p = t->t_proc;
+		if (p->state == P_FREE || p->state == P_ZOMBIE)
+			continue;
+		main_thread = (t->t_tid == p->pid);
+		if (main_thread) {
+			if (p->state != P_RUN)
+				continue;
+			regs = &p->regs;
+		} else {
+			if (t->t_state != KT_RUN)
+				continue;
+			regs = &t->t_regs;
+		}
+		cur = p;
+		cur_thread = t;
+		hal_address_space_activate(p->pd);
+		hal_kernel_stack_set(t->t_stack_top);
+		*r = *regs;
+		hal_intr_user_resume(r);
+		sched_switches++;
+		return;
 	}
-	printf("\n[no runnable process]\n");
-	for (;;)
-		__asm__ volatile("cli; hlt");
+	/* nobody else runnable: current thread keeps the CPU */
+	if (me->t_tid == mp->pid)
+		mp->regs = *r;
+	else
+		me->t_regs = *r;
 }
 
 static int
@@ -1499,15 +2361,18 @@ do_fork(struct sysregs *r)
 
 	if ((p = proc_alloc()) == 0)
 		return (-EAGAIN);
-	pd = copy_address_space(cur->pd);
+	pd = copy_address_space_cow(cur->pd);
 	if (pd == 0) {
 		p->state = P_FREE;
 		return (-ENOMEM);
 	}
+	hal_address_space_activate(cur->pd);		/* flush the parent's stale writable TLBs */
 	p->state = P_RUN;
 	p->pid = next_pid++;
 	p->ppid = cur->pid;
 	p->pd = pd;
+	(void)proc_add_thread(p, p->pid);
+	p->p_next_tid = p->pid + 100;
 	p->brk_mapped = cur->brk_mapped;
 	bcopy(cur->p_cwd, p->p_cwd, sizeof(p->p_cwd));
 	bcopy(cur->p_comm, p->p_comm, sizeof(p->p_comm));
@@ -1545,17 +2410,21 @@ do_vfork(struct sysregs *r)
 	 * A strict vfork shares the address space, but our userland has no
 	 * way to protect the parent's stack frame while the child runs (the
 	 * child's own libc calls would clobber it).  A private copy plus the
-	 * "parent waits for exec/exit" rule is a safe superset.
+	 * "parent waits for exec/exit" rule is a safe superset.  The private
+	 * copy is COW, so vfork is cheap until either side writes.
 	 */
-	pd = copy_address_space(cur->pd);
+	pd = copy_address_space_cow(cur->pd);
 	if (pd == 0) {
 		p->state = P_FREE;
 		return (-ENOMEM);
 	}
+	hal_address_space_activate(cur->pd);
 	p->state = P_RUN;
 	p->pid = next_pid++;
 	p->ppid = cur->pid;
 	p->pd = pd;
+	(void)proc_add_thread(p, p->pid);
+	p->p_next_tid = p->pid + 100;
 	p->brk_mapped = cur->brk_mapped;
 	bcopy(cur->p_cwd, p->p_cwd, sizeof(p->p_cwd));
 	bcopy(cur->p_comm, p->p_comm, sizeof(p->p_comm));
@@ -1593,12 +2462,10 @@ proc_exit(int code)
 		if (p->wait_status != 0 && user_ok(p->wait_status, 4)) {
 			unsigned save = cur->pd;
 
-			__asm__ volatile("movl %0,%%cr3"
-			    :: "r"(p->pd) : "memory");
+			hal_address_space_activate(p->pd);
 			*(int *)p->wait_status = cur->p_termsig ?
 			    (cur->p_termsig & 0x7f) : ((code & 0xff) << 8);
-			__asm__ volatile("movl %0,%%cr3"
-			    :: "r"(save) : "memory");
+			hal_address_space_activate(save);
 		}
 		p->regs.eax = cur->pid;
 		p->state = P_RUN;
@@ -1611,6 +2478,11 @@ proc_exit(int code)
 		for (fd = 0; fd < NFD; fd++)
 			if (cur->fds[fd].used)
 				fd_close(fd);
+	}
+	/* release the process's main thread slot */
+	if (cur->p_thread != 0) {
+		kthread_user_free(cur->p_thread);
+		cur->p_thread = 0;
 	}
 	/*
 	 * S17: release mmap bookkeeping first.  Shared page-cache pages must
@@ -1628,7 +2500,7 @@ proc_exit(int code)
 		unsigned save = cur->pd;
 
 		/* CR3 wants the *physical* address (IdlePTD), not pm_pdir's VA */
-		__asm__ volatile("movl %0,%%cr3" :: "r"((unsigned)IdlePTD) : "memory");
+		hal_address_space_activate((unsigned)IdlePTD);
 		free_address_space(save);
 		cur->pd = 0;
 	}
@@ -1637,9 +2509,41 @@ proc_exit(int code)
 	if (cur->ppid == 0) {
 		printf("\n[user exit %d]\n", code);
 		for (;;)
-			__asm__ volatile("cli; hlt");
+			hal_cpu_halt();
 	}
 	proc_sched();
+}
+
+/*
+ * A user-mode exception (SIGSEGV/SIGFPE/SIGILL/...).  os.md mechanism 1:
+ * the application dies, the kernel survives.  The faulting process is
+ * terminated with the signal recorded in p_termsig so wait4() reports
+ * WIFSIGNALED; the scheduler then runs another thread.
+ */
+void
+user_fault(int sig, unsigned eip, unsigned va)
+{
+	int i;
+
+	if (cur == 0) {
+		printf("\nfault in kernel context: sig %d eip %x va %x\n",
+		    sig, eip, va);
+		for (;;)
+			hal_cpu_halt();
+	}
+	printf("\nuser fault: pid %d sig %d eip %x va %x\n",
+	    cur->pid, sig, eip, va);
+	cur->p_termsig = sig;
+	/* a thread-fatal signal ends the whole process (os.md 9.2/9.4) */
+	for (i = 0; i < NKTHREAD; i++) {
+		struct kthread *t = &kthreads[i];
+
+		if (t->t_used && t->t_proc == cur && t->t_tid != cur->pid) {
+			t->t_state = KT_ZOMBIE;
+			t->t_exitcode = 128 + sig;
+		}
+	}
+	proc_exit(0);
 }
 
 /* ---------------------------------------------------------------- signals */
@@ -1775,9 +2679,9 @@ sig_stop(struct uproc *p, int sig)
 	    (pp->wait_options & WUNTRACED) &&
 	    (pp->wait_pid == 0 || pp->wait_pid == p->pid) &&
 	    user_ok(pp->wait_status, 4)) {
-		__asm__ volatile("movl %0,%%cr3" :: "r"(pp->pd) : "memory");
+		hal_address_space_activate(pp->pd);
 		*(int *)pp->wait_status = ((sig & 0xff) << 8) | 0x7f;
-		__asm__ volatile("movl %0,%%cr3" :: "r"(cur->pd) : "memory");
+		hal_address_space_activate(cur->pd);
 		pp->regs.eax = p->pid;
 		pp->state = P_RUN;
 	}
@@ -1791,11 +2695,18 @@ static void
 sig_deliver(struct uproc *p, struct sysregs *r)
 {
 	int sig;
-	unsigned pend;
+	unsigned pend, mask;
+	struct kthread *t = 0;
 
+	if (cur_thread != 0 && cur_thread->t_proc == p)
+		t = cur_thread;
+	else if (p->p_thread != 0)
+		t = p->p_thread;
+	mask = (t != 0) ? t->t_sigmask : p->p_sigmask;
 	for (;;) {
-		pend = p->p_sig & ~p->p_sigmask;
-		pend |= p->p_sig & (SIG_TO_MASK(SIGKILL) | SIG_TO_MASK(SIGSTOP));
+		pend = (p->p_sig | (t != 0 ? t->t_sig : 0)) & ~mask;
+		pend |= (p->p_sig | (t != 0 ? t->t_sig : 0)) &
+		    (SIG_TO_MASK(SIGKILL) | SIG_TO_MASK(SIGSTOP));
 		if (pend == 0)
 			return;
 		for (sig = 1; sig < NSIG; sig++)
@@ -1804,6 +2715,8 @@ sig_deliver(struct uproc *p, struct sysregs *r)
 		if (sig >= NSIG)
 			return;
 		p->p_sig &= ~SIG_TO_MASK(sig);
+		if (t != 0)
+			t->t_sig &= ~SIG_TO_MASK(sig);
 
 		if (sig == SIGCONT) {
 			if (p->p_stopsig != 0) {
@@ -1960,6 +2873,7 @@ path_arg(unsigned uptr, char *buf, unsigned len)
 static int
 user_ok(unsigned p, unsigned len)
 {
+	unsigned a;
 
 	if (len == 0)
 		return (1);
@@ -1967,7 +2881,84 @@ user_ok(unsigned p, unsigned len)
 		return (0);
 	if (len > 0xC0000000 - p)
 		return (0);
+	/*
+	 * Walk the page tables instead of trusting the address range: a bad
+	 * pointer inside the user window must return EFAULT, not fault in the
+	 * kernel (os.md mechanism 1, access_ok + copy_from_user).
+	 */
+	for (a = p; a < p + len; a = (a + PAGE_SIZE) & ~(PAGE_SIZE - 1)) {
+		unsigned *pt;
+		unsigned pti;
+
+		pti = user_pte_ptr(cur->pd, a, &pt);
+		if (pt == 0 || (pt[pti] & PG_V) == 0) {
+			/*
+			 * A legal heap address below brk is demand-paged here,
+			 * so syscall buffers on untouched heap work without a
+			 * user fault; anything else is EFAULT.
+			 * brk 以下的合法堆地址在此按需映射，系统调用缓冲区
+			 * 可直接使用未触碰的堆页；其它地址仍返回 EFAULT。
+			 */
+			if (!zcomp_refault(a) && !demand_page(a) &&
+			    !mmap_fault(a & ~(PAGE_SIZE - 1)))
+				return (0);
+			pti = user_pte_ptr(cur->pd, a, &pt);
+			if (pt == 0 || (pt[pti] & PG_V) == 0)
+				return (0);
+		}
+		if ((pt[pti] & PG_COW) != 0) {
+			/* output paths write here: give the page a private copy */
+			if (!user_page_fault(a, 7))
+				return (0);
+			pti = user_pte_ptr(cur->pd, a, &pt);
+			if (pt == 0 || (pt[pti] & PG_V) == 0)
+				return (0);
+		}
+	}
 	return (1);
+}
+
+/* Like user_ok(), but the kernel is going to write: the PTE must be RW. */
+static int
+user_ok_w(unsigned p, unsigned len)
+{
+	unsigned a;
+
+	if (!user_ok(p, len))
+		return (0);
+	for (a = p; a < p + len; a = (a + PAGE_SIZE) & ~(PAGE_SIZE - 1)) {
+		unsigned *pt;
+		unsigned pti = user_pte_ptr(cur->pd, a, &pt);
+
+		if (pt == 0 || (pt[pti] & PG_RW) == 0)
+			return (0);
+	}
+	return (1);
+}
+
+/*
+ * Page-validating user copies (os.md mechanism 1).  Named ucopy* to avoid
+ * the 4.5BSD locore.s copyin/copyout assembly, which uses pcb_onfault and
+ * is not wired into this port; the contract is the same: 0 or -EFAULT.
+ */
+static int
+ucopyin(void *udaddr, void *kaddr, unsigned len)
+{
+
+	if (!user_ok((unsigned)udaddr, len))
+		return (-EFAULT);
+	bcopy(udaddr, kaddr, len);
+	return (0);
+}
+
+static int
+ucopyout(void *kaddr, void *udaddr, unsigned len)
+{
+
+	if (!user_ok_w((unsigned)udaddr, len))
+		return (-EFAULT);
+	bcopy(kaddr, udaddr, len);
+	return (0);
 }
 
 /*
@@ -2125,7 +3116,7 @@ exec_image(const char *path, unsigned uargv, unsigned uenvp, struct sysregs *r)
 	cur->brk_mapped = USER_HEAP_START;
 	printf("execve %s: entry %x esp %x pd %x argc %d\n",
 	    path, entry, esp, pd, argc);
-	__asm__ volatile("movl %0, %%cr3" :: "r"(pd) : "memory");
+	hal_address_space_activate(pd);
 	r->eip = entry;
 	r->uesp = esp;
 	r->eax = 0;
@@ -2140,6 +3131,9 @@ exec_image(const char *path, unsigned uargv, unsigned uenvp, struct sysregs *r)
 			cur->regs = *r;
 			cur->state = P_RUN;
 			cur = pp;
+			cur_thread = pp->p_thread;
+			if (cur_thread != 0)
+				hal_kernel_stack_set(cur_thread->t_stack_top);
 			resume_user(pp->pd, &pp->regs);
 		}
 	}
@@ -2262,12 +3256,195 @@ console_termios(unsigned arg, int get)
 	return (0);
 }
 
-void
-syscall_dispatch(struct sysregs *r)
+/*
+ * The native 4.5BSD service ABI.  Personalities call this after translating
+ * their own call numbers; it is the only function that knows the syscall
+ * switch internals.
+ */
+/*
+ * S25: user threads.  The main thread's context remains in uproc.regs (so
+ * the existing fork/wait/pipe paths are unchanged); additional threads keep
+ * their context in kthread.t_regs and are scheduled by the thread table.
+ */
+static int
+thread_create(struct sysregs *r)
+{
+	struct kthread *t;
+	int tid;
+	unsigned sva, top;
+
+	tid = cur->p_next_tid++;
+	if (r->edx != 0)
+		top = r->edx;
+	else {
+		/* per-thread user stack: 2 pages below the main stack */
+		sva = 0xBFA00000u + ((unsigned)(tid & 0xf) << 16);
+		user_map(cur->pd, sva, page_alloc());
+		user_map(cur->pd, sva + PAGE_SIZE, page_alloc());
+		top = sva + 2 * PAGE_SIZE - 16;
+	}
+	t = kthread_user_spawn(cur, tid);
+	if (t == 0)
+		return (-EAGAIN);
+	t->t_regs = *r;
+	t->t_regs.eip = r->ebx;		/* entry */
+	t->t_regs.eax = r->ecx;		/* arg */
+	t->t_regs.uesp = top;		/* user stack top */
+	t->t_regs.ebp = 0;
+	t->t_sigmask = (cur_thread != 0) ? cur_thread->t_sigmask :
+	    cur->p_sigmask;
+	t->t_state = KT_RUN;
+	cur->p_nthreads++;
+	return (tid);
+}
+
+static void
+thread_exit_current(int code)
+{
+	struct kthread *t = cur_thread;
+	int i;
+
+	if (t == 0 || t->t_tid == cur->pid) {
+		if (cur->p_nthreads <= 1) {
+			proc_exit(code);
+			return;
+		}
+		/* main thread exits, other threads keep the process alive */
+		t->t_exitcode = code;
+		t->t_state = KT_ZOMBIE;
+		cur->state = P_BLOCKED;
+		proc_sched();
+		return;
+	}
+	t->t_exitcode = code;
+	t->t_state = KT_ZOMBIE;
+	cur->p_nthreads--;
+	for (i = 0; i < NKTHREAD; i++) {
+		struct kthread *j = &kthreads[i];
+
+		if (!j->t_used || j->t_join_tid != t->t_tid)
+			continue;
+		j->t_join_tid = 0;
+		if (j->t_tid == j->t_proc->pid) {
+			j->t_proc->regs.eax = code;
+			j->t_proc->state = P_RUN;
+		} else {
+			j->t_regs.eax = code;
+			j->t_state = KT_RUN;
+		}
+	}
+	if (t->t_detached) {
+		cur_thread = 0;
+		kthread_user_free(t);
+	}
+	proc_sched();
+}
+
+static int
+thread_detach(int tid)
+{
+	struct kthread *t;
+
+	t = kthread_user_find(tid);
+	if (t == 0)
+		return (-ESRCH);
+	if (t->t_join_tid != 0)
+		return (-EINVAL);
+	t->t_detached = 1;
+	return (0);
+}
+
+static int
+thread_join(int tid, struct sysregs *r)
+{
+	struct kthread *t, *jt;
+	int code;
+
+	t = kthread_user_find(tid);
+	if (t == 0)
+		return (-ESRCH);
+	if (t->t_state == KT_ZOMBIE) {
+		code = t->t_exitcode;
+		kthread_user_free(t);
+		if (cur->p_nthreads > 1)
+			cur->p_nthreads--;
+		return (code);
+	}
+	jt = cur_thread;
+	jt->t_join_tid = tid;
+	if (jt->t_tid == cur->pid) {
+		cur->regs = *r;
+		cur->state = P_BLOCKED;
+	} else {
+		jt->t_regs = *r;
+		jt->t_state = KT_BLOCK;
+	}
+	proc_sched();
+	return (0);
+}
+
+static int
+thread_self(void)
+{
+
+	return (cur_thread != 0 ? cur_thread->t_tid : cur->pid);
+}
+
+static void
+thread_yield(struct sysregs *r)
+{
+
+	if (cur_thread == 0)
+		return;
+	if (cur_thread->t_tid == cur->pid) {
+		cur->regs = *r;
+		cur->state = P_RUN;
+	} else {
+		cur_thread->t_regs = *r;
+		cur_thread->t_state = KT_RUN;
+	}
+	proc_sched();
+}
+
+int
+bsd45_syscall(struct sysregs *r)
 {
 	unsigned n = r->eax;
 
 	switch (n) {
+	case 430:			/* getticks(): PIT ticks since boot */
+		r->eax = clock_get_ticks();
+		break;
+	case 460:			/* aio_submit(fd, op, buf, len, off) */
+		r->eax = (unsigned)aio_submit_sys((int)r->ebx, (int)r->ecx,
+		    r->edx, r->esi, r->edi);
+		break;
+	case 461:			/* aio_wait(token) */
+		r->eax = (unsigned)aio_wait_sys((int)r->ebx, r);
+		break;
+	case 462:			/* aio_poll(token) */
+		r->eax = (unsigned)aio_poll_sys((int)r->ebx);
+		break;
+	case 463:			/* uring_setup(entries) -> user VA */
+		r->eax = (unsigned)uring_setup_sys(r->ebx);
+		break;
+	case 464:			/* uring_enter(to_submit, wait) */
+		r->eax = (unsigned)uring_enter_sys(r->ebx, (int)r->ecx, r);
+		break;
+	case 465:			/* uring_teardown() */
+		r->eax = (unsigned)uring_teardown_sys();
+		break;
+	case 431: {			/* getcow(int *v): shared/faults/copies */
+		unsigned v[3];
+		int rv;
+
+		v[0] = cow_shared;
+		v[1] = cow_faults;
+		v[2] = cow_copies;
+		rv = ucopyout(v, (void *)r->ebx, sizeof(v));
+		r->eax = (rv < 0) ? (unsigned)rv : 0;
+		break;
+	}
 	case 4: {			/* write(fd, buf, len) */
 		unsigned fd = r->ebx, buf = r->ecx, len = r->edx;
 		unsigned i;
@@ -2283,11 +3460,13 @@ syscall_dispatch(struct sysregs *r)
 		if (cur->fds[fd].used && cur->fds[fd].vp != 0) {
 			int n2;
 
-			if (cur->fds[fd].vp->ops->write == 0) {
-				r->eax = (unsigned)-EROFS;
-				break;
-			}
-			n2 = cur->fds[fd].vp->ops->write(cur->fds[fd].vp,
+			/*
+			 * Synchronous VFS write: vfs_write_sync() runs the
+			 * backend in this context; async uses vfs_write_async.
+			 * 同步 VFS 写：vfs_write_sync() 在本地上下文执行后端；
+			 * 异步走 vfs_write_async。
+			 */
+			n2 = vfs_write_sync(cur->fds[fd].vp,
 			    cur->fds[fd].off, (const void *)buf, len);
 			if (n2 > 0)
 				cur->fds[fd].off += n2;
@@ -2371,8 +3550,12 @@ syscall_dispatch(struct sysregs *r)
 		unsigned fd = r->ebx, buf = r->ecx, len = r->edx;
 		unsigned i = 0;
 
-		if (!user_ok(buf, len) || len == 0) {
-			r->eax = (unsigned)-EINVAL;
+		if (!user_ok_w(buf, len)) {
+			r->eax = (unsigned)-EFAULT;
+			break;
+		}
+		if (len == 0) {
+			r->eax = 0;
 			break;
 		}
 		if (fd >= NFD || !cur->fds[fd].used) {
@@ -2463,7 +3646,7 @@ syscall_dispatch(struct sysregs *r)
 				r->eax = (unsigned)-EISDIR;
 				break;
 			}
-			n2 = cur->fds[fd].vp->ops->read(cur->fds[fd].vp,
+			n2 = vfs_read_sync(cur->fds[fd].vp,
 			    cur->fds[fd].off, (void *)buf, len);
 			if (n2 > 0)
 				cur->fds[fd].off += n2;
@@ -2637,18 +3820,15 @@ syscall_dispatch(struct sysregs *r)
 			r->eax = (unsigned)-EINVAL;
 			break;
 		}
-		while (cur->brk_mapped < a) {
-			unsigned pa = page_alloc();
-
-			/*
-			 * Zero it: with page recycling a heap page can come from
-			 * the free list and still hold whatever was there before
-			 * (a page table full of PTEs, another process's stack).
-			 */
-			zero_page(pa);
-			user_map(cur->pd, cur->brk_mapped, pa);
-			cur->brk_mapped += PAGE_SIZE;
-		}
+		/*
+		 * Demand-paged heap: only record the new limit.  The first
+		 * touch below brk_mapped takes a page fault and gets a zero
+		 * page from demand_page(); no page is allocated here.
+		 * 按需分页堆：这里只记录新的堆上限；首次访问 brk_mapped
+		 * 以下的地址时由 demand_page() 分配零页，本调用不分配物理页。
+		 */
+		if (a > cur->brk_mapped)
+			cur->brk_mapped = a;
 		r->eax = a;
 		break;
 	}
@@ -2760,8 +3940,12 @@ syscall_dispatch(struct sysregs *r)
 	}
 	case 48: {			/* sigprocmask(how, set, oset) */
 		unsigned how = r->ebx, set = r->ecx, oset = r->edx;
-		unsigned m = 0, old = cur->p_sigmask;
+		unsigned m = 0, old;
+		unsigned *maskp = &cur->p_sigmask;
 
+		if (cur_thread != 0 && cur_thread->t_proc == cur)
+			maskp = &cur_thread->t_sigmask;
+		old = *maskp;
 		if (set != 0) {
 			if (!user_ok(set, 4)) {
 				r->eax = (unsigned)-EFAULT;
@@ -2778,17 +3962,19 @@ syscall_dispatch(struct sysregs *r)
 		}
 		if (set != 0) {
 			if (how == 1)
-				cur->p_sigmask |= m;
+				*maskp |= m;
 			else if (how == 2)
-				cur->p_sigmask &= ~m;
+				*maskp &= ~m;
 			else if (how == 3)
-				cur->p_sigmask = m &
+				*maskp = m &
 				    ~(SIG_TO_MASK(SIGKILL) |
 				      SIG_TO_MASK(SIGSTOP));
 			else {
 				r->eax = (unsigned)-EINVAL;
 				break;
 			}
+			if (cur_thread == cur->p_thread)
+				cur->p_sigmask = cur_thread->t_sigmask;
 		}
 		r->eax = 0;
 		break;
@@ -3393,18 +4579,131 @@ syscall_dispatch(struct sysregs *r)
 		r->eax = 0;
 		break;
 	}
+	case 440:			/* thread_create(entry,arg,stack) */
+		r->eax = (unsigned)thread_create(r);
+		break;
+	case 441:			/* thread_exit(code) */
+		thread_exit_current((int)r->ebx);
+		r->eax = 0;
+		break;
+	case 442:			/* thread_join(tid) */
+		r->eax = (unsigned)thread_join((int)r->ebx, r);
+		break;
+	case 443:			/* thread_self() */
+		r->eax = (unsigned)thread_self();
+		break;
+	case 444:			/* thread_yield() */
+		thread_yield(r);
+		r->eax = 0;
+		break;
+	case 445:			/* thread_detach(tid) */
+		r->eax = (unsigned)thread_detach((int)r->ebx);
+		break;
+	case 451: {			/* tgkill(tid, sig) - thread-directed */
+		int tid = (int)r->ebx, sig = (int)r->ecx;
+		struct kthread *t;
+
+		if (sig <= 0 || sig >= NSIG) {
+			r->eax = (unsigned)-EINVAL;
+			break;
+		}
+		t = kthread_user_find(tid);
+		if (t == 0) {
+			r->eax = (unsigned)-ESRCH;
+			break;
+		}
+		t->t_sig |= SIG_TO_MASK(sig);
+		if (t->t_state == KT_BLOCK)
+			t->t_state = KT_RUN;
+		t->t_proc->state = P_RUN;
+		r->eax = 0;
+		break;
+	}
+	case 450: {			/* access_w(const u16 *path) - W path */
+#if KSTR_UTF16
+		unsigned short ubuf[128], kbuf[128];
+		struct kstr s;
+		struct vnode *vp = 0;
+		unsigned i, n = 0;
+
+		for (i = 0; i < 128; i++) {
+			if (!user_ok(r->ebx + i * 2, 2)) {
+				r->eax = (unsigned)-EFAULT;
+				break;
+			}
+			ubuf[i] = *(unsigned short *)(r->ebx + i * 2);
+			if (ubuf[i] == 0)
+				break;
+			n++;
+		}
+		if (i >= 128 || n == 0) {
+			r->eax = (unsigned)-EINVAL;
+			break;
+		}
+		kstr_init(&s, kbuf, sizeof(kbuf));
+		if (kstr_set_w(&s, ubuf, n * 2) < 0) {
+			r->eax = (unsigned)-EINVAL;
+			break;
+		}
+		i = (unsigned)vfs_namei_k(&s, &vp);
+		if (vp != 0)
+			vn_put(vp);
+		r->eax = i;
+#else
+		r->eax = (unsigned)-ENOSYS;
+#endif
+		break;
+	}
 	}
 
 	/* S10.2: deliver one pending signal on the way back to user mode */
 	if (cur != 0)
 		sig_deliver(cur, r);
+	return (0);
+}
+
+/*
+ * Trap entry point (called from usermode_asm.s).  The active personality
+ * translates its API into bsd45_syscall(); the trap path never changes.
+ */
+void
+syscall_dispatch(struct sysregs *r)
+{
+
+	(void)subsys_dispatch(r);
+	/*
+	 * S21 + os.md M4: syscall exit is a preempt_point(): serve pending
+	 * soft interrupts and deferred kernel work without disturbing the
+	 * user context that is about to be resumed.
+	 * S21 + os.md M4：系统调用出口是安全抢占点：先服务 pending 软中断和
+	 * 延迟内核工作，再决定是否切换到其它线程。
+	 */
+	preempt_point();
+	/*
+	 * Kernel-mode safe-point preemption: the syscall is complete, so the
+	 * current user context can be saved and another thread scheduled.
+	 * 内核态安全点抢占：系统调用已完成，可保存当前用户上下文并调度
+	 * 其它线程；不在内核执行中途抢占。
+	 */
+	if (need_resched && cur != 0 && cur_thread != 0 &&
+	    cur_thread->t_base_ipl == 0 && cur_thread->t_preemptable) {
+		need_resched = 0;
+		if (cur_thread->t_tid == cur->pid) {
+			cur->regs = *r;
+			cur->state = P_RUN;
+		} else {
+			cur_thread->t_regs = *r;
+			cur_thread->t_state = KT_RUN;
+		}
+		proc_sched();
+	}
 }
 
 void
 syscall_gate_init(void)
 {
 
-	setidt(0x80, (char *)&syscall_entry, SDT_SYS386TGT, SEL_UPL);
+	hal_syscall_gate_init();
 }
 
 void
@@ -3480,6 +4779,10 @@ start_prog(const char *path, const char *script)
 		}
 	}
 	next_pid = 2;
+	(void)proc_add_thread(cur, 1);
+	cur->p_next_tid = 101;
+	if (cur->p_thread != 0)
+		hal_kernel_stack_set(cur->p_thread->t_stack_top);
 
 	syscall_gate_init();
 	printf("exec %s: entry %x pd %x\n", path, entry, pd);
@@ -3492,3 +4795,4 @@ start_userland(const char *script)
 
 	start_prog("/sbin/init", script);
 }
+

@@ -35,6 +35,8 @@
 
 #include <lib/libkern.h>
 
+/* EN: Skip the leading run of bytes equal to mask in the size-byte buffer cp, returning the bytes remaining from the first differing byte; returns 0 if all bytes equal mask. */
+/* 中文：在长度为 size 的缓冲区 cp 中跳过开头连续等于 mask 的字节，返回第一个不同字节到末尾的剩余字节数；若全部字节都等于 mask 则返回 0。 */
 int
 skpc(mask0, size, cp0)
 	int mask0;

@@ -44,6 +44,8 @@ static char sccsid[] = "@(#)anddi3.c	8.1 (Berkeley) 6/4/93";
 /*
  * Return a & b, in quad.
  */
+/* EN: Bitwise AND of two quad_t applied independently to the low and high 32-bit words of the union; no side effects, returns the 64-bit masked value. */
+/* 中文：对两个 64 位整数按低、高两个 32 位字分别执行按位与，返回掩码后的 64 位结果，无任何副作用。 */
 quad_t
 __anddi3(a, b)
 	quad_t a, b;

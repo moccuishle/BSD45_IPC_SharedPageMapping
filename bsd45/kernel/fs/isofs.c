@@ -29,6 +29,8 @@ static int		mounted;
  * the block size equals the CD sector size, so a record always sits inside
  * one cached block.
  */
+/* EN: bread()s sector lba from BDEV_CD and returns -1 on failure; otherwise copies ISO_SECTOR bytes into out, brelse()s the buffer and returns 0. */
+/* 中文：用 bread 从 BDEV_CD 读取第 lba 扇区，失败返回 -1；否则把 ISO_SECTOR 字节复制到 out，brelse 释放缓冲区并返回 0。 */
 static int
 iso_readsec(unsigned lba, unsigned char *out)
 {
@@ -42,6 +44,8 @@ iso_readsec(unsigned lba, unsigned char *out)
 	return (0);
 }
 
+/* EN: Decodes a 4-byte little-endian integer by OR-ing p[0] with p[1..3] shifted left by 8/16/24, used for ISO9660 on-disk fields. */
+/* 中文：把 p[0] 与依次左移 8/16/24 位的 p[1..3] 相或，解出 4 字节小端整数，用于读取 ISO9660 的磁盘字段。 */
 static unsigned
 le32(const unsigned char *p)
 {
@@ -53,6 +57,8 @@ le32(const unsigned char *p)
  * ISO9660 names are upper case; the kernel's exec paths are not, and files
  * are shipped as NAME.ELF so that mkisofs -iso-level 1 (8.3) accepts them.
  */
+/* EN: Copies at most n (capped at 40) name bytes of src into dst, folding a-z to A-Z, and appends .ELF when isfile is set and no dot was seen, then NUL-terminates. */
+/* 中文：把 src 中最多 n 个（上限 40）名字字节复制到 dst 并将 a-z 转为大写，若 isfile 置位且名字中未出现点号则追加 .ELF，最后补 NUL 结尾。 */
 static void
 iso_name(char *dst, const char *src, int n, int isfile)
 {
@@ -76,6 +82,8 @@ iso_name(char *dst, const char *src, int n, int isfile)
 	dst[i] = 0;
 }
 
+/* EN: Compares an nlen-byte ISO directory name against the NUL-terminated want byte by byte, stopping at ';', and returns nonzero only when want is fully consumed. */
+/* 中文：把 nlen 字节的 ISO 目录名与以 NUL 结尾的 want 逐字节比较，遇 ';' 即停止，仅当 want 被完全匹配时才返回非 0。 */
 static int
 name_eq(const unsigned char *nm, int nlen, const char *want)
 {
@@ -92,6 +100,8 @@ name_eq(const unsigned char *nm, int nlen, const char *want)
 /*
  * Find `want' in the directory at (lba, size); fill in the record fields.
  */
+/* EN: Scans the directory extent at lba for size bytes sector by sector via iso_readsec and, on a name_eq match, fills *rlba, *rsize and *rflags from the record; returns 0, else -1. */
+/* 中文：用 iso_readsec 逐扇区读取 lba 处 size 字节的目录区，匹配 name_eq 后从记录中取出块号、大小与标志填入 *rlba/*rsize/*rflags，命中返回 0，否则 -1。 */
 static int
 find_in_dir(unsigned lba, unsigned size, const char *want, unsigned *rlba,
     unsigned *rsize, int *rflags)
@@ -124,6 +134,8 @@ find_in_dir(unsigned lba, unsigned size, const char *want, unsigned *rlba,
 	return (-1);
 }
 
+/* EN: Fails unless atapi_present(); reads sector 16, requires it to be a CD001 primary volume descriptor, then caches root_lba/root_size and sets mounted = 1. */
+/* 中文：atapi_present() 不成立即失败；读取第 16 扇区并要求其为 CD001 主卷描述符，然后缓存 root_lba/root_size 并置 mounted = 1。 */
 int
 iso_mount(void)
 {
@@ -147,6 +159,8 @@ iso_mount(void)
 	return (0);
 }
 
+/* EN: Returns the mounted flag that iso_mount() sets on success, so callers can test whether the ISO9660 filesystem is available. */
+/* 中文：返回 iso_mount() 成功时置位的 mounted 标志，供调用者判断 ISO9660 文件系统是否可用。 */
 int
 iso_mounted(void)
 {
@@ -154,6 +168,8 @@ iso_mounted(void)
 	return (mounted);
 }
 
+/* EN: Returns root_lba, the extent LBA of the root directory that iso_mount() decoded from the primary volume descriptor. */
+/* 中文：返回 iso_mount() 从主卷描述符解析出的根目录起始块号 root_lba。 */
 unsigned
 iso_root(void)
 {
@@ -161,6 +177,8 @@ iso_root(void)
 	return (root_lba);
 }
 
+/* EN: Returns root_size, the byte length of the root directory extent cached by iso_mount(). */
+/* 中文：返回 iso_mount() 缓存的根目录数据区字节长度 root_size。 */
 unsigned
 iso_root_size(void)
 {
@@ -168,6 +186,8 @@ iso_root_size(void)
 	return (root_size);
 }
 
+/* EN: Walks the path component by component with find_in_dir(), retries a final dotless name without .ELF, fills *lba/*size/*isdir; -1 on a missing, over-long or wrong-type component. */
+/* 中文：用 find_in_dir() 逐级解析路径，最后一级可去掉 .ELF 后缀重试，成功时填入 *lba/*size/*isdir；组件缺失、超过 40 字符或类型不符则返回 -1。 */
 int
 iso_stat(const char *path, unsigned *lba, unsigned *size, int *isdir)
 {
@@ -232,6 +252,8 @@ iso_stat(const char *path, unsigned *lba, unsigned *size, int *isdir)
 	}
 }
 
+/* EN: Thin wrapper over iso_stat() that rejects a missing path or a directory, returning the extent LBA and size of a regular file. */
+/* 中文：对 iso_stat() 的简单封装：路径不存在或指向目录时失败，否则返回普通文件的数据区块号与大小。 */
 int
 iso_lookup(const char *path, unsigned *lba, unsigned *size)
 {
@@ -247,6 +269,8 @@ iso_lookup(const char *path, unsigned *lba, unsigned *size)
  * Names come back lower case with the ";1" version suffix and any trailing
  * dot removed.  Returns 0 on success, 1 at end of directory, -1 on error.
  */
+/* EN: Walks records from *posp, skipping padding, cross-sector entries and . and .., and returns a lowercased ;1-stripped name plus elba/esize/eflags; 0 entry, 1 end, -1 error. */
+/* 中文：从 *posp 起遍历 (lba,size) 目录中的记录，跳过填充、跨扇区记录以及 . 和 ..，返回去掉 ;1 的小写名字及 elba/esize/eflags 并推进 *posp；0 表示条目，1 表示结束，-1 表示读失败。 */
 int
 iso_readdir(unsigned lba, unsigned size, unsigned *posp, char *name,
     unsigned *elba, unsigned *esize, int *eflags)
@@ -299,6 +323,8 @@ iso_readdir(unsigned lba, unsigned size, unsigned *posp, char *name,
 	return (1);
 }
 
+/* EN: Uses iso_lookup() to find the extent, rejects files larger than max, reads ceil(size/ISO_SECTOR) sectors straight into buf, stores the file size in *lenp and returns 0. */
+/* 中文：先用 iso_lookup() 定位文件区，拒绝大于 max 的文件，把 ceil(size/ISO_SECTOR) 个扇区直接读入 buf，将真实文件长度写入 *lenp 并返回 0。 */
 int
 iso_read_file(const char *path, void *buf, unsigned max, unsigned *lenp)
 {

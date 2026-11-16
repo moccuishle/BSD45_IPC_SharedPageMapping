@@ -47,6 +47,8 @@ static char sccsid[] = "@(#)moddi3.c	8.1 (Berkeley) 6/4/93";
  * XXX
  * If -1/2 should produce -1 on this machine, this code is wrong.
  */
+/* EN: Signed 64-bit remainder: converts operands to unsigned magnitudes while XOR-tracking the sign, takes the remainder from __qdivrem's arq out-param, negating it when signs differ. */
+/* 中文：有符号 64 位取模：把两操作数转为无符号绝对值并用异或记录符号，通过 __qdivrem 的 arq 出参取得余数，两数异号时对余数取负后返回。 */
 quad_t
 __moddi3(a, b)
 	quad_t a, b;

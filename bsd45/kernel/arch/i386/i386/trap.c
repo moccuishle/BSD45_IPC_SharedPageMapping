@@ -78,6 +78,8 @@ extern short cpl;
  */
 
 /*ARGSUSED*/
+/* EN: C trap dispatcher: page faults go to user_page_fault; other user traps go to trapsignal; AST and profil handled, signals posted, mi_switch if needed; bad kernel traps panic. */
+/* 中文：C 陷阱分发：页面异常交给 user_page_fault 处理，其他用户态陷阱按类型经 trapsignal 转为 SIGBUS/SIGILL/SIGFPE/SIGTRAP/SIGSEGV，并处理 AST 与 profil，随后投递信号并可能 mi_switch；不可恢复的内核陷阱 panic。 */
 trap(frame)
 	struct trapframe frame;
 {
@@ -300,6 +302,8 @@ out:
  * Like trap(), argument is call by reference.
  */
 /*ARGSUSED*/
+/* EN: Syscall entry: takes the number from sf_eax, copyins up to 8 args, calls sy_call, returns rval[0]/rval[1] in eax/edx with carry set on error, rewinds eip on ERESTART. */
+/* 中文：系统调用入口：从 sf_eax 取调用号，copyin 最多 8 个参数后调用 sy_call，把 rval[0]/rval[1] 写回 eax/edx 并以进位标志表示错误，遇 ERESTART 时回退 eip。 */
 syscall(frame)
 	volatile struct syscframe frame;
 {
@@ -415,6 +419,8 @@ done:
 #endif
 }
 
+/* EN: Faults addr into map: enforces RLIMIT_STACK, faults the page-table page first via vm_fault when its PDE is invalid, then the data page, wiring PT pages and growing vm_ssize. */
+/* 中文：为 map 处理地址 addr 的缺页：先按 RLIMIT_STACK 检查栈上限，PDE 无效时先用 vm_fault 调入页表页，再调入数据页，并用 vm_map_pageable 固定页表页、更新 vm_ssize。 */
 int
 user_page_fault (p, map, addr, ftype, type)
 struct proc *p;
@@ -472,6 +478,8 @@ int type;
 	return (KERN_SUCCESS);
 }
 
+/* EN: Wraps user_page_fault for curproc with VM_PROT_READ|VM_PROT_WRITE, returning 0 on success and EFAULT when the page cannot be made writable. */
+/* 中文：对当前进程以 VM_PROT_READ|VM_PROT_WRITE 调用 user_page_fault 的包装，成功返回 0，页面无法写入时返回 EFAULT。 */
 int
 user_write_fault (addr)
 void *addr;
@@ -484,6 +492,8 @@ void *addr;
 		return (EFAULT);
 }
 
+/* EN: Copies len bytes from kernel from to user to, rejecting ranges at or past USRSTACK, faulting via user_write_fault when the PTE is absent or not user-writable; returns EFAULT or 0. */
+/* 中文：把内核地址 from 处的 len 字节复制到用户地址 to：拒绝到达或越过 USRSTACK 的范围，页表项缺失或非用户可写时经 user_write_fault 调入该页，成功返回 0，否则返回 EFAULT。 */
 int
 copyout (from, to, len)
 void *from;

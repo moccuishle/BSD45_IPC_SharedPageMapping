@@ -44,6 +44,8 @@ static char sccsid[] = "@(#)lshrdi3.c	8.1 (Berkeley) 6/4/93";
 /*
  * Shift an (unsigned) quad value right (logical shift right).
  */
+/* EN: Logical zero-filling right shift of a quad_t: below 32, high-word bits feed the low word; at 32 or more the vacated words are zeroed instead of sign-extended. */
+/* 中文：对 64 位整数做逻辑补零右移：移位小于 32 时把高位字低位部分补入低位字，移位达到 32 或更多时移空的部分直接清零而不做符号扩展。 */
 quad_t
 __lshrdi3(a, shift)
 	quad_t a;

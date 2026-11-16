@@ -1,6 +1,7 @@
 # build_all.ps1 - build userland + sh + /test + kernel + ISO in one shot
 param(
-    [switch]$NoSh      # keep the small built-in sh instead of the 4.5BSD one
+    [switch]$NoSh,      # keep the small built-in sh instead of the 4.5BSD one
+    [switch]$Unicode    # build kernel strings as UTF-16 instead of ASCII
 )
 
 $ErrorActionPreference = "Stop"
@@ -24,7 +25,7 @@ if (-not $NoSh) {
     Invoke-Step "build_sh.ps1" @("-Target", "test")
 }
 
-Invoke-Step "build_kernel.ps1"
+Invoke-Step "build_kernel.ps1" $(if ($Unicode) { @("-Unicode") } else { @() })
 Invoke-Step "build_iso.ps1"
 
 Write-Host ""

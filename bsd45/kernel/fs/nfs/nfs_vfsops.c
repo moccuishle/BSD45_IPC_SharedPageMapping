@@ -106,6 +106,8 @@ static int nfs_mountdiskless __P((char *, char *, int, struct sockaddr_in *,
 /*
  * nfs statfs call
  */
+/* EN: Issues an NFSPROC_FSSTAT RPC for the mount root and fills statfs: v3 byte counters divided by NFS_FABLKSIZE, v2 raw fields, f_iosize=min(rsize,wsize); releases vnode and cred. */
+/* 中文：对挂载点根文件句柄发起 NFSPROC_FSSTAT RPC，把 v3 字节计数换算成 NFS_FABLKSIZE 块或直接取 v2 字段填入 statfs，f_iosize 取 rsize/wsize 较小值，最后 vrele 并释放 cred。 */
 int
 nfs_statfs(mp, sbp, p)
 	struct mount *mp;
@@ -178,6 +180,8 @@ nfs_statfs(mp, sbp, p)
 /*
  * nfs version 3 fsinfo rpc call
  */
+/* EN: Issues the NFSv3 NFSPROC_FSINFO RPC and clamps nm_wsize/nm_rsize/nm_readdirsize down to the server preferred/max transfer sizes, then sets NFSMNT_GOTFSINFO. */
+/* 中文：发起 NFSv3 的 NFSPROC_FSINFO RPC，依据服务器返回的首选值和上限下调并取整 nm_wsize、nm_rsize 与 nm_readdirsize，成功后置 NFSMNT_GOTFSINFO。 */
 int
 nfs_fsinfo(nmp, vp, cred, p)
 	register struct nfsmount *nmp;
@@ -248,6 +252,8 @@ nfs_fsinfo(nmp, vp, cred, p)
  *	if swdevt[0].sw_dev == NODEV
  * - build the rootfs mount point and call mountnfs() to do the rest.
  */
+/* EN: Diskless root mount: sets up the boot interface via ifioctl(SIOCAIFADDR), adds mygateway as default route, mounts swap and read-only / over NFS, then sets rootvp, hostname, clock. */
+/* 中文：无盘根文件系统挂载：用 ifioctl(SIOCAIFADDR) 配置引导网卡、必要时设置默认网关，挂载 swap 文件并以只读方式挂载 NFS 根，最后设置 rootvp、主机名和系统时间。 */
 int
 nfs_mountroot()
 {
@@ -423,6 +429,8 @@ nfs_mountroot()
 /*
  * Internal version of mount system call for diskless setup.
  */
+/* EN: Internal diskless mount helper: allocates the mount with vfs_rootmountalloc, packs sin into an MT_SONAME mbuf, calls mountnfs and records f_mntonname; frees the mount on failure. */
+/* 中文：无盘挂载内部辅助函数：用 vfs_rootmountalloc 分配 mount、把 sin 打包成 MT_SONAME mbuf 后调用 mountnfs，成功后把 which 写入 f_mntonname，失败则释放 mount。 */
 static int
 nfs_mountdiskless(path, which, mountflag, sin, args, p, vpp, mpp)
 	char *path;
@@ -468,6 +476,8 @@ nfs_mountdiskless(path, which, mountflag, sin, args, p, vpp, mpp)
  * an error after that means that I have to release the mbuf.
  */
 /* ARGSUSED */
+/* EN: mount(2) entry: copies in nfs_args (EPROGMISMATCH on version mismatch), the file handle, path and hostname, builds the address mbuf via sockargs, then calls mountnfs. */
+/* 中文：mount(2) 入口：copyin nfs_args 并校验 NFS_ARGSVERSION（不匹配返回 EPROGMISMATCH），再拷入文件句柄、挂载路径和主机名，用 sockargs 构造地址 mbuf 后调用 mountnfs。 */
 int
 nfs_mount(mp, path, data, ndp, p)
 	struct mount *mp;
@@ -512,6 +522,8 @@ nfs_mount(mp, path, data, ndp, p)
 /*
  * Common code for mount and mountroot
  */
+/* EN: Shared mount code: no-op on MNT_UPDATE; else allocates nfsmount, clamps rsize/wsize/timeo/retrans/lease, connects UDP, gets the remote root nfsnode; frees all on error. */
+/* 中文：挂载共用逻辑：MNT_UPDATE 时只释放 nam 并返回 0；否则分配并清零 nfsmount，写入句柄与名字、裁剪 wsize/rsize/timeo/retrans 等选项，UDP 立即连接，最后 nfs_nget 取得远端根 vnode，失败回滚。 */
 int
 mountnfs(argp, mp, nam, pth, hst, vpp)
 	register struct nfs_args *argp;
@@ -675,6 +687,8 @@ bad:
 /*
  * unmount system call
  */
+/* EN: Unmounts NFS: EBUSY if the root vnode is still busy, waits for nm_inprog to clear, vflush()es the vnodes, then double-vrele/vgone the root, disconnects and frees the nfsmount. */
+/* 中文：卸载 NFS 挂载点：根 vnode 引用数大于 2 时返回 EBUSY，置 NFSMNT_DISMINPROG 并等待 nm_inprog 清空后 vflush 全部 vnode，再两次 vrele 加 vgone，断开连接并释放 nfsmount。 */
 int
 nfs_unmount(mp, mntflags, p)
 	struct mount *mp;
@@ -749,6 +763,8 @@ nfs_unmount(mp, mntflags, p)
 /*
  * Return root of a filesystem
  */
+/* EN: Returns the mount's root vnode by nfs_nget on nm_fh, forcing v_type to VDIR and setting VROOT. */
+/* 中文：用 nm_fh 调 nfs_nget 取得根 vnode，强制把 v_type 置为 VDIR 并打上 VROOT 标志后返回。 */
 int
 nfs_root(mp, vpp)
 	struct mount *mp;
@@ -776,6 +792,8 @@ extern int syncprt;
  * Flush out the buffer cache
  */
 /* ARGSUSED */
+/* EN: Walks mp's vnode list, restarting when a vnode changed mount, skips locked or dirty-free vnodes, and VOP_FSYNCs each dirty one under an exclusive vget, returning the last error. */
+/* 中文：遍历挂载点的 vnode 链表（vnode 已换挂载点时从头重来），跳过已加锁或无脏块的 vnode，其余以 LK_EXCLUSIVE vget 后做 VOP_FSYNC，返回最后出现的错误。 */
 int
 nfs_sync(mp, waitfor, cred, p)
 	struct mount *mp;
@@ -816,6 +834,8 @@ loop:
  * Currently unsupported.
  */
 /* ARGSUSED */
+/* EN: Stub that always fails with EOPNOTSUPP: NFS has no inode-number based vget because flat namespace lookup is unsupported. */
+/* 中文：空实现，恒返回 EOPNOTSUPP：NFS 不支持按 inode 号取 vnode 的扁平命名空间查找。 */
 int
 nfs_vget(mp, ino, vpp)
 	struct mount *mp;
@@ -830,6 +850,8 @@ nfs_vget(mp, ino, vpp)
  * At this point, this should never happen
  */
 /* ARGSUSED */
+/* EN: Stub returning EINVAL: converting a file handle to a vnode is unsupported and per the comments expected never to be called for NFS. */
+/* 中文：空实现，恒返回 EINVAL：NFS 不支持由文件句柄取 vnode，按注释此路径不应被调用。 */
 int
 nfs_fhtovp(mp, fhp, nam, vpp, exflagsp, credanonp)
 	register struct mount *mp;
@@ -847,6 +869,8 @@ nfs_fhtovp(mp, fhp, nam, vpp, exflagsp, credanonp)
  * Vnode pointer to File handle, should never happen either
  */
 /* ARGSUSED */
+/* EN: Stub returning EINVAL: converting a vnode back to a file handle is unsupported and should never happen for NFS. */
+/* 中文：空实现，恒返回 EINVAL：NFS 不支持由 vnode 反查文件句柄，按注释不应发生。 */
 int
 nfs_vptofh(vp, fhp)
 	struct vnode *vp;
@@ -860,6 +884,8 @@ nfs_vptofh(vp, fhp)
  * Vfs start routine, a no-op.
  */
 /* ARGSUSED */
+/* EN: No-op VFS start routine for the NFS mount type that simply returns 0. */
+/* 中文：空的 VFS start 例程，直接返回 0，不做任何操作。 */
 int
 nfs_start(mp, flags, p)
 	struct mount *mp;
@@ -874,6 +900,8 @@ nfs_start(mp, flags, p)
  * Do operations associated with quotas, not supported
  */
 /* ARGSUSED */
+/* EN: Stub returning EOPNOTSUPP: quota control operations are not supported on NFS mounts. */
+/* 中文：空实现，恒返回 EOPNOTSUPP：NFS 挂载点不支持配额控制操作。 */
 int
 nfs_quotactl(mp, cmd, uid, arg, p)
 	struct mount *mp;
@@ -889,6 +917,8 @@ nfs_quotactl(mp, cmd, uid, arg, p)
 /*
  * Do that sysctl thang...
  */
+/* EN: Handles the NFS_NFSSTATS sysctl: reports sizeof nfsstats, copyout()s the stats and optionally copyin()s new ones when newp/newlen match; other leaf names give EOPNOTSUPP. */
+/* 中文：实现 NFS_NFSSTATS 的 sysctl：无 oldp 时回填 sizeof nfsstats，缓冲区不足返回 ENOMEM，否则 copyout 统计并可用 newp 覆盖；其余名字返回 EOPNOTSUPP，namelen 大于 1 返回 ENOTDIR。 */
 static int
 nfs_sysctl(int *name, u_int namelen, void *oldp, size_t *oldlenp, void *newp,
 	   size_t newlen, struct proc *p)

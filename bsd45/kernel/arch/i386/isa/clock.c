@@ -109,6 +109,8 @@ startrtclock() {
 unsigned int delaycount;	/* calibrated loop variable (1 millisecond) */
 
 #define FIRST_GUESS	0x2000
+/* EN: Calibrates delaycount by running the 8253 timer in count-down mode for 1 ms of spinwait, reading the leftover count and scaling FIRST_GUESS by XTALSPEED per tick. */
+/* 中文：标定 delaycount：让 8253 计数器以递减模式运行 1 毫秒 spinwait，读回剩余计数值，再按 XTALSPEED 与消耗的 tick 数换算 FIRST_GUESS。 */
 findcpuspeed()
 {
 	unsigned char low;
@@ -133,6 +135,8 @@ findcpuspeed()
 
 
 /* convert 2 digit BCD number */
+/* EN: Converts a packed two-digit BCD byte read from an RTC register into a binary value as (i/16)*10 + (i%16). */
+/* 中文：把从 RTC 寄存器读到的两位 BCD 字节按 (i/16)*10 + (i%16) 转换为二进制数值。 */
 bcd(i)
 int i;
 {
@@ -140,6 +144,8 @@ int i;
 }
 
 /* convert years to seconds (from 1970) */
+/* EN: Returns the seconds from 1970 up to the start of year y, adding 366 days for years divisible by 4 and 365 days for all others. */
+/* 中文：返回 1970 年至 y 年年初的秒数：能被 4 整除的年份累加 366 天，其余年份累加 365 天。 */
 unsigned long
 ytos(y)
 int y;
@@ -156,6 +162,8 @@ int y;
 }
 
 /* convert months to seconds */
+/* EN: Returns the seconds from January 1 to the start of month m, summing 31- and 30-day months and 29 or 28 days for February according to leap. */
+/* 中文：返回从 1 月 1 日到 m 月月初的秒数：累加 31 天和 30 天的月份，2 月按 leap 取 29 天或 28 天。 */
 unsigned long
 mtos(m,leap)
 int m,leap;
@@ -183,6 +191,8 @@ int m,leap;
  * Initialize the time of day register, based on the time base which is, e.g.
  * from a filesystem.
  */
+/* EN: Reads the CMOS RTC (returns early if absent), converts BCD year/month/day/time into seconds since 1970 with leap, DST and tz_minuteswest corrections and sets time.tv_sec. */
+/* 中文：读取 CMOS RTC（无时钟时直接返回），把 BCD 年月日时分秒换算为 1970 年起的秒数，经闰年、夏令时与 tz_minuteswest 修正后写入 time.tv_sec。 */
 inittodr(base)
 	time_t base;
 {
@@ -226,6 +236,8 @@ inittodr(base)
  * Initialze the time of day register, based on the time base which is, e.g.
  * from a filesystem.
  */
+/* EN: Debug routine compiled only under #ifdef garbage: prints the six RTC registers it reads directly through IO_RTC, then sets time.tv_sec to base. */
+/* 中文：仅在 #ifdef garbage 下编译的调试函数：通过 IO_RTC 直接读取并打印 RTC 的六个寄存器，随后把 time.tv_sec 置为 base。 */
 test_inittodr(base)
 	time_t base;
 {
@@ -250,6 +262,8 @@ test_inittodr(base)
 /*
  * Restart the clock.
  */
+/* EN: Empty stub: it never writes time.tv_sec back to the RTC, so the hardware clock is not updated from the kernel time on this port. */
+/* 中文：空函数桩：从不把 time.tv_sec 写回 RTC，因此本移植版本不会用内核时间更新硬件时钟。 */
 resettodr()
 {
 }
@@ -268,6 +282,8 @@ enablertclock() {
 
 
 
+/* EN: Busy-waits about millisecs milliseconds in a nested empty loop of delaycount iterations per millisecond, without sleeping or touching hardware. */
+/* 中文：用嵌套空循环忙等约 millisecs 毫秒（每毫秒 delaycount 次迭代），不睡眠也不访问硬件。 */
 spinwait(millisecs)
 int millisecs;		/* number of milliseconds to delay */
 {

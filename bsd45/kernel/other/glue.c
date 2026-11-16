@@ -25,10 +25,17 @@
 #include <machine/cpu.h>
 #include <machine/psl.h>
 #include <machine/pmap.h>
+#include <machine/trap.h>
 
 #include "atapi.h"
 #include "isofs.h"
 #include "vfs.h"
+#include "obj/kstr.h"
+#include "subsys/subsys.h"
+#include "thread/kthread.h"
+#include "hal/ipl.h"
+#include "hal/clock.h"
+#include "vm/zcomp.h"
 
 /* GCC builtins: the mingw <stdarg.h> is only an include_next stub. */
 typedef __builtin_va_list	va_list;
@@ -44,8 +51,11 @@ struct vmmeter	cnt;
 extern char	etext[], edata[], end[];
 
 void	monitor(void);
+void	aio_user_init(void);
 int	pccom_present(void);
 void	reboot_now(void);
+int	user_page_fault(unsigned va, unsigned err);
+void	user_fault(int sig, unsigned eip, unsigned va);
 
 /*
  * Called from pmap/machdep before page-size dependent code runs.
@@ -205,9 +215,53 @@ trap(struct trapframe *frame)
 		"stack fault", "general protection", "page fault", "reserved",
 	};
 
-	printf("\n\n*** TRAP %d (%s) err=%x\n", frame->tf_trapno,
+	/*
+	 * os.md mechanism 1: a user-mode fault is delivered to the process,
+	 * never used to halt the machine.  COW write faults are fixed here
+	 * and the faulting instruction simply retries.
+	 */
+	if ((frame->tf_cs & 3) != 0) {
+		unsigned va = rcr2();
+		int sig = SIGSEGV;
+
+		if (frame->tf_trapno == T_PAGEFLT &&
+		    user_page_fault(va, frame->tf_err))
+			return;
+		switch (frame->tf_trapno) {
+		case T_DIVIDE:
+		case T_OFLOW:
+		case T_ARITHTRAP:
+		case T_FPOPFLT:
+			sig = SIGFPE;
+			break;
+		case T_TRCTRAP:
+		case T_BPTFLT:
+			sig = SIGTRAP;
+			break;
+		case T_RESOPFLT:
+		case T_PRIVINFLT:
+		case T_DNA:
+			sig = SIGILL;
+			break;
+		case T_BOUND:
+		case T_SEGFLT:
+		case T_PROTFLT:
+		case T_STKFLT:
+		case T_SEGNPFLT:
+		case T_PAGEFLT:
+		case T_TABLEFLT:
+			sig = SIGSEGV;
+			break;
+		default:
+			sig = SIGSEGV;
+			break;
+		}
+		user_fault(sig, frame->tf_eip, va);
+	}
+	printf("\n\n*** kernel TRAP %d (%s) err=%x\n", frame->tf_trapno,
 	    frame->tf_trapno < 16 ? trapname[frame->tf_trapno] : "unknown",
-	    frame->tf_err);	printf("eip=%x cs=%x eflags=%x esp=%x ss=%x\n",
+	    frame->tf_err);
+	printf("eip=%x cs=%x eflags=%x esp=%x ss=%x\n",
 	    frame->tf_eip, frame->tf_cs, frame->tf_eflags,
 	    frame->tf_esp, frame->tf_ss);
 	if ((frame->tf_cs & 3) != 0) {
@@ -290,6 +344,33 @@ main(vm_offset_t firstaddr)
 			printf("root: ATAPI device found but no ISO9660 volume\n");
 	} else
 		printf("root: no ATAPI CD-ROM, using embedded ramfs\n");
+	/*
+	 * os.md mechanism 3: reserve the in-RAM compressed-page pool before
+	 * userland starts.  No swap device exists; this is the reclaim layer.
+	 * os.md 机制 3：在用户态启动前预留内存压缩池；本端口没有 swap
+	 * 设备，这一层就是回收层。
+	 */
+	zcomp_init();
+	printf("kstr: strings %s\n", KSTR_UTF16 ? "UTF-16" : "ASCII");
+	subsys_init();
+	printf("subsys: %d personalities (unix/posix/linux/win32)\n",
+	    subsys_count());
+	/*
+	 * S21: kernel execution carriers for softirq/page reclaim work.
+	 * They run at user blocking points (and explicit polls) until the
+	 * timer interrupt lands.
+	 */
+	kthread_init();
+	softirq_init();
+	vfs_aio_init();
+	aio_user_init();
+	/*
+	 * os.md mechanism 4: one 16-level IPL space for hardware and soft
+	 * interrupts, then the PIT as the preemption source.  IRQ0 stays
+	 * masked by IF=0 until the first iret to ring 3 enables IF.
+	 */
+	ipl_init();
+	clock_init();
 	printf("\n");
 
 	monitor();

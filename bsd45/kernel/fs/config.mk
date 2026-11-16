@@ -10,7 +10,11 @@
 
 # sources in this directory:
 #   isofs.c
+#   tmpfs.c
 #   vfs.c
+#   vfs_bio.c
+#   vfs_cache.c
+#   pagecache.c
 
 # subdirectories:
 #   isofs/

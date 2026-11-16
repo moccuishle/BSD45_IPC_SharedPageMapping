@@ -56,6 +56,8 @@
 				sum++;			\
 			}				\
 		}
+/* EN: Computes the Internet checksum over an mbuf chain, summing 16-bit words with ADDCARRY while handling unaligned and cross-mbuf words, and returns ~sum & 0xffff. */
+/* 中文：对 mbuf 链计算 Internet 校验和：按 16 位字用 ADDCARRY 累加，并处理非对齐及跨 mbuf 的字，返回 ~sum & 0xffff。 */
 in_cksum(m, len)
 	register struct mbuf *m;
 	register int len;

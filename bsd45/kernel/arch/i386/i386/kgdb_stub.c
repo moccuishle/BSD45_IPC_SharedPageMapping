@@ -100,6 +100,8 @@ static int (*kgdb_putc)();
 /*
  * Send a message.  The host gets one chance to read it.
  */
+/* EN: Frames one gdb remote packet: sends the type byte and payload via PUTESC, then the two's-complement checksum and FRAME_END via PUTC, escaping special bytes. */
+/* 中文：按 gdb 远程协议发送一个包：经 PUTESC 输出类型字节与负载，再经 PUTC 发送取反校验和与 FRAME_END，对特殊字节做转义。 */
 static void
 kgdb_send(type, bp, len)
 	register u_char type;
@@ -122,6 +124,8 @@ kgdb_send(type, bp, len)
 	PUTC(FRAME_END);
 }
 
+/* EN: Receives and unescapes one gdb packet while accumulating its checksum; on FRAME_END returns the packet type and stores the payload length, or 0 on checksum error or oversize. */
+/* 中文：接收并反转义一个 gdb 数据包，边收边累加校验和；遇 FRAME_END 返回包类型并写入负载长度，校验和错误或超长则返回 0。 */
 static int
 kgdb_recv(bp, lenp)
 	u_char *bp;
@@ -183,6 +187,8 @@ kgdb_recv(bp, lenp)
  * Translate a trap number into a unix compatible signal value.
  * (gdb only understands unix signal numbers).
  */
+/* EN: Maps an i386 trap number to the Unix signal gdb expects: T_PAGEFLT to SIGSEGV, T_BPTFLT to SIGTRAP, T_DIVIDE to SIGFPE, T_PROTFLT to SIGBUS, defaulting to SIGEMT. */
+/* 中文：把 i386 陷阱号映射为 gdb 使用的 Unix 信号：T_PAGEFLT→SIGSEGV、T_BPTFLT→SIGTRAP、T_DIVIDE→SIGFPE、T_PROTFLT→SIGBUS，未知则 SIGEMT。 */
 static int 
 computeSignal(type)
 	int type;
@@ -239,6 +245,8 @@ computeSignal(type)
  * Trap into kgdb to wait for debugger to connect, 
  * noting on the console why nothing else is going on.
  */
+/* EN: Waits for the remote debugger: optionally prints "kgdb waiting...", executes cpu_breakpoint() to trap into the gdb stub, then prints "connected." when it returns. */
+/* 中文：等待远程调试器接入：可选打印 "kgdb waiting..."，执行 cpu_breakpoint() 陷入 gdb 桩，返回后再打印 "connected."。 */
 kgdb_connect(verbose)
 	int verbose;
 {
@@ -250,7 +258,7 @@ kgdb_connect(verbose)
 		pg("kgdb_connect: trapping\n");
 #endif
 	/* trap into kgdb */
-	asm volatile ("int3");
+	cpu_breakpoint();
 	if (verbose)
 		printf("connected.\n");
 }
@@ -258,6 +266,8 @@ kgdb_connect(verbose)
 /*
  * Decide what to do on panic.
  */
+/* EN: Panic hook: calls kgdb_connect(1) to enter the debugger only when no kgdb session is active (kgdb_active == 0) and kgdb_debug_panic is set; otherwise returns silently. */
+/* 中文：panic 钩子：仅在 kgdb 未激活(kgdb_active == 0)且 kgdb_debug_panic 置位时调用 kgdb_connect(1) 进入调试器，否则静默返回。 */
 kgdb_panic()
 {
 
@@ -275,6 +285,8 @@ kgdb_panic()
 #define GDB_SR 8
 #define GDB_PC 9
 
+/* EN: Copies nbytes bytes byte-by-byte from src to dst with no alignment or overlap assumptions; a static helper for gdb register and memory payload moves. */
+/* 中文：逐字节把 nbytes 字节从 src 复制到 dst，不假设对齐与重叠；专用于搬运 gdb 的寄存器与内存负载。 */
 static inline void
 kgdb_copy(register u_char *src, register u_char *dst, register u_int nbytes)
 {
@@ -296,6 +308,8 @@ static const char trapmap[] = 		/* from gdb */
 	tDS, tES, tES, tES		/* lies: no fs or gs */
 };
 
+/* EN: Packs the trap frame into gdb register order using the trapmap index table, producing NUM_REGS u_longs and filling absent fs/gs slots from ds/es. */
+/* 中文：借助 trapmap 下标表把陷阱帧按 gdb 寄存器顺序打包为 NUM_REGS 个 u_long，缺失的 fs/gs 槽位用 ds/es 填充。 */
 static inline void
 regs_to_gdb(struct trapframe *fp, register u_long *gdb)
 {
@@ -306,6 +320,8 @@ regs_to_gdb(struct trapframe *fp, register u_long *gdb)
 		*gdb++ = regs[*tp];
 }
 
+/* EN: Inverse of regs_to_gdb: scatters NUM_REGS gdb-order u_longs back into the trap frame via trapmap so that register writes by gdb take effect on resume. */
+/* 中文：regs_to_gdb 的逆操作：按 trapmap 把 gdb 顺序的 NUM_REGS 个 u_long 写回陷阱帧，使 gdb 的寄存器修改在恢复执行时生效。 */
 static inline void
 gdb_to_regs(struct trapframe *fp, register u_long *gdb)
 {
@@ -324,6 +340,8 @@ static u_char outbuffer[SL_BUFSIZE];
  * This function does all command procesing for interfacing to 
  * a remote gdb.
  */
+/* EN: gdb stub loop: on first T_BPTFLT finds the console getc/putc and acks the exec packet, then serves reg/memory read-write, continue, step and kill, returning 1 to resume. */
+/* 中文：gdb 桩命令循环：首个 T_BPTFLT 时定位控制台 getc/putc 并应答 exec 包，随后处理寄存器/内存读写、继续、单步与断开命令，返回 1 恢复该帧执行。 */
 int 
 kgdb_trap(int type, struct trapframe *frame)
 {
@@ -535,6 +553,8 @@ kgdb_trap(int type, struct trapframe *frame)
  * XXX do kernacc call if safe, otherwise attempt
  * to simulate by simple bounds-checking.
  */
+/* EN: kgdb address check: returns 1 when addr lies in the kernel stack (kstack..UPAGES*NBPG), else defers to kernacc(addr,len,rw) once kernel_map exists, else 0. */
+/* 中文：kgdb 远程调试的地址可访问性检查：地址落在内核栈 kstack 起的 UPAGES 页内直接返回 1，否则在 kernel_map 建立后转调 kernacc(addr,len,rw)，尚未建立则返回 0。 */
 kgdb_acc(addr, len, rw)
 	caddr_t addr;
 {

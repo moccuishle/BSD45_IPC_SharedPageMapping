@@ -69,6 +69,8 @@ struct	genericconf {
 	{ 0 },
 };
 
+/* EN: Its entire body sits inside #ifdef notdef, so this build yields an empty function: it never prompts for a root device and never sets rootdev, dumpdev or swap devices. */
+/* 中文：整个函数体位于 #ifdef notdef 内，因此本次构建得到空函数：既不询问根设备，也不设置 rootdev、dumpdev 或交换设备。 */
 setconf()
 {
 #ifdef notdef
@@ -115,7 +117,7 @@ bad:
 		}
 	}
 	printf("no suitable root\n");
-	asm("halt");
+	cpu_halt();
 found:
 	gc->gc_root = makedev(major(gc->gc_root), unit*8);
 	rootdev = gc->gc_root;
@@ -128,6 +130,8 @@ doswap:
 #endif
 }
 
+/* EN: Reads a console line character by character with cngetc(), echoing as it goes and handling CR/LF, backspace/DEL, '#' as delete, '@' or ^U as line kill, then NUL-terminates cp. */
+/* 中文：通过 cngetc() 逐字符读取控制台输入并回显，处理回车换行、退格/DEL、'#' 删除一字符、'@' 或 ^U 整行删除，最后在 cp 末尾写入 NUL。 */
 gets(cp)
 	char *cp;
 {

@@ -43,7 +43,7 @@ bash tools/all_tests.sh        # 17 套，预期最后两行：suites failed: 0 
 | 内容 | 位置 |
 |---|---|
 | 4.5BSD sys 树（内核源码） | `bsd45/kernel/` |
-| `/bin/sh` 用的 4.5BSD 用户态源码 | `bsd45/libc/bsd/` |
+| `/bin/sh` 用的 4.5BSD 用户态源码 | `bsd45/libc/arch/bsd/` |
 | 用户态工具（`main()` 程序） | `bsd45/libexec/` |
 | libc 子集与 syscall 粘合 | `bsd45/libc/src/` |
 | 内核 VFS/驱动/进程层 | `bsd45/kernel/fs/`、`driver/`、`other/` |

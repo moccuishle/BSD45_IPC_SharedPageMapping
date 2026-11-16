@@ -16,7 +16,7 @@ _enter_user:
 	pushl	%edx			/* user esp */
 	pushfl
 	popl	%ebx
-	andl	$0xfffffdff, %ebx
+	orl	$0x200, %ebx		/* IF=1: let the PIT preempt user mode */
 	pushl	%ebx
 	pushl	%edi			/* user cs */
 	pushl	%ecx			/* eip */
@@ -77,4 +77,27 @@ _resume_user:
 	movw	%dx, %gs
 	movl	%eax, %cr3
 	movl	20(%esp), %eax		/* user eax */
+	iret
+
+/*
+ * IRQ0 (PIT) entry.  Builds exactly a struct sysregs on the kernel stack:
+ *   ds es edi esi ebp esp ebx edx ecx eax  eip cs eflags [uesp ss]
+ * clock_irq() may rewrite the frame (and CR3) to resume another thread;
+ * the iret below then returns straight to it.
+ */
+	.globl	_irq0_entry
+	.align	4
+_irq0_entry:
+	pushal
+	push	%es
+	push	%ds
+	movw	$0x10, %ax
+	movw	%ax, %ds
+	movw	%ax, %es
+	pushl	%esp
+	call	_clock_irq
+	addl	$4, %esp
+	pop	%ds
+	pop	%es
+	popal
 	iret

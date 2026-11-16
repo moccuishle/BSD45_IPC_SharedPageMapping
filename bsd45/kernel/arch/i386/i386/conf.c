@@ -97,6 +97,8 @@ bdev_decl(no);	/* dummy declarations */
 bdev_decl(wd);
 bdev_decl(Fd);
 bdev_decl(wt);
+/* EN: Macro that, via dev_decl, emits prototypes for the six block-device entry points of a driver prefix: open, close, strategy, ioctl, dump and size. */
+/* 中文：宏：借助 dev_decl 为指定驱动前缀声明块设备六个入口函数的原型——open、close、strategy、ioctl、dump 和 size。 */
 bdev_decl(xd);
 
 struct bdevsw	bdevsw[] =
@@ -279,6 +281,8 @@ dev_t	swapdev = makedev(1, 0);
  *
  * A minimal stub routine can always return 0.
  */
+/* EN: Pure predicate: returns nonzero exactly when dev has major 2 and minor 0 or 1, identifying the /dev/mem and /dev/kmem special devices; no side effects. */
+/* 中文：纯判断函数：仅当 dev 主设备号为 2 且次设备号为 0 或 1 时返回非零，用于识别 /dev/mem 与 /dev/kmem 特殊设备，无副作用。 */
 iskmemdev(dev)
 	dev_t dev;
 {
@@ -286,6 +290,8 @@ iskmemdev(dev)
 	return (major(dev) == 2 && (minor(dev) == 0 || minor(dev) == 1));
 }
 
+/* EN: Pure predicate: returns nonzero only for major 2, minor 12, the /dev/zero special device; no side effects. */
+/* 中文：纯判断函数：仅在主设备号为 2、次设备号为 12 时返回非零，用于识别 /dev/zero 特殊设备，无副作用。 */
 iszerodev(dev)
 	dev_t dev;
 {

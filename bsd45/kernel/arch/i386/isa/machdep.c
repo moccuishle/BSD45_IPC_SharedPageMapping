@@ -108,6 +108,8 @@ int biosmem;
 
 extern cyloffset;
 
+/* EN: Maps msgbuf at end of core, two-pass allocates kernel tables, buffers and callout free list, creates buffer/exec/phys/mbuf submaps, then initcpu, bufinit and configure. */
+/* 中文：在核心末尾映射 msgbuf，两遍分配内核表、缓冲区与 callout 空闲链，建立 buffer/exec/phys/mbuf 子映射，最后调用 initcpu、bufinit 和 configure。 */
 cpu_startup(firstaddr)
 	int firstaddr;
 {
@@ -297,6 +299,8 @@ again:
  * ipl, return error code.
  */
 /*ARGSUSED*/
+/* EN: PGINPROF-only helper: returns elapsed microseconds as ((time.tv_sec-otime)*60 + lbolt-olbolt)*16667 against saved time/lbolt values, compiled under PGINPROF. */
+/* 中文：仅在 PGINPROF 下编译的辅助函数：按 ((time.tv_sec-otime)*60+lbolt-olbolt)*16667 计算相对保存时刻的微秒差。 */
 vmtime(otime, olbolt, oicr)
 	register int otime, olbolt, oicr;
 {
@@ -328,6 +332,8 @@ extern int kstack[];
  * frame pointer, it returns to the user
  * specified pc, psl.
  */
+/* EN: Builds a sigframe on the user or alternate stack, grows and useracc-checks it, saves regs and sigcontext, sets ESP/EIP to the sigcode trampoline; bad stack gets SIGILL. */
+/* 中文：在用户或备用栈上构造 sigframe，扩展并 useracc 校验，保存寄存器与 sigcontext，把 ESP/EIP 指向 sigcode 跳板；栈无效时改投 SIGILL。 */
 void
 sendsig(catcher, sig, mask, code)
 	sig_t catcher;
@@ -435,6 +441,8 @@ sendsig(catcher, sig, mask, code)
 struct sigreturn_args {
 	struct sigcontext *sigcntxp;
 };
+/* EN: Restores scratch regs and sigcontext (sp/fp/pc/ps, signal mask, onstack flag) from the frame left by sendsig after useracc checks, returns EJUSTRETURN to resume user code. */
+/* 中文：经 useracc 校验后从 sendsig 留下的帧恢复寄存器与 sigcontext（sp/fp/pc/ps、信号屏蔽、onstack 标志），返回 EJUSTRETURN 继续用户态执行。 */
 sigreturn(p, uap, retval)
 	struct proc *p;
 	struct sigreturn_args *uap;
@@ -478,6 +486,8 @@ sigreturn(p, uap, retval)
 
 int	waittime = -1;
 
+/* EN: Reboots: unless RB_NOSYNC with waittime<0 it syncs disks, unmounts filesystems and waits up to 20 rounds for busy buffers, then halts, dumps or resets the CPU. */
+/* 中文：重启流程：非 RB_NOSYNC 时同步磁盘、卸载文件系统并最多等待 20 轮忙缓冲区，随后按 RB_HALT 停机、按 RB_DUMP 转储或复位 CPU。 */
 boot(arghowto)
 	int arghowto;
 {
@@ -554,6 +564,8 @@ int	dumpsize = 0;		/* also for savecore */
  * getting on the dump stack, either when called above, or by
  * the auto-restart code.
  */
+/* EN: When dumpdev is valid and its minor&7 == 1, sets dumpsize=physmem and calls the device d_dump, printing success or ENXIO/EFAULT/EINVAL/EIO diagnostics. */
+/* 中文：当 dumpdev 有效且 minor&7==1 时置 dumpsize=physmem 并调用块设备 d_dump 转储内存，按返回码打印成功或 ENXIO/EFAULT/EINVAL/EIO 信息。 */
 dumpsys()
 {
 
@@ -590,6 +602,8 @@ dumpsys()
 	DELAY(1000);
 }
 
+/* EN: Returns the current time with microsecond resolution: copies time into *tvp under splhigh, adds the pending tick and normalizes tv_usec below 1000000. */
+/* 中文：给出微秒级当前时间：在 splhigh 下把 time 复制到 *tvp，加上未结算的 tick，并把 tv_usec 归一到 1000000 以内。 */
 microtime(tvp)
 	register struct timeval *tvp;
 {
@@ -633,6 +647,8 @@ physstrat(bp, strat, prio)
 	bp->b_un.b_addr = baddr;
 }
 
+/* EN: Empty stub compiled on this port: performs no CPU register or cache setup; cpu_startup calls it after system memory has been configured. */
+/* 中文：本移植版中的空函数：不做任何 CPU 寄存器或缓存设置，由 cpu_startup 在系统内存配置完成后调用。 */
 initcpu()
 {
 }
@@ -640,6 +656,8 @@ initcpu()
 /*
  * Clear registers on exec
  */
+/* EN: Resets registers for exec: EBP=0, EIP=entry, pcb_flags=0, sets CR0_EM to emulate floating point, and reinitializes the NPX via npxinit when configured. */
+/* 中文：为 exec 重置寄存器：EBP 清零、EIP=entry、pcb_flags=0，置 CR0_EM 进入浮点模拟，并在配置了 NPX 时调用 npxinit 重新初始化。 */
 setregs(p, entry, retval)
 	register struct proc *p;
 	u_long entry;
@@ -659,6 +677,8 @@ setregs(p, entry, retval)
 /*
  * machine dependent system variables.
  */
+/* EN: Machine-dependent sysctl handler: only CPU_CONSDEV is supported, returning cn_tty->t_dev via sysctl_rdstruct; namelen!=1 gives ENOTDIR, other names EOPNOTSUPP. */
+/* 中文：机器相关 sysctl 处理：仅支持 CPU_CONSDEV，用 sysctl_rdstruct 返回 cn_tty->t_dev；namelen!=1 返回 ENOTDIR，其余名字返回 EOPNOTSUPP。 */
 cpu_sysctl(name, namelen, oldp, oldlenp, newp, newlen, p)
 	int *name;
 	u_int namelen;
@@ -1043,6 +1063,8 @@ setsoftclock() {
  * insert an element into a queue 
  */
 #undef insque
+/* EN: Inserts element into the doubly linked prochd queue immediately after head, patching the successor's ph_rlink too; the body takes no locks or interrupt masking. */
+/* 中文：把 element 插入以 head 为头的双向 prochd 队列的头节点之后，并修补后继节点的 ph_rlink；函数体不加锁也不屏蔽中断。 */
 _insque(element, head)
 	register struct prochd *element, *head;
 {
@@ -1056,6 +1078,8 @@ _insque(element, head)
  * remove an element from a queue
  */
 #undef remque
+/* EN: Unlinks element from the doubly linked prochd queue by fixing its neighbours' ph_link/ph_rlink, then clears element->ph_rlink; no locking is performed. */
+/* 中文：把 element 从双向 prochd 队列中摘除：修补前后节点的 ph_link/ph_rlink，再把 element->ph_rlink 清零；不做加锁。 */
 _remque(element)
 	register struct prochd *element;
 {

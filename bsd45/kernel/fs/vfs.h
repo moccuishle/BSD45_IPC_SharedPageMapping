@@ -8,6 +8,8 @@
 #ifndef _VFS_H_
 #define _VFS_H_
 
+#include "obj/kstr.h"
+
 #define	VREG	1
 #define	VDIR	2
 
@@ -63,6 +65,53 @@ struct vnode {
 
 extern struct vnode *rootvnode;
 
+/* ---------------------------------------------------------------- VFS I/O
+ *
+ * os.md mechanism 5: sync and async I/O share one VFS interface.  A kiocb
+ * carries the vnode, offset, buffer and a completion callback.  Sync calls
+ * execute in the caller; async calls return -EIOCBQUEUED and must call
+ * ki_complete exactly once.
+ * os.md 机制 5：同步/异步 I/O 共用一套 VFS 接口。kiocb 携带 vnode、偏移、
+ * 缓冲区和完成回调；同步调用在调用者上下文执行，异步调用返回
+ * -EIOCBQUEUED，并且 ki_complete 必须恰好调用一次。
+ */
+#define	KI_READ		1
+#define	KI_WRITE	2
+#define	KI_SYNC		0
+#define	KI_ASYNC	1
+#define	KI_FREE		0
+#define	KI_QUEUED	1
+#define	KI_ACTIVE	2
+#define	KI_DONE		3
+#define	EIOCBQUEUED	(-85)
+
+struct kiocb {
+	struct vnode	*ki_vp;
+	int		 ki_op;		/* KI_READ / KI_WRITE */
+	int		 ki_flags;	/* KI_SYNC / KI_ASYNC */
+	unsigned	 ki_off;
+	void		*ki_buf;	/* kernel buffer */
+	unsigned	 ki_len;
+	int		 ki_result;
+	int		 ki_state;
+	void		(*ki_complete)(struct kiocb *, int);
+	void		*ki_private;
+	struct kiocb	*ki_next;
+};
+
+/* Synchronous VFS interface: executes in the caller, returns bytes/-errno. */
+int	vfs_read_sync(struct vnode *vp, unsigned off, void *buf, unsigned len);
+int	vfs_write_sync(struct vnode *vp, unsigned off, const void *buf,
+	    unsigned len);
+/* Asynchronous VFS interface: queues the kiocb, returns -EIOCBQUEUED. */
+int	vfs_read_async(struct kiocb *ki);
+int	vfs_write_async(struct kiocb *ki);
+/* Queue an async request; returns -EIOCBQUEUED. */
+int	vfs_submit_async(struct kiocb *ki);
+void	vfs_aio_init(void);
+void	vfs_aio_stats(unsigned *queued, unsigned *done, unsigned *pending);
+int	vfs_aio_selftest(void);
+
 /*
  * VFS core services available to backends (S100.2a): a backend may allocate
  * a vnode for a lookup result, but must not reach into the pool itself.
@@ -80,6 +129,14 @@ int	tmpfs_is_root(struct vnode *vp);
 
 void	vfs_init(void);
 int	vfs_namei(const char *path, struct vnode **vpp);
+/*
+ * S29: kstr path entry points.  The A callers above stay for the historical
+ * syscall ABI; the W syscall path and future file-system code use these so
+ * path traversal is expressed in the kernel's native string type.
+ */
+int	vfs_namei_k(const struct kstr *path, struct vnode **vpp);
+int	vfs_create_k(const struct kstr *path, int isdir, struct vnode **vpp);
+int	vfs_remove_k(const struct kstr *path, int isdir);
 int	vfs_lookup_parent(const char *path, struct vnode **dvp, char *name);
 int	vfs_create(const char *path, int isdir, struct vnode **vpp);
 int	vfs_remove(const char *path, int isdir);

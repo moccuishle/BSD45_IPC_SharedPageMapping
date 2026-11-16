@@ -2,7 +2,9 @@
 # using the MSYS2 mingw32 (i686-w64-mingw32) gcc.
 param(
     [switch]$NoLink,
-    [string]$Only = ""
+    [string]$Only = "",
+    [switch]$Unicode,
+    [string]$Arch = "i386"
 )
 
 $ErrorActionPreference = "Continue"
@@ -163,8 +165,9 @@ $cflags = @(
     "-nostdinc", "-I", $inc, "-I", $gen, "-I", $src,
     "-I", (Join-Path $src "arch"), "-I", (Join-Path $src "fs"),
     "-I", (Join-Path $src "driver"), "-I", (Join-Path $src "net"),
-    "-isystem", $gccinc, "-DKERNEL", "-B", $ccb
+    "-isystem", $gccinc, "-DKERNEL", "-DARCH_$Arch", "-B", $ccb
 )
+if ($Unicode) { $cflags += "-DKERNEL_UNICODE=1" }
 
 function Compile-C([string]$file, [string]$out) {
     $args = $cflags + @("-c", "-o", $out, $file)
@@ -216,6 +219,23 @@ $c_sources = [ordered]@{
     "atapi.o"    = @("c",   "$ws\kernel\driver\atapi.c")
     "isofs.o"    = @("c",   "$ws\kernel\fs\isofs.c")
     "tmpfs.o"    = @("c",   "$ws\kernel\fs\tmpfs.c")
+    "kstr.o"     = @("c",   "$ws\kernel\obj\kstr.c")
+    "subsys.o"   = @("c",   "$ws\kernel\subsys\subsys.c")
+    "subsys_unix.o"   = @("c", "$ws\kernel\subsys\subsys_unix.c")
+    "subsys_posix.o"  = @("c", "$ws\kernel\subsys\subsys_posix.c")
+    "subsys_linux.o"  = @("c", "$ws\kernel\subsys\subsys_linux.c")
+    "subsys_win32.o"  = @("c", "$ws\kernel\subsys\subsys_win32.c")
+    "kthread.o"  = @("c",   "$ws\kernel\thread\kthread.c")
+    "softirq.o"  = @("c",   "$ws\kernel\thread\softirq.c")
+    "kswitch.o"  = @("asm", "$ws\kernel\thread\kswitch.s")
+    "hal_arch.o" = @("asm", "$ws\kernel\arch\$Arch\x86.asm")
+    "ipl.o"      = @("c",   "$ws\kernel\hal\ipl.c")
+    "ipl_arch.o" = @("c",   "$ws\kernel\arch\$Arch\hal\ipl_arch.c")
+    "context_arch.o" = @("c", "$ws\kernel\arch\$Arch\hal\context_arch.c")
+    "clock.o"    = @("c",   "$ws\kernel\hal\clock.c")
+    "clock_arch.o" = @("c", "$ws\kernel\arch\$Arch\hal\clock_arch.c")
+    "zcomp.o"    = @("c",   "$ws\kernel\vm\zcomp.c")
+    "aio.o"      = @("c",   "$ws\kernel\fs\aio.c")
     "vfs_bio.o"  = @("c",   "$ws\kernel\fs\vfs_bio.c")
     "vfs_cache.o" = @("c",  "$ws\kernel\fs\vfs_cache.c")
     "pagecache.o" = @("c",  "$ws\kernel\fs\pagecache.c")

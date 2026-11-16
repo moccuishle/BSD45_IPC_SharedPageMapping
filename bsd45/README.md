@@ -19,7 +19,7 @@ ISO 里的内核是 **ELF**，不是 PE/EXE。
 | `BSD45.ELF` | 内核：`ELF32 EXEC, Intel 80386`，KERNBASE `0xFE000000`，无 SSE/MMX |
 | `screenshot.png` | QEMU 中 VGA 文本控制台实拍 |
 | `bsd45/` | 完整工程：构建脚本、引导器、内核 glue、文档、VMware vmx |
-| `bsd45/kernel/` + `bsd45/libc/bsd/` | 合并后的完整 4.5BSD 源码（`src/` 已删除，构建不需要 tarball） |
+| `bsd45/kernel/` + `bsd45/libc/arch/bsd/` | 合并后的完整 4.5BSD 源码（`src/` 已删除，构建不需要 tarball） |
 
 启动后串口/VGA 输出：
 
@@ -65,7 +65,7 @@ powershell -NoProfile -ExecutionPolicy Bypass -File .\verify.ps1
 `build_kernel.ps1` 会自动：
 
 1. 直接编译 `kernel/`（4.5BSD sys 树已在仓库里，无需外部源码）；
-2. 编译 `/bin/sh` 用 `libc/bsd/` 里的 4.5BSD 用户态源码；
+2. 编译 `/bin/sh` 用 `libc/arch/bsd/` 里的 4.5BSD 用户态源码；
 3. 准备 `machine/ sys/ vm/ i386/ libkern/` 头文件视图；
 4. `gcc -m32 -c` → `ld -m i386pe --image-base 0xFE000000` →
    `objcopy -O elf32-i386`，得到 `ET_EXEC` ELF32；
@@ -203,9 +203,9 @@ bsd45/
 ```
 
 源码布局：`bsd45/kernel/` 就是完整的 4.5BSD sys 树（头文件 + arch 源 +
-kern/fs/vm/net 全部就位），`bsd45/libc/bsd/` 是构建 `/bin/sh` 需要的 4.5BSD
+kern/fs/vm/net 全部就位），`bsd45/libc/arch/bsd/` 是构建 `/bin/sh` 需要的 4.5BSD
 用户态子树。原来的 `bsd45/src/`（151 MB 的整棵 4.4BSD 解包树）已经合并进
-`kernel/` + `libc/bsd/` 并删除，**构建不再依赖任何 tarball 或外部源码树**。
+`kernel/` + `libc/arch/bsd/` 并删除，**构建不再依赖任何 tarball 或外部源码树**。
 
 ## Bash 版本
 
@@ -241,7 +241,7 @@ Linux 上 `gcc -m32` 直接产出 ELF，`build_*.sh` 用 `ld -m elf_i386` 和
 ## 许可
 ## 许可
 
-`bsd45/kernel/` 与 `bsd45/libc/bsd/` 中的 4.5BSD 代码遵循其原始
+`bsd45/kernel/` 与 `bsd45/libc/arch/bsd/` 中的 4.5BSD 代码遵循其原始
 BSD 版权许可以及 UC Berkeley 的 advertising 条款；本项目新增的脚本、
 引导器与 glue 代码可视为同一 BSD 风格许可。
 
@@ -255,7 +255,7 @@ powershell -NoProfile -ExecutionPolicy Bypass -File .\build_all.ps1
 powershell -NoProfile -ExecutionPolicy Bypass -File .\verify.ps1
 ```
 
-仓库自带合并后的 `bsd45/kernel/` + `bsd45/libc/bsd/` 源码与全部脚本，构建不需要外部源码包。产物 `BSD45-ELF-x86.iso` / `BSD45.ELF` 也已在
+仓库自带合并后的 `bsd45/kernel/` + `bsd45/libc/arch/bsd/` 源码与全部脚本，构建不需要外部源码包。产物 `BSD45-ELF-x86.iso` / `BSD45.ELF` 也已在
 仓库根目录，即使不重新编译也能直接启动。
 
 ### 在另一台 Windows 电脑上

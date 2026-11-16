@@ -35,6 +35,8 @@
 
 #include <lib/libkern.h>
 
+/* EN: Scan up to size bytes at cp for a byte equal to mask and return its distance to the buffer end; returns 0 when nothing matches, so a last-byte hit looks like no match. */
+/* 中文：从 cp 起在 size 个字节内查找第一个等于 mask 的字节，返回该位置到缓冲区末尾的距离；无匹配时返回 0，故最后一个字节命中与未命中无法区分。 */
 int
 locc(mask0, cp0, size)
 	int mask0;

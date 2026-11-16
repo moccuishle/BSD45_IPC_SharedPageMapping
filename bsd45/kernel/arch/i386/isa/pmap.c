@@ -213,6 +213,8 @@ void pmap_activate __P((pmap_t, struct pcb *));
 struct pte *pmap_pte();
 
 extern vm_offset_t	atdevbase;
+/* EN: Early pmap setup: forces avail_start to 0x100000, sets avail_end to maxmem minus msgbuf, calls i386_protection_init, points kernel_pmap->pm_pdir at IdlePTD and pm_count=1. */
+/* 中文：早期 pmap 初始化：把 avail_start 强制设为 0x100000，avail_end 取 maxmem 减去 msgbuf，调用 i386_protection_init，令 kernel_pmap->pm_pdir 指向 IdlePTD 并置 pm_count=1。 */
 void
 pmap_bootstrap(firstaddr, loadaddr)
 	vm_offset_t firstaddr;
@@ -343,6 +345,8 @@ pmap_bootstrap_alloc(size) {
  *	Called by vm_init, to initialize any structures that the pmap
  *	system needs to map virtual memory.
  */
+/* EN: Reserves the ISA hole and kernel PT area in kernel_map, kmem_alloc's pv_table and pmap_attributes, then sets vm_first_phys/vm_last_phys and pmap_initialized=TRUE. */
+/* 中文：在 kernel_map 中标记 ISA 空洞和内核页表区已占用，用 kmem_alloc 分配 pv_table 与 pmap_attributes，最后设置 vm_first_phys/vm_last_phys 且把 pmap_initialized 置 TRUE。 */
 void
 pmap_init(phys_start, phys_end)
 	vm_offset_t	phys_start, phys_end;
@@ -401,6 +405,8 @@ pmap_init(phys_start, phys_end)
  *	For now, VM is already on, we only need to map the
  *	specified memory.
  */
+/* EN: Maps the [start,end) physical range into kernel virtual space page by page via pmap_enter on kernel_pmap and returns the address just past the range. */
+/* 中文：把物理区间 [start,end) 逐页通过 pmap_enter 映射到 kernel_pmap 的 virt 处，返回该区间之后的下一个虚拟地址。 */
 vm_offset_t
 pmap_map(virt, start, end, prot)
 	vm_offset_t	virt;
@@ -437,6 +443,8 @@ pmap_map(virt, start, end, prot)
  */
 
 pmap_t
+/* EN: Allocates a zeroed struct pmap with malloc(M_VMPMAP, M_WAITOK) and initializes it with pmap_pinit; a non-zero size (software map) returns NULL. */
+/* 中文：用 malloc(M_VMPMAP, M_WAITOK) 分配 struct pmap 并清零，再交给 pmap_pinit 初始化后返回；size 非 0（纯软件 map）时直接返回 NULL。 */
 pmap_create(size)
 	vm_size_t	size;
 {
@@ -467,6 +475,8 @@ pmap_create(size)
  * Initialize a preallocated and zeroed pmap structure,
  * such as one in a vmspace structure.
  */
+/* EN: Gives pmap a page directory from kmem_alloc, copies the kernel global PDE entries, installs the self-referential PTDPTDI entry as PG_V|PG_URKW, sets pm_count=1 and inits pm_lock. */
+/* 中文：用 kmem_alloc 为 pmap 取得一页页目录，复制内核全局 PDE 项，在 PTDPTDI 处写入指向自身的 PG_V|PG_URKW 表项，并置 pm_count=1、初始化 pm_lock。 */
 void
 pmap_pinit(pmap)
 	register struct pmap *pmap;
@@ -500,6 +510,8 @@ pmap_pinit(pmap)
  *	Should only be called if the map contains
  *	no valid mappings.
  */
+/* EN: Drops pmap->pm_count under simple_lock; on reaching zero it calls pmap_release and frees the struct to M_VMPMAP; a NULL pmap is ignored. */
+/* 中文：在 simple_lock 保护下递减 pmap->pm_count，减到 0 时调用 pmap_release 并把结构体 free 归还 M_VMPMAP；pmap 为 NULL 时直接返回。 */
 void
 pmap_destroy(pmap)
 	register pmap_t pmap;
@@ -527,6 +539,8 @@ pmap_destroy(pmap)
  * Called when a pmap initialized by pmap_pinit is being released.
  * Should only be called if the map contains no valid mappings.
  */
+/* EN: Frees just the page directory page pm_pdir of pmap with kmem_free; every mapping must already have been removed by the caller. */
+/* 中文：只用 kmem_free 释放 pmap 的页目录页 pm_pdir；调用前该 pmap 的所有映射必须已由调用者清除。 */
 void
 pmap_release(pmap)
 	register struct pmap *pmap;
@@ -548,6 +562,8 @@ pmap_release(pmap)
 /*
  *	Add a reference to the specified pmap.
  */
+/* EN: Increments pmap->pm_count under simple_lock; NULL is ignored and no other field is touched. */
+/* 中文：在 simple_lock 保护下把 pmap->pm_count 加一；pmap 为 NULL 时忽略，不修改其他任何字段。 */
 void
 pmap_reference(pmap)
 	pmap_t	pmap;
@@ -569,6 +585,8 @@ pmap_reference(pmap)
  *	It is assumed that the start and end are properly
  *	rounded to the page size.
  */
+/* EN: Unmaps [sva,eva): zeroes each valid PTE run, adjusts wired/resident counts, tlbflush()es, unlinks the pv_table entry under splimp and saves PG_U/PG_M bits in pmap_attributes. */
+/* 中文：解除 [sva,eva) 的映射：清零有效 PTE 串，调整 wired/resident 计数，调用 tlbflush()，在 splimp 下摘除 pv_table 表项，并把 PG_U/PG_M 位存入 pmap_attributes。 */
 void
 pmap_remove(pmap, sva, eva)
 	register struct pmap *pmap;
@@ -714,6 +732,8 @@ reduce wiring count on page table pages as references drop
  *		all physical maps in which it resides.
  *		Reflects back modify bits to the pager.
  */
+/* EN: Deletes every mapping of managed page pa by calling pmap_remove in a loop until its pv_table entry is empty, with splimp held; unmanaged pa returns at once. */
+/* 中文：在 splimp 保护下循环调用 pmap_remove，直到物理页 pa 的 pv_table 表项为空，从而删除其全部映射；pa 不在受管范围时立即返回。 */
 void
 pmap_remove_all(pa)
 	vm_offset_t pa;
@@ -754,6 +774,8 @@ pmap_remove_all(pa)
  *		Remove write privileges from all
  *		physical maps for this physical page.
  */
+/* EN: Wrapper for pmap_changebit(pa, PG_RO, TRUE): clears write permission on all mappings of page pa so the next write takes a copy-on-write fault. */
+/* 中文：对 pmap_changebit(pa, PG_RO, TRUE) 的包装：清除物理页 pa 所有映射的写权限，使其下次写入触发写时复制缺页。 */
 void
 pmap_copy_on_write(pa)
 	vm_offset_t pa;
@@ -769,6 +791,8 @@ pmap_copy_on_write(pa)
  *	Set the physical protection on the
  *	specified range of this map as requested.
  */
+/* EN: Applies prot to [sva,eva): no-read calls pmap_remove, write needs nothing, else rewrites each valid PTE's protection (adding PG_u) and re-activates pmap if current. */
+/* 中文：按 prot 设置 [sva,eva) 的页保护：无读权限则转调 pmap_remove，带写权限无需处理，否则重写有效 PTE 的保护位（加 PG_u），并在当前 pmap 上调用 pmap_activate。 */
 void
 pmap_protect(pmap, sva, eva, prot)
 	register pmap_t	pmap;
@@ -843,6 +867,8 @@ out:
  *	or lose information.  That is, this routine must actually
  *	insert this page into the given map NOW.
  */
+/* EN: Installs pa at va in pmap: removes the old mapping, links a pv_table entry under splimp, updates resident/wired counts, writes the PTE run with pte_prot|PG_V and calls tlbflush(). */
+/* 中文：在 pmap 的 va 处装入物理页 pa：先删除旧映射，在 splimp 下挂入 pv_table 表项，更新 resident/wired 计数，写入 pte_prot|PG_V 组成的 PTE 串并调用 tlbflush()。 */
 void
 pmap_enter(pmap, va, pa, prot, wired)
 	register pmap_t pmap;
@@ -1046,6 +1072,8 @@ cache, tlb flushes
  *
  *      Lower the permission for all mappings to a given page.
  */
+/* EN: Lowers permissions on all mappings of phys: read-only or read+exec calls pmap_copy_on_write, VM_PROT_ALL does nothing, anything else calls pmap_remove_all. */
+/* 中文：降低物理页 phys 所有映射的权限：只读或只读加执行调用 pmap_copy_on_write，VM_PROT_ALL 不做处理，其余（如无访问权）调用 pmap_remove_all。 */
 void
 pmap_page_protect(phys, prot)
         vm_offset_t     phys;
@@ -1071,6 +1099,8 @@ pmap_page_protect(phys, prot)
  *	In/out conditions:
  *			The mapping must already exist in the pmap.
  */
+/* EN: Sets or clears PG_W on the whole PTE run for va and adjusts pm_stats.wired_count; wiring is software-only so no TLB flush is done. */
+/* 中文：为 va 所在的整串 PTE 设置或清除 PG_W 位，并相应增减 pm_stats.wired_count；wiring 只是软件属性，因此不刷新 TLB。 */
 void
 pmap_change_wiring(pmap, va, wired)
 	register pmap_t	pmap;
@@ -1132,6 +1162,8 @@ pmap_change_wiring(pmap, va, wired)
  * [ what about induced faults -wfj]
  */
 
+/* EN: Returns the PTE pointer for va: vtopte() for kernel/current pmap, else loads APTDpde from pmap's PD (tlbflush if changed) and uses avtopte(); NULL if PDE invalid. */
+/* 中文：返回 va 的 PTE 指针：内核或当前 pmap 用 vtopte()，否则把 APTDpde 切到该 pmap 的页目录（有变化就 tlbflush）再用 avtopte()；PDE 无效时返回 NULL。 */
 struct pte *pmap_pte(pmap, va)
 	register pmap_t	pmap;
 	vm_offset_t va;
@@ -1168,6 +1200,8 @@ struct pte *pmap_pte(pmap, va)
  *		with the given map/virtual_address pair.
  */
 
+/* EN: Returns the physical address mapped at va: takes the PTE page frame (PG_FRAME) and ORs in va's page offset; returns 0 when the PDE or PTE is invalid. */
+/* 中文：返回 va 映射到的物理地址：取 PTE 中的页帧（PG_FRAME）再或上 va 的页内偏移；PDE 或 PTE 无效时返回 0。 */
 vm_offset_t
 pmap_extract(pmap, va)
 	register pmap_t	pmap;
@@ -1199,6 +1233,8 @@ pmap_extract(pmap, va)
  *
  *	This routine is only advisory and need not do anything.
  */
+/* EN: Advisory no-op: the i386 pmap does no page-table pre-copying, so beyond an optional DEBUG printf the arguments are ignored. */
+/* 中文：仅作建议的空实现：i386 pmap 不做页表预复制，除 DEBUG 下的打印外完全忽略参数。 */
 void pmap_copy(dst_pmap, src_pmap, dst_addr, len, src_addr)
 	pmap_t		dst_pmap;
 	pmap_t		src_pmap;
@@ -1221,6 +1257,8 @@ void pmap_copy(dst_pmap, src_pmap, dst_addr, len, src_addr)
  *	Generally used to insure that a thread about
  *	to run will see a semantically correct world.
  */
+/* EN: Flush the TLB via tlbflush() so pending page-table changes take effect; the body is only an optional DEBUG trace plus that flush. */
+/* 中文：调用 tlbflush() 刷新 TLB，使挂起的页表修改生效；函数体除可选的 DEBUG 打印外只有这次刷新。 */
 void pmap_update()
 {
 #ifdef DEBUG
@@ -1242,6 +1280,8 @@ void pmap_update()
  *		Called by the pageout daemon when pages are scarce.
  * [ needs to be written -wfj ]
  */
+/* EN: Pageout-daemon hook meant to reclaim unused pv/PT pages; it returns unless pmap == kernel_pmap, and the rest of the body is empty, so it collects nothing. */
+/* 中文：供页回收守护进程调用的收集钩子；仅当 pmap == kernel_pmap 时继续，之后函数体为空，因此当前不回收任何页表页。 */
 void
 pmap_collect(pmap)
 	pmap_t		pmap;
@@ -1263,6 +1303,8 @@ pmap_collect(pmap)
 }
 
 /* [ macro again?, should I force kstack into user map here? -wfj ] */
+/* EN: Activate pmap for pcbp: PMAP_ACTIVATE stores the page directory's physical address in pcb_cr3, loads CR3 if pmap is curproc's, and clears pm_pdchanged. */
+/* 中文：为 pcbp 激活 pmap：PMAP_ACTIVATE 把页目录物理地址写入 pcb_cr3，若该 pmap 属于 curproc 则装入 CR3，并清除 pm_pdchanged。 */
 void
 pmap_activate(pmap, pcbp)
 	register pmap_t pmap;
@@ -1287,6 +1329,8 @@ for(x=0x3f6; x < 0x3fA; x++)
  *	bzero to clear its contents, one machine dependent page
  *	at a time.
  */
+/* EN: Zero one machine-independent page: shift phys to a page index and call clearseg for each of i386pagesperpage hardware pages; no locking or TLB flush. */
+/* 中文：清零一个机器无关页：把 phys 右移为页号，再对 i386pagesperpage 个硬件页逐个调用 clearseg；不加锁也不刷新 TLB。 */
 void
 pmap_zero_page(phys)
 	register vm_offset_t	phys;
@@ -1310,6 +1354,8 @@ pmap_zero_page(phys)
  *	bcopy to copy the page, one machine dependent page at a
  *	time.
  */
+/* EN: Copy page src to dst: shift both physical addresses to page indexes and call physcopyseg once per hardware page; no locking or TLB flush. */
+/* 中文：复制 src 页到 dst 页：把两个物理地址右移为页号后，对每个硬件页调用一次 physcopyseg；不加锁也不刷新 TLB。 */
 void
 pmap_copy_page(src, dst)
 	register vm_offset_t	src, dst;
@@ -1343,6 +1389,8 @@ pmap_copy_page(src, dst)
  *		will specify that these pages are to be wired
  *		down (or not) as appropriate.
  */
+/* EN: Advisory only: for a single kernel PT page being made pageable, look up its pv entry and clear the modify bit so pageout won't reclaim it; other cases ignored. */
+/* 中文：仅作提示：当单个内核页表页被置为可分页时，查其 pv 表项并清除修改位以免被换出；其他情况直接忽略。 */
 void
 pmap_pageable(pmap, sva, eva, pageable)
 	pmap_t		pmap;
@@ -1406,6 +1454,8 @@ pmap_pageable(pmap, sva, eva, pageable)
  *	Clear the modify bits on the specified physical page.
  */
 
+/* EN: Thin wrapper over pmap_changebit(pa, PG_M, FALSE) that clears the modify bit on every mapping of physical page pa. */
+/* 中文：对 pmap_changebit(pa, PG_M, FALSE) 的薄封装，清除物理页 pa 所有映射上的修改位。 */
 void
 pmap_clear_modify(pa)
 	vm_offset_t	pa;
@@ -1423,6 +1473,8 @@ pmap_clear_modify(pa)
  *	Clear the reference bit on the specified physical page.
  */
 
+/* EN: Thin wrapper over pmap_changebit(pa, PG_U, FALSE) that clears the reference (used) bit in every PTE mapping physical page pa. */
+/* 中文：对 pmap_changebit(pa, PG_U, FALSE) 的薄封装，清除映射物理页 pa 的每个 PTE 中的引用（已使用）位。 */
 void pmap_clear_reference(pa)
 	vm_offset_t	pa;
 {
@@ -1440,6 +1492,8 @@ void pmap_clear_reference(pa)
  *	by any physical maps.
  */
 
+/* EN: Return pmap_testbit(pa, PG_U): TRUE if any mapping of pa has the reference bit set; DEBUG builds print the result and return it early. */
+/* 中文：返回 pmap_testbit(pa, PG_U)：pa 的任一映射置有引用位则为 TRUE；DEBUG 版本会先打印结果再提前返回。 */
 boolean_t
 pmap_is_referenced(pa)
 	vm_offset_t	pa;
@@ -1461,6 +1515,8 @@ pmap_is_referenced(pa)
  *	by any physical maps.
  */
 
+/* EN: Return pmap_testbit(pa, PG_M): TRUE if any PTE mapping physical page pa has the modify bit set; DEBUG builds print the result and return early. */
+/* 中文：返回 pmap_testbit(pa, PG_M)：映射物理页 pa 的任一 PTE 置有修改位则为 TRUE；DEBUG 版本会打印结果后提前返回。 */
 boolean_t
 pmap_is_modified(pa)
 	vm_offset_t	pa;
@@ -1475,6 +1531,8 @@ pmap_is_modified(pa)
 	return(pmap_testbit(pa, PG_M));
 }
 
+/* EN: Convert a page number to a byte offset with i386_ptob(ppn); a pure arithmetic helper with no side effects. */
+/* 中文：用 i386_ptob(ppn) 把页号换算为字节地址，纯算术辅助函数，无副作用。 */
 vm_offset_t
 pmap_phys_address(ppn)
 	int ppn;
@@ -1486,6 +1544,8 @@ pmap_phys_address(ppn)
  * Miscellaneous support routines follow
  */
 
+/* EN: Fill protection_codes[0..7], mapping each 3-bit VM_PROT combination to 0, PG_RO or PG_RW so that pmap_enter can look it up by protection. */
+/* 中文：填充 protection_codes[0..7]，把 3 位 VM_PROT 组合映射为 0、PG_RO 或 PG_RW，供 pmap_enter 按保护位查表。 */
 i386_protection_init()
 {
 	register int *kp, prot;
@@ -1511,6 +1571,8 @@ i386_protection_init()
 	}
 }
 
+/* EN: Return TRUE if the saved pmap_attributes word or any pv-listed PTE for pa has bit set; a pa outside vm_first_phys/vm_last_phys gives FALSE; runs at splimp. */
+/* 中文：若保存的 pmap_attributes 或 pa 的任一 pv 链 PTE 中该位已置则返回 TRUE；pa 越界返回 FALSE，扫描期间用 splimp 屏蔽中断。 */
 static
 boolean_t
 pmap_testbit(pa, bit)
@@ -1553,6 +1615,8 @@ pmap_testbit(pa, bit)
 	return(FALSE);
 }
 
+/* EN: Set or clear bit in every PTE mapping pa and in pmap_attributes; skips pager mappings when setting PG_RO, re-activates the current pmap; runs at splimp. */
+/* 中文：在映射 pa 的所有 PTE 及 pmap_attributes 中置位或清位；置 PG_RO 时跳过 pager 映射，必要时重新激活当前 pmap；全程 splimp。 */
 pmap_changebit(pa, bit, setem)
 	register vm_offset_t pa;
 	int bit;
@@ -1636,6 +1700,8 @@ pmap_changebit(pa, bit, setem)
 }
 
 #ifdef DEBUG
+/* EN: DEBUG helper that printf's pa then walks the pv chain printing each pv_pmap, pv_va and pv_flags, calling pads() to dump that pmap's address space. */
+/* 中文：DEBUG 辅助函数：先打印 pa，再遍历 pv 链表输出每项的 pv_pmap、pv_va、pv_flags，并调用 pads() 转储对应 pmap 的地址空间。 */
 pmap_pvdump(pa)
 	vm_offset_t pa;
 {
@@ -1651,6 +1717,8 @@ pmap_pvdump(pa)
 }
 
 #ifdef notyet
+/* EN: DEBUG consistency check: truncate va to a page, return if unmapped, find the pt_map entry and pg() a complaint if its wired_count differs from the valid PTE count. */
+/* 中文：DEBUG 一致性检查：把 va 截到页边界，未映射则返回；查到 pt_map 表项后，若其 wired_count 与该页有效 PTE 数不符就用 pg() 报错。 */
 pmap_check_wiring(str, va)
 	char *str;
 	vm_offset_t va;

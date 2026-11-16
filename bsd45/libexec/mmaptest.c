@@ -1,4 +1,8 @@
 /*
+ * Copyright (c) 2026 jialiang.  All rights reserved.
+ */
+
+/*
  * mmaptest(1) - S17 acceptance for mmap(2) + the file page cache.
  *
  * Three cases:

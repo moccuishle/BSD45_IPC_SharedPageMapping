@@ -288,6 +288,8 @@ extern time_t	lbolt;
  * trading off with disk & tape I/O.
  */
 
+/* EN: Streamer strategy: splits the buffer at 64K DMA segment boundaries, starts or reuses read/write commands, polls both halves, then sets b_resid/b_error and biodone(bp). */
+/* 中文：流式磁带策略例程：按 64KB DMA 段边界把缓冲区切成两段，启动或复用读/写命令并轮询两段传输，最后设置 b_resid/b_error 并调用 biodone(bp) 结束请求。 */
 int
 wtstrategy(bp)
 register struct buf *bp;
@@ -457,6 +459,8 @@ xit:
  * this is necessary in case interrupts get eaten due to
  * multiple devices on a single IRQ line
  */
+/* EN: Timeout handler: calls isr() to fake an interrupt when DMA is active and isrlock is clear, drops Hogproc after a second without I/O, and re-arms every HZ or clears wtimeron. */
+/* 中文：超时处理程序：DMA 进行中且不在 isr 内时调用 isr() 模拟一次中断；Hogproc 超过 1 秒没有 I/O 就释放；随后每 HZ 重新挂接自身，否则清除 wtimeron。 */
 wtimer()
 {
 	/* If I/O going and not in isr(), simulate interrupt
@@ -476,6 +480,8 @@ wtimer()
 }
 
 
+/* EN: Raw I/O wrapper: hands the buffer to wtstrategy() and blocks in biowait() until biodone(), always returning 0. */
+/* 中文：原始 I/O 包装：把缓冲区交给 wtstrategy() 后阻塞在 biowait() 等待 biodone()，始终返回 0。 */
 wtrawio(bp)
 struct buf	*bp;
 {
@@ -484,6 +490,8 @@ struct buf	*bp;
 	return(0);
 }
 
+/* EN: Physio minphys hook that clamps b_bcount down to PAGESIZ (4096) so each raw DMA transfer fits within one page. */
+/* 中文：physio 的 minphys 钩子：把 b_bcount 限制到 PAGESIZ(4096) 以内，保证每次原始 DMA 传输不超过一页。 */
 wt_minphys(bp)
 struct buf	*bp;
 {
@@ -494,6 +502,8 @@ struct buf	*bp;
 /*
  * raw read routine
  */
+/* EN: Raw read entry: returns EIO when TPSESS is set, otherwise runs physio() over wtrawio with B_READ and wt_minphys and returns 0. */
+/* 中文：原始读入口：wtflags 置位 TPSESS 时返回 EIO，否则以 B_READ 和 wt_minphys 通过 physio() 调用 wtrawio 完成传输，返回 0。 */
 wtread(dev, uio)
 struct uio	*uio;
 {
@@ -507,6 +517,8 @@ struct uio	*uio;
 /*
  * raw write routine
  */
+/* EN: Raw write entry: returns EIO when TPSESS is set, otherwise runs physio() over wtrawio with B_WRITE and wt_minphys and returns 0. */
+/* 中文：原始写入口：wtflags 置位 TPSESS 时返回 EIO，否则以 B_WRITE 和 wt_minphys 通过 physio() 调用 wtrawio 完成传输，返回 0。 */
 wtwrite(dev, uio)
 struct uio	*uio;
 {
@@ -523,6 +535,8 @@ struct uio	*uio;
  * ioctl routine
  *  for user level QIC commands only
  */
+/* EN: Accepts only WTQICMD: issues qicmd(arg), waits with rdyexc(HZ), senses on failure and returns EIO; any other command returns EINVAL. */
+/* 中文：只接受 WTQICMD：先执行 qicmd(arg)，再用 rdyexc(HZ) 等待，失败则调用 wtsense(0) 并返回 EIO；其他命令一律返回 EINVAL。 */
 wtioctl(dev, cmd, arg, mode)
 int dev, cmd;
 unsigned long arg;
@@ -544,6 +558,8 @@ int mode;
  * open routine
  * called on every device open
  */
+/* EN: Open: inits driver on first use; ENXIO if no pageaddr or TPINUSE, EIO if TPDEAD; waits out a rewind, resets and senses, sets TPINUSE, r/w flags and the density command. */
+/* 中文：打开例程：首次打开时初始化驱动；pageaddr 为空或已 TPINUSE 返回 ENXIO，TPDEAD 返回 EIO；等回卷结束后复位并取状态，设置 TPINUSE、读写标志和密度命令。 */
 wtopen(dev, flag)
 int	dev, flag;
 {
@@ -616,6 +632,8 @@ cmds(0x24);
  * called on last device close
  * If not rewind-on-close, leave read or write command intact.
  */
+/* EN: Close: clears Hogproc, optionally writes a file mark, then either rewinds and deselects via wtdsl2() or skips past the next file mark, keeping only rewind/dead/start/rw flags. */
+/* 中文：关闭例程：清除 Hogproc，必要时写文件标记并等待，然后按需回卷并注销驱动器（由 wtdsl2 超时完成）或前跳越过下一个文件标记，最后只保留回卷/失效/启动/读写状态位。 */
 wtclose(dev)
 {
 	int wtdsl2();
@@ -678,6 +696,8 @@ wtclose(dev)
 
 /* return ERROR if user I/O request should receive an I/O error code */
 
+/* EN: Clears TPRO/TPWO, reads the 6-byte status via rdstatus(), masks the ignor bits, reports through reperr(), and returns ERROR on TP_ERR0/TP_ERR1 hits else SUCCESS. */
+/* 中文：清除 TPRO/TPWO，用 rdstatus() 读 6 字节状态块，屏蔽 ignor 指定的错误位并交 reperr() 打印，命中 TP_ERR0/TP_ERR1 时返回 ERROR，否则返回 SUCCESS。 */
 wtsense(ignor)
 {
 	wtflags &= ~(TPRO|TPWO);
@@ -710,6 +730,8 @@ wtsense(ignor)
 }
 
 /* lifted from tdriver.c from Wangtek */
+/* EN: Decodes the status error bits and prints the first matching message via sterr() (not online, no cartridge, write protect, bad block), setting TPWP; returns nothing. */
+/* 中文：解码状态字里的错误位，按优先级用 sterr() 打印第一条匹配信息（未联机、无磁带、写保护、坏块等），遇到写保护时置 TPWP，无返回值。 */
 reperr(srb0)
 int srb0;
 {
@@ -750,6 +772,8 @@ int srb0;
 	}
 }
 	
+/* EN: Diagnostic helper that prints the string to the console with a Streamer: prefix; changes no state and returns nothing. */
+/* 中文：诊断辅助函数：以 Streamer: 为前缀把给定字符串打印到控制台，不修改任何全局状态，无返回值。 */
 sterr(errstr)
 char	*errstr;
 {
@@ -807,6 +831,8 @@ wtinit() {
 	pageset();
 }
 
+/* EN: Polls the controller status register, delaying ticks/HZ seconds at splbio between polls without decrementing a budget, and returns SUCCESS if EXCEP is set on exit, else ERROR. */
+/* 中文：轮询控制器状态寄存器，每轮在 splbio 保护下延时 ticks/HZ 秒且不递减超时预算，退出时若 EXCEP 置位返回 SUCCESS，否则返回 ERROR。 */
 rdyexc(ticks)
 {
 	int s;
@@ -835,6 +861,8 @@ rdyexc(ticks)
 	return((s & EXCEP)?SUCCESS:ERROR);  /* return exception if it occured */
 }
 
+/* EN: Sleeps on &wci at WTPRI|PCATCH while wtio is set, returning the tsleep error if interrupted; on normal DMA completion it returns EIO, which callers treat as success. */
+/* 中文：在 wtio 置位期间以 WTPRI|PCATCH 睡眠在 &wci 上，被信号打断则返回 tsleep 的错误码；DMA 正常结束时返回 EIO，调用者按成功处理。 */
 pollrdy()
 {
 	int	 sps;
@@ -858,6 +886,8 @@ pollrdy()
 	return (EIO);
 }
 
+/* EN: Marks DMA as active by setting wtio and arms the wtimer() timeout at HZ/2 if it is not already running; called from dma() in wtlib1.s. */
+/* 中文：把 wtio 置 1 表示 DMA 已开始，若 wtimer 尚未运行则按 HZ/2 挂接 wtimer() 超时；由 wtlib1.s 中的 dma() 调用。 */
 wtdma()		/* start up i/o operation, called from dma() in wtlib1.s */
 {
 	wtio = 1;
@@ -868,12 +898,16 @@ wtdma()		/* start up i/o operation, called from dma() in wtlib1.s */
 	}
 }
 
+/* EN: Ends the DMA operation: clears wtio and wakes all sleepers on &wci; called from isr() in wtlib1.s. */
+/* 中文：结束 DMA 操作：清除 wtio 并唤醒所有睡眠在 &wci 上的进程；由 wtlib1.s 中的 isr() 调用。 */
 wtwake()	/* end i/o operation, called from isr() in wtlib1.s */
 {
 	wtio = 0;
 	wakeup(&wci);
 }
 
+/* EN: Converts the virtual address of pagebuf to a physical address via kvtop() and stores it in pageaddr for the 8237 DMA controller; nothing else is touched. */
+/* 中文：用 kvtop() 把 pagebuf 的虚拟地址换算成物理地址存入 pageaddr 供 8237 DMA 控制器使用，不改动其他状态。 */
 pageset()
 {
 	unsigned long pp;
@@ -889,6 +923,8 @@ pageset()
 
 #define near
 
+/* EN: Controller handshake: asserts REQUEST with the global mbits byte, waits for READY to clear, clears REQUEST, then waits for READY to come back; no return value. */
+/* 中文：控制器握手：带上全局 mbits 字节发出 REQUEST，等 READY 变低后撤销 REQUEST，再等 READY 恢复；无返回值。 */
 static near
 sendcmd()
 {
@@ -901,6 +937,8 @@ sendcmd()
 }
 
 static near		/* execute command */
+/* EN: Waits for the controller to go idle, returns ERROR if EXCEP is clear, else writes cmd to CMDPORT, sets mbits=ONLINE and pulses it via sendcmd(); returns SUCCESS. */
+/* 中文：等待控制器空闲，EXCEP 位为 0 时返回 ERROR，否则把 cmd 写入 CMDPORT、置 mbits=ONLINE 并经 sendcmd() 发出，返回 SUCCESS。 */
 cmds(cmd)
 {
 	register s;
@@ -919,26 +957,36 @@ cmds(cmd)
 	return SUCCESS;
 }
 
+/* EN: Thin wrapper that just returns cmds(cmd), issuing the caller's raw QIC-02 command byte to the tape controller. */
+/* 中文：薄封装，直接返回 cmds(cmd)，把调用者给的原始 QIC-02 命令字节发给磁带控制器。 */
 qicmd(cmd)
 {
 	return cmds(cmd);
 }
 
+/* EN: Thin wrapper that returns cmds(RDDATA), starting a read-data command on the tape controller. */
+/* 中文：薄封装，返回 cmds(RDDATA)，向磁带控制器发出读数据命令。 */
 rstart()
 {
 	return cmds(RDDATA);
 }
 
+/* EN: Thin wrapper returning cmds(READFM), issuing a read-file-mark command to advance to the next file mark. */
+/* 中文：薄封装，返回 cmds(READFM)，发出读文件标记命令以定位到下一个文件标记。 */
 rmark()
 {
 	return cmds(READFM);
 }
 
+/* EN: Thin wrapper returning cmds(WRTDATA), starting a write-data command on the tape controller. */
+/* 中文：薄封装，返回 cmds(WRTDATA)，向磁带控制器发出写数据命令。 */
 wstart()
 {
 	return cmds(WRTDATA);
 }
 
+/* EN: Waits for idle, records ERROR if EXCEP is clear, then clears ONLINE in mbits, masks the DMA channel at MASKREG and resets the flip-flop; returns the recorded status. */
+/* 中文：等待控制器空闲，EXCEP 为 0 时记下 ERROR，然后清除 mbits 的 ONLINE 位、在 MASKREG 屏蔽 DMA 通道并复位方向触发器，返回记录的状态。 */
 ioend()
 {
 	register s;
@@ -958,6 +1006,8 @@ ioend()
 	return rval;
 }
 
+/* EN: Writes a file mark: returns ERROR if cmds(WRITEFM) fails, waits for idle, then returns ERROR when EXCEP is clear and SUCCESS otherwise. */
+/* 中文：写文件标记：cmds(WRITEFM) 失败即返回 ERROR，否则等控制器空闲，EXCEP 为 0 再返回 ERROR，成功返回 SUCCESS。 */
 wmark()
 {
 	register s;
@@ -974,6 +1024,8 @@ wmark()
 	return SUCCESS;
 }
 
+/* EN: Starts a rewind: sets mbits=CMDOFF, waits for idle, writes REWIND to CMDPORT and pulses sendcmd(); always returns SUCCESS without checking status. */
+/* 中文：启动回卷：置 mbits=CMDOFF，等控制器空闲后把 REWIND 写入 CMDPORT 并调用 sendcmd()，不检查状态，恒返回 SUCCESS。 */
 rwind()
 {
 	register s;
@@ -989,6 +1041,8 @@ rwind()
 	return SUCCESS;
 }
 
+/* EN: Sends RDSTAT and reads the 6-byte status block into stp, handshaking each byte with REQUEST and a settling delay; returns ERROR if EXCEP drops mid-read, else SUCCESS. */
+/* 中文：发送 RDSTAT 命令，逐字节用 REQUEST 握手并加短延时，把 6 字节状态块读入 stp；读取途中 EXCEP 为 0 返回 ERROR，读完返回 SUCCESS。 */
 rdstatus(stp)
 char *stp;		/* pointer to 6 byte buffer */
 {
@@ -1031,6 +1085,8 @@ char *stp;		/* pointer to 6 byte buffer */
 	return SUCCESS;
 }
 
+/* EN: Pulses the controller RESET bit with delay(20) between assert and clear, then returns SUCCESS only if the status register low bits read RESETVAL, else ERROR. */
+/* 中文：脉冲式复位控制器：置位 RESET 后 delay(20) 再清除，仅当状态寄存器低位等于 RESETVAL 时返回 SUCCESS，否则返回 ERROR。 */
 t_reset()
 {
 	register i;
@@ -1044,6 +1100,8 @@ t_reset()
 	return ERROR;
 }
 
+/* EN: Programs the 8237 under splbio: clear flip-flop, set mode, load bufptr address/page and BLKSIZE count, assert ONLINE, then unmask wtchan to start the transfer. */
+/* 中文：在 splbio 保护下编程 8237：清方向触发器、设模式、装入 bufptr 的地址/页号和 BLKSIZE 计数，置 ONLINE 后解除 wtchan 屏蔽以启动 DMA。 */
 static
 dma()
 {
@@ -1061,6 +1119,8 @@ dma()
 	splx(x);
 }
 
+/* EN: Sets bufptr/numbytes and clears wci, exflag and bytes, waits for the controller to leave the busy state, and if EXCEP is set calls dma() and returns SUCCESS, else ERROR. */
+/* 中文：保存 bufptr/numbytes 并清零 wci、exflag、bytes，等控制器脱离忙状态；EXCEP 置位则调用 dma() 启动传输并返回 SUCCESS，否则返回 ERROR。 */
 static near
 wtstart(buf, cnt)
 long buf;
@@ -1085,6 +1145,8 @@ int cnt;
 	return ERROR;		/* error */
 }
 
+/* EN: Selects dma_read mode and passes the physical buffer address and byte count to wtstart() to program one 8237 DMA block; returns SUCCESS(0) or ERROR(1). */
+/* 中文：将静态变量 mode 设为 dma_read，再把物理缓冲区地址和字节数交给 wtstart() 启动一次读方向 DMA；成功返回 SUCCESS(0)，失败返回 ERROR(1)。 */
 rtape(buf, cnt)
 long buf;			/* physical address */
 int cnt;			/* number of bytes */
@@ -1093,6 +1155,8 @@ int cnt;			/* number of bytes */
 	return wtstart(buf,cnt);
 }
 
+/* EN: Selects dma_write mode and passes the physical buffer address and byte count to wtstart() to program one 8237 DMA block; returns SUCCESS(0) or ERROR(1). */
+/* 中文：将静态变量 mode 设为 dma_write，再把物理缓冲区地址和字节数交给 wtstart() 启动一次写方向 DMA；成功返回 SUCCESS(0)，失败返回 ERROR(1)。 */
 wtape(buf, cnt)
 long buf;			/* physical address */
 int cnt;			/* number of bytes */
@@ -1101,6 +1165,8 @@ int cnt;			/* number of bytes */
 	return wtstart(buf,cnt);
 }
 
+/* EN: Tape interrupt handler: adds BLKSIZE to bytes; at numbytes or on an exception it sets wci, masks DMA and wakes sleepers via wtwake(), else advances bufptr and restarts dma(). */
+/* 中文：磁带中断处理程序：累加 BLKSIZE 到 bytes；达到 numbytes 或控制器上报异常时置 wci、关闭 DMA 并经 wtwake() 唤醒等待进程，否则 bufptr 前移并调 dma() 启动下一块。 */
 isr()
 {
 	int stat = inb(wtport);
@@ -1129,6 +1195,8 @@ isrwake:
 	}
 }
 
+/* EN: Derives the 8237 DMA constants (pagereg, dma_done, eqdma, dma_read, dma_write, dmareg) from wtchan; channel 1 keeps the compile-time defaults and returns at once. */
+/* 中文：根据 wtchan 计算 8237 DMA 寄存器常量（pagereg、dma_done、eqdma、dma_read、dma_write、dmareg）；通道 1 直接返回沿用编译时默认值，通道 2、3 才改写。 */
 wtlinit()
 {
 	switch (wtchan) {
@@ -1152,6 +1220,8 @@ wtlinit()
 /*
  * delay i microseconds
  */
+/* EN: Busy-waits i milliseconds by calling DELAY(1000) i times; used for controller timing and never sleeps. */
+/* 中文：通过循环 i 次调用 DELAY(1000) 实现 i 毫秒的忙等待，用于磁带控制器时序，不会睡眠。 */
 delay(i)
 register int i;
 {
@@ -1159,10 +1229,14 @@ register int i;
 		DELAY(1000);
 }
 
+/* EN: Empty stub with a completely empty body: it computes nothing, performs no I/O and returns no value; nothing in the tree calls it. */
+/* 中文：完全空的桩函数：函数体为空，不计算任何内容、不访问硬件、无返回值，仓库中没有调用点。 */
 wtsize()
 {
 }
 
+/* EN: Empty stub with a completely empty body: it performs no dump, no I/O and returns no value; nothing in the tree calls it. */
+/* 中文：完全空的桩函数：函数体为空，不执行内核转储、不访问硬件、无返回值，仓库中没有调用点。 */
 wtdump()
 {
 }
@@ -1175,6 +1249,8 @@ struct	isa_driver wtdriver = {
 	wtprobe, wtattach, "wt",
 };
 
+/* EN: Autoconfig probe: stores dvp->id_iobase in wtport, resets the controller via t_reset(), and returns 1 when the reset succeeded, otherwise 0. */
+/* 中文：自动配置探测：把 dvp->id_iobase 记入 wtport，调 t_reset() 复位磁带控制器，复位成功返回 1，否则返回 0。 */
 wtprobe(dvp)
 	struct isa_device *dvp;
 {

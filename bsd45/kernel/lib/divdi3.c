@@ -45,6 +45,8 @@ static char sccsid[] = "@(#)divdi3.c	8.1 (Berkeley) 6/4/93";
  * Divide two signed quads.
  * ??? if -1/2 should produce -1 on this machine, this code is wrong
  */
+/* EN: Signed 64-bit division: converts a and b to unsigned magnitudes while XOR-tracking the sign, calls __qdivrem for the unsigned quotient, then negates it if the signs differ. */
+/* 中文：有符号 64 位除法：把 a、b 转为无符号绝对值并用异或记录结果符号，调用 __qdivrem 求无符号商，两数异号时对商取负后返回。 */
 quad_t
 __divdi3(a, b)
 	quad_t a, b;

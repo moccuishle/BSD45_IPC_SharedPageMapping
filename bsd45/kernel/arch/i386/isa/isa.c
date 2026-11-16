@@ -90,6 +90,8 @@ isa_configure() {
 /*
  * Configure an ISA device.
  */
+/* EN: Probes an ISA device through id_driver->probe; if alive, prints name/unit, calls attach, enables and masks the IRQ, installs its IDT gate; returns 1, else 0. */
+/* 中文：经 id_driver->probe 探测 ISA 设备，存活则打印名称、调用 attach、使能并屏蔽中断、安装 IDT 门，返回 1；无驱动时返回 0。 */
 config_isadev(isdp, mp)
 	struct isa_device *isdp;
 	int *mp;
@@ -179,6 +181,8 @@ struct buf *dma_bounce[8];
 #define MAXDMASZ 512
 
 /* XXX temporary crud */
+/* EN: Pure predicate returning 1 when address x is at or above KERNBASE (kernel virtual space) and 0 otherwise; used to decide if DMA needs a bounce buffer. */
+/* 中文：纯判断函数：地址 x 位于 KERNBASE 及以上的内核虚拟空间时返回 1，否则返回 0，用于决定 DMA 是否需要弹跳缓冲区。 */
 kernel_space(x)
 unsigned long x;
 {
@@ -191,6 +195,8 @@ unsigned long x;
 /*                                 at_dma                                   */
 /* set up DMA read/write operation and virtual address addr for nbytes      */
 /****************************************************************************/
+/* EN: Programs 8237 DMA channel chan: user-space addresses go through dma_bounce[chan] (geteblk buffer, copied on write); writes mode, pmap_extract'd address and count-1. */
+/* 中文：为 8237 DMA 通道 chan 编程：用户空间地址改用 geteblk 分配的 dma_bounce[chan] 并在写时拷贝，再写模式、pmap_extract 物理地址与计数减一。 */
 at_dma(read,addr,nbytes, chan)
 int read;
 unsigned long addr;

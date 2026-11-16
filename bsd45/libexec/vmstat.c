@@ -1,4 +1,8 @@
 /*
+ * Copyright (c) 2026 jialiang.  All rights reserved.
+ */
+
+/*
  * vmstat(1) - cat the S17 cache counters exposed as /dev/vmstat.
  *
  * The pseudo file is rendered on every read (the counters are live), so a

@@ -125,6 +125,8 @@ struct	isa_driver wedriver = {
 /*
  * Probe the WD8003 to see if it's there
  */
+/* EN: Checks the wd8003 8-byte ROM checksum and type (ETHER/STARLAN/ETHER2), saves io/mem/irq/MAC, maps card RAM at 0xd000, verifies zero readback; returns WD_IO_PORTS or 0. */
+/* 中文：校验 wd8003 的 8 字节 ROM 校验和与类型（ETHER/STARLAN/ETHER2），记录 iobase/网卡口/IRQ/内存与 MAC，把卡上 RAM 映射到 0xd000 并验证回读为零；成功返回 WD_IO_PORTS，否则 0。 */
 weprobe(is)
 	struct isa_device *is;
 {
@@ -196,6 +198,8 @@ weprobe(is)
  * record.  System will initialize the interface when it is ready
  * to accept packets.
  */
+/* EN: Stops the DS8390, fills we_if with name "we", ETHERMTU, BROADCAST|SIMPLEX|NOTRAILERS and weinit/westart/weioctl/wereset/wewatchdog hooks, if_attach()s it, prints the MAC. */
+/* 中文：先置 DS8390 停止位，然后为 we_if 填名字 we、MTU ETHERMTU、标志 BROADCAST|SIMPLEX|NOTRAILERS 及 weinit/westart/weioctl/wereset/wewatchdog 钩子，调用 if_attach() 并打印 MAC。 */
 weattach(is)
 	struct isa_device *is;
 {
@@ -234,6 +238,8 @@ weattach(is)
 /*
  * Reset of interface.
  */
+/* EN: Ignores units >= NWE, prints "we%d: reset" and re-runs weinit(); it clears no softc state itself, leaving IFF_RUNNING and WDF_TXBUSY handling to weinit. */
+/* 中文：unit >= NWE 时返回；否则打印 "we%d: reset" 并重新执行 weinit()；本函数不清理软状态，IFF_RUNNING 与 WDF_TXBUSY 交由 weinit 处理。 */
 wereset(unit, uban)
 	int unit, uban;
 {
@@ -247,6 +253,8 @@ wereset(unit, uban)
 /*
  * Take interface offline.
  */
+/* EN: Takes the interface offline: at splimp sets the DS8390 stop bit and clears start, writing the command register, then restores the interrupt mask with splx. */
+/* 中文：使接口下线：在 splimp 下向命令寄存器写入 DS8390 停止位并清 start，随后用 splx 恢复中断屏蔽。 */
 westop(unit)
 	int unit;
 {
@@ -277,6 +285,8 @@ static Bdry;
 /*
  * Initialization of interface (really just DS8390). 
  */
+/* EN: Returns if no ifaddr; at splhigh programs DS8390 RCR/TCR/TPSR, ring bounds, BNRY/ISR/IMR and page-1 PAR/MAR, then starts the NIC, sets IFF_RUNNING and calls westart(). */
+/* 中文：无协议地址时返回；在 splhigh 下按 NSC 手册初始化 DS8390 第 0 页寄存器（RBCR/RCR/TCR/TPSR/PSTART/PSTOP/BNRY/ISR/IMR）与第 1 页 PAR/MAR，启动网卡，置 IFF_RUNNING、清 WDF_TXBUSY，最后调用 westart()。 */
 weinit(unit)
 	int unit;
 {
@@ -342,6 +352,8 @@ Bdry = 0;
 /*
  * Start output on interface.
  */
+/* EN: At splhigh returns if WDF_TXBUSY or the queue is empty; else sets WDF_TXBUSY, copies the mbuf chain into card RAM, frees it, pads to ETHER_MIN_LEN, writes TBCR and txp. */
+/* 中文：在 splhigh 下若 WDF_TXBUSY 或发送队列为空则返回；否则置 WDF_TXBUSY，把 mbuf 链拷入卡上内存并释放，长度补齐到 ETHER_MIN_LEN，写 TBCR0/1 并置 txp 启动发送。 */
 westart(ifp)
 	struct ifnet *ifp;
 {
@@ -399,6 +411,8 @@ westart(ifp)
 /*
  * Ethernet interface interrupt processor
  */
+/* EN: Reads and acks ISR, counts TXE/RXE errors, calls wetint on PTX/TXE and werint on PRX/RXE, restarts TX, re-enables IMR 0xff, loops while ISR is set and bails after 10 rounds. */
+/* 中文：读取并确认 ISR，统计 TXE/RXE 错误，在 PTX/TXE 时调 wetint、PRX/RXE 时调 werint，再调 westart，恢复 IMR 为 0xff，若 ISR 仍非零则循环，超过 10 轮打印告警退出。 */
 weintr(unit)
 	int unit;
 {
@@ -469,6 +483,8 @@ loop:
 /*
  * Ethernet interface transmit interrupt.
  */
+/* EN: Transmit-complete bookkeeping: clears WDF_TXBUSY, zeroes if_timer, increments if_opackets and adds the TBCR0 retry count to if_collisions. */
+/* 中文：发送完成统计：清除 WDF_TXBUSY，将 if_timer 归零，if_opackets 加一，并把 TBCR0 中的重传计数累加到 if_collisions。 */
 wetint(unit)
 	int unit;
 {
@@ -486,6 +502,8 @@ wetint(unit)
 /*
  * Ethernet interface receiver interrupt.
  */
+/* EN: Walks the card RX ring from BNRY to CURR, weread()s descriptors with 30 < len <= ETHERMTU+100, printf-rejects others, advances BNRY with wrap/overflow handling, saves it in Bdry. */
+/* 中文：从 BNRY 到 CURR 遍历网卡接收环，对 30 < len <= ETHERMTU+100 的描述符调用 weread、其余 printf 丢弃，带环绕与网卡溢出处理地前移 BNRY，并存入静态变量 Bdry。 */
 werint(unit)
 	int unit;
 {
@@ -558,6 +576,8 @@ Bdry = bnry;
 /*
  * Process an ioctl request.
  */
+/* EN: At splimp: SIOCSIFADDR sets IFF_UP, calls weinit, AF_INET stores ac_ipaddr then calls arpwhohas (AF_NS rewrites address, re-inits); SIOCSIFFLAGS stops/inits; else EINVAL. */
+/* 中文：在 splimp 下：SIOCSIFADDR 置 IFF_UP 并调用 weinit，AF_INET 时记录 ac_ipaddr 再调 arpwhohas（AF_NS 改写地址并重新初始化）；SIOCSIFFLAGS 停止或启动；其它命令返回 EINVAL。 */
 weioctl(ifp, cmd, data)
 	register struct ifnet *ifp;
 	int cmd;
@@ -577,6 +597,8 @@ weioctl(ifp, cmd, data)
 		case AF_INET:
 			((struct arpcom *)ifp)->ac_ipaddr =
 				IA_SIN(ifa)->sin_addr;
+			/* EN: Not defined in this file; both weioctl copies call it, the live one after weinit() and ac_ipaddr assignment, so ARP broadcasts a request for the newly configured address. */
+			/* 中文：本文件未定义该函数；两个 weioctl 版本都调用它，实际生效的那个在 weinit() 与记录 ac_ipaddr 之后调用，由 ARP 为新配置的地址广播请求。 */
 			arpwhohas((struct arpcom *)ifp, &IA_SIN(ifa)->sin_addr);
 			break;
 #endif
@@ -616,6 +638,8 @@ weioctl(ifp, cmd, data)
 /*
  * Process an ioctl request.
  */
+/* EN: At splimp: SIOCSIFADDR sets IFF_UP, calls weinit, AF_INET stores ac_ipaddr then calls arpwhohas (AF_NS rewrites address, re-inits); SIOCSIFFLAGS stops/inits; else EINVAL. */
+/* 中文：在 splimp 下：SIOCSIFADDR 置 IFF_UP 并调用 weinit，AF_INET 时记录 ac_ipaddr 再调 arpwhohas（AF_NS 改写地址并重新初始化）；SIOCSIFFLAGS 停止或启动；其它命令返回 EINVAL。 */
 weioctl(ifp, cmd, data)
 	register struct ifnet *ifp;
 	int cmd;
@@ -638,6 +662,8 @@ weioctl(ifp, cmd, data)
 			weinit(ifp->if_unit);	/* before arpwhohas */
 			((struct arpcom *)ifp)->ac_ipaddr =
 				IA_SIN(ifa)->sin_addr;
+			/* EN: Not defined in this file; both weioctl copies call it, the live one after weinit() and ac_ipaddr assignment, so ARP broadcasts a request for the newly configured address. */
+			/* 中文：本文件未定义该函数；两个 weioctl 版本都调用它，实际生效的那个在 weinit() 与记录 ac_ipaddr 之后调用，由 ARP 为新配置的地址广播请求。 */
 			arpwhohas((struct arpcom *)ifp, &IA_SIN(ifa)->sin_addr);
 			break;
 #endif
@@ -694,6 +720,8 @@ weioctl(ifp, cmd, data)
 /*
  * set ethernet address for unit
  */
+/* EN: Copies ETHER_ADDR_LEN bytes of physaddr into sc->we_addr, clears WDF_RUNNING and calls weinit() so the DS8390 PAR registers are rewritten and the NIC restarted. */
+/* 中文：把 physaddr 的 ETHER_ADDR_LEN 字节拷入 sc->we_addr，清除 WDF_RUNNING 并调用 weinit()，从而重写 DS8390 的 PAR 寄存器并重启网卡。 */
 wesetaddr(physaddr, unit)
 	u_char *physaddr;
 	int unit;
@@ -719,6 +747,8 @@ wesetaddr(physaddr, unit)
  * Pass a packet to the higher levels.
  * We deal with the trailer protocol here.
  */
+/* EN: Handles trailer frames (recomputes type/len, checks off/resid), subtracts the Ethernet header from len, builds mbufs with weget and hands the packet to ether_input. */
+/* 中文：处理共享内存缓冲中的 trailer 协议帧（重算类型与长度、检查 off/resid 合法性），从 len 中扣除以太头，用 weget 构链后调用 ether_input。 */
 weread(sc, buf, len)
 	register struct we_softc *sc;
 	char *buf;
@@ -772,6 +802,8 @@ weread(sc, buf, len)
  * data into mbufs.  When full cluster sized units are present
  * we copy into clusters.
  */
+/* EN: Allocates the mbuf chain (MCLGET past MINCLSIZE), copies totlen bytes from card RAM wrapping we_vmem_end to we_vmem_ring, sets rcvif; frees all and returns 0 on failure. */
+/* 中文：分配 mbuf 链（长度 >=MINCLSIZE 用 MCLGET 集群），从卡上内存拷贝 totlen 字节并在 we_vmem_end 处回绕到 we_vmem_ring，按 trailer 偏移调整，设置 rcvif；失败则释放并返回 0。 */
 struct mbuf *
 weget(buf, totlen, off0, ifp, sc)
 	caddr_t buf;

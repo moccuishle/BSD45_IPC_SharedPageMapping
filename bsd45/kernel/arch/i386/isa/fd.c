@@ -119,6 +119,8 @@ struct	isa_driver fddriver = {
 	fdprobe, fdattach, "fd",
 };
 
+/* EN: ISA probe stub that returns 1 unconditionally, so the fd driver always claims its configured device without touching any hardware. */
+/* 中文：ISA 探测桩函数，无条件返回 1，因此 fd 驱动总是占用所配置的设备，且不访问任何硬件。 */
 fdprobe(dev)
 struct isa_device *dev;
 {
@@ -135,6 +137,8 @@ struct isa_device *dev;
 	fd_turnoff(0);
 }
 
+/* EN: Returns the constant 2400 sectors (the 1.2MB HD type in fd_types) while ignoring dev, so the size answer is fixed rather than per-unit or per-type. */
+/* 中文：固定返回常量 2400 个扇区（fd_types 中 1.2MB 高密盘型），忽略 dev 参数，因此大小结果是写死的，不按单元或盘型区分。 */
 int
 Fdsize(dev)
 dev_t	dev;
@@ -145,6 +149,8 @@ dev_t	dev;
 /****************************************************************************/
 /*                               fdstrategy                                 */
 /****************************************************************************/
+/* EN: Validates unit/block range, converts to FDBLK and b_cylin, disksorts bp under splbio, starts the xfer if both drives idle; bad requests get EINVAL/ENOSPC then biodone. */
+/* 中文：校验单元号与块号范围，换算成 FDBLK 块和 b_cylin，在 splbio 下用 disksort 把 bp 插入该单元队列，若两个驱动器都空闲则启动传输；非法请求置 EINVAL/ENOSPC 并 biodone。 */
 Fdstrategy(bp)
 	register struct buf *bp;	/* IO operation to perform */
 {
@@ -213,6 +219,8 @@ bad:
 /****************************************************************************/
 /*                            motor control stuff                           */
 /****************************************************************************/
+/* EN: Writes the digital output byte at fdc+fdout: ORs in the unit number, 0xC when not reset, and the FDMOTOR bit of every unit whose motor flag is on. */
+/* 中文：向 fdc+fdout 写数字输出寄存器：或上单元号、非 reset 时的 0xC，以及所有 motor 标志已置位单元的 FDMOTOR 位。 */
 set_motor(unit,reset)
 int unit,reset;
 {
@@ -223,6 +231,8 @@ int unit,reset;
 	     );
 }
 
+/* EN: Clears fd_unit[unit].motor, then writes the motor port addressed to the opposite drive (set_motor(0,0) if unit 0, else set_motor(1,0)), dropping this unit's motor bit. */
+/* 中文：清除 fd_unit[unit].motor 标志，再以另一台驱动器的编号重写马达控制口（unit 为 0 时 set_motor(0,0)，否则 set_motor(1,0)），使本单元的马达位被清掉。 */
 fd_turnoff(unit)
 int unit;
 {
@@ -231,6 +241,8 @@ int unit;
 	else set_motor(1,0);
 }
 
+/* EN: Sets fd_unit[unit].motor to 1 and selects that unit by calling set_motor(unit, 0), which writes the motor port and turns its motor bit on. */
+/* 中文：将 fd_unit[unit].motor 置 1，并调用 set_motor(unit, 0) 选中该单元，从而写入马达控制口并打开其马达位。 */
 fd_turnon(unit)
 int unit;
 {
@@ -241,6 +253,8 @@ int unit;
 /****************************************************************************/
 /*                             fdc in/out                                   */
 /****************************************************************************/
+/* EN: Polls the FDC status for DIO|RQM; returns -1 if only RQM is set (busy/wrong direction), otherwise reads and returns the byte from the data register. */
+/* 中文：轮询 FDC 状态等待 DIO|RQM 同时置位；若只置 RQM 则返回 -1（忙或方向不符），否则读取并返回数据寄存器字节。 */
 int
 in_fdc()
 {
@@ -250,6 +264,8 @@ in_fdc()
 	return inb(fdc+fddata);
 }
 
+/* EN: Error helper: reads up to 7 result bytes with in_fdc into fd_status, stopping at the first negative, then printf's all seven as hex. */
+/* 中文：出错辅助函数：用 in_fdc 最多读取 7 个结果字节存入 fd_status，遇到负值即停止，随后用 printf 以十六进制打印这 7 个字节。 */
 dump_stat()
 {
 	int i;
@@ -262,6 +278,8 @@ printf("FD bad status :%lx %lx %lx %lx %lx %lx %lx\n",
 	fd_status[4], fd_status[5], fd_status[6] );
 }
 
+/* EN: Waits until status shows RQM without DIO, eating pending output bytes via dump_stat on a direction error, tracks the worst retry count in static maxcnt, then writes x to fddata. */
+/* 中文：等待状态仅置 RQM 而无 DIO，方向出错时用 dump_stat 吃掉残留输出字节，用静态 maxcnt 记录最大重试次数，最后把 x 写入 fddata。 */
 out_fdc(x)
 int x;
 {
@@ -290,6 +308,8 @@ printf("New MAX = %d\n",maxcnt);
 }
 
 /* see if fdc responding */
+/* EN: Polls fdsts up to 100 times for NE7_RQM; returns 0 if the controller responded (ready), 1 if it never did. */
+/* 中文：最多 100 次轮询 fdsts 的 NE7_RQM 位；控制器有响应（就绪）返回 0，始终无响应返回 1。 */
 int
 check_fdc()
 {
@@ -303,6 +323,8 @@ check_fdc()
 /****************************************************************************/
 /*                           fdopen/fdclose                                 */
 /****************************************************************************/
+/* EN: Prints the minor, unit and type, returns ENXIO when unit >= NFD or type >= NUMTYPES, else 0; the check_fdc busy test is commented out. */
+/* 中文：打印 minor、单元号和盘型，unit >= NFD 或 type >= NUMTYPES 时返回 ENXIO，否则返回 0；调用 check_fdc 的忙检测已被注释掉。 */
 Fdopen(dev, flags)
 	dev_t	dev;
 	int	flags;
@@ -323,6 +345,8 @@ Fdopen(dev, flags)
 	return 0;
 }
 
+/* EN: Close entry point that only returns 0: no motor shutdown, queue flush or state change happens here, motor-off is left to the fd_turnoff timeout. */
+/* 中文：关闭入口，仅返回 0：这里不做马达关闭、队列清空或状态变更，关马达交给 fd_turnoff 超时完成。 */
 Fdclose(dev, flags)
 	dev_t dev;
 {
@@ -335,6 +359,8 @@ Fdclose(dev, flags)
 /*
  * Routines to do raw IO for a unit.
  */
+/* EN: Raw read entry: returns ENXIO when unit >= NFD, otherwise runs physio over Fdstrategy on fd_unit[unit].rhead with B_READ and minphys and returns its error. */
+/* 中文：原始读入口：unit >= NFD 时返回 ENXIO，否则以 B_READ 和 minphys 通过 physio 在 fd_unit[unit].rhead 队列上调用 Fdstrategy，并返回其错误码。 */
 Fdread(dev, uio)			/* character read routine */
 dev_t dev;
 struct uio *uio;
@@ -344,6 +370,8 @@ struct uio *uio;
 	return(physio(Fdstrategy,&fd_unit[unit].rhead,dev,B_READ,minphys,uio));
 }
 
+/* EN: Raw write entry: returns ENXIO when unit >= NFD, otherwise runs physio over Fdstrategy on fd_unit[unit].rhead with B_WRITE and minphys and returns its error. */
+/* 中文：原始写入口：unit >= NFD 时返回 ENXIO，否则以 B_WRITE 和 minphys 通过 physio 在 fd_unit[unit].rhead 队列上调用 Fdstrategy，并返回其错误码。 */
 Fdwrite(dev, uio)			/* character write routine */
 dev_t dev;
 struct uio *uio;
@@ -356,6 +384,8 @@ struct uio *uio;
 /****************************************************************************/
 /*                                 fdstart                                  */
 /****************************************************************************/
+/* EN: Under splbio: motor off means turn on and re-arm fdstart in hz ticks; otherwise take next bp, clear fd_retry/fd_skip, force reset (state 5) if needed, then seek or fdintr(0xff). */
+/* 中文：在 splbio 下：马达未开则开启并在 hz 个 tick 后重排 fdstart；否则取队首 bp，清 fd_retry/fd_skip，必要时先做复位（状态 5），再发寻道命令或直接调用 fdintr(0xff)。 */
 fdstart(unit)
 int unit;
 {
@@ -399,6 +429,8 @@ printf("Seek %d %d\n", bp->b_cylin, dp->b_step);
 	splx(s);
 }
 
+/* EN: Transfer timeout handler: senses drive status (0x4) and ST0/PCN (0x8), prints them with printf, then fails the active bp through badtrans so the queue moves on. */
+/* 中文：传输超时处理：用 0x4 读驱动器状态、用 0x8 读 ST0/PCN 并用 printf 打印，然后调用 badtrans 使当前 bp 失败，让队列继续推进。 */
 fd_timeout(x)
 int x;
 {
@@ -424,6 +456,8 @@ int x;
 /****************************************************************************/
 /*                                 fdintr                                   */
 /****************************************************************************/
+/* EN: FDC interrupt state machine: state 1 starts DMA and sends READ/WRITE, state 2 reads 7 status bytes, retries on ST0 error and biodones at end; states 3-5 seek/specify/reset. */
+/* 中文：FDC 中断状态机：状态 1 寻道后启动 DMA 并发出读/写命令，状态 2 读取 7 个状态字节、ST0 出错则重试，待 fd_skip 传满 b_bcount 后 biodone；状态 3~5 处理寻道、specify、重校准和复位。 */
 fdintr(unit)
 {
 	register struct buf *dp,*bp;
@@ -608,6 +642,8 @@ retry:
 	fdintr(0xff);
 }
 
+/* EN: Marks bp with B_ERROR and EIO, sets b_resid to b_bcount - fd_skip, removes it from the unit queue, clears fd_skip, biodones it and calls nextstate. */
+/* 中文：将 bp 置 B_ERROR 和 EIO，把 b_resid 设为 b_bcount - fd_skip，从单元队列中摘除，清 fd_skip，调用 biodone 后转入 nextstate。 */
 badtrans(dp,bp)
 struct buf *dp,*bp;
 {
@@ -630,6 +666,8 @@ struct buf *dp,*bp;
 	to state 0 (not expecting any interrupts).
 */
 
+/* EN: After a transfer: fdstart if this queue has work; else switch to the other drive (5s turnoff timer); if both idle, fd_turnoff in 5*hz, fd_state 0, clear b_active. */
+/* 中文：传输结束后：本队列还有请求则继续 fdstart；否则切换到另一驱动器队列并挂 5 秒关马达定时器；两边都空时在 5*hz 后关马达、置 fd_state 为 0 并清 active。 */
 nextstate(dp)
 struct buf *dp;
 {

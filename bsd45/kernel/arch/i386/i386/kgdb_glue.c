@@ -62,9 +62,11 @@ static char rcsid[] =
 
 u_long kgdb_stack[KGDB_STACKWORDS];
 
-#define getsp(v) asm volatile ("movl %%esp,%0" : "=r" (v))
-#define setsp(v) asm volatile ("movl %0,%%esp" :: "r" (v))
+#define getsp(v) ((v) = cpu_read_esp())
+#define setsp(v) cpu_write_esp(v)
 
+/* EN: Copies nbytes from src to dst a u_long at a time, plus a trailing u_short when nbytes & 2; the do-while copies at least one word even for tiny sizes. */
+/* 中文：以 u_long 为单位把 nbytes 字节从 src 拷到 dst，nbytes 余 2 时再补一个 u_short；do-while 保证极小长度也至少复制一个字。 */
 static inline void
 copywords(src, dst, nbytes)
 	register u_long *src, *dst;
@@ -79,6 +81,8 @@ copywords(src, dst, nbytes)
 		*(u_short *)dst = *(u_short *)src;
 }
 
+/* EN: Kernel-trap fixup: fixes tf_isp, copies the trap frame to kgdb_stack at splhigh and calls kgdb_trap; if it returns 1 the frame is copied back and kgdb_return_to_user runs. */
+/* 中文：内核陷阱适配：计算帧长并修正 tf_isp，在 splhigh 下把陷阱帧复制到 kgdb_stack 并调用 kgdb_trap；返回 1 时把改后的帧拷回并进入 kgdb_return_to_user。 */
 kgdb_trap_glue(frame)
 	struct trapframe frame;
 {
@@ -140,11 +144,13 @@ kgdb_trap_glue(frame)
 	/*
 	 * Restore the possible new context from frame.
 	 */
-	asm volatile ("pop %es; pop %ds; popal; nop; addl $8,%esp; iret");
+	kgdb_return_to_user();
 }
 
 int kgdb_testval;
 
+/* EN: Debug test helper: increments the global kgdb_testval and returns i + 1, used to exercise gdb breakpoints and expression evaluation. */
+/* 中文：调试测试辅助：递增全局变量 kgdb_testval 并返回 i + 1，用于验证 gdb 断点与表达式求值。 */
 kgdb_test(i)
 {
         ++kgdb_testval;

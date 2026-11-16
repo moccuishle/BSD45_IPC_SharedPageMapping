@@ -136,6 +136,8 @@ static int nfsv2_repstat[NFS_NPROCS] = {
 /*
  * Initialize the server request cache list
  */
+/* EN: Allocates the duplicate-request hash with hashinit(desirednfsrvcache, M_NFSD) and initializes the nfsrvlruhead TAILQ that drives LRU replacement; returns void. */
+/* 中文：用 hashinit(desirednfsrvcache, M_NFSD) 分配服务端重复请求缓存哈希表，并初始化作为 LRU 淘汰链的 nfsrvlruhead 队列；无返回值。 */
 void
 nfsrv_initcache()
 {
@@ -158,6 +160,8 @@ nfsrv_initcache()
  *   return DOIT
  * Update/add new request at end of lru list
  */
+/* EN: Hash xid/proc/client lookup: RC_DOIT on miss (new RC_INPROG LRU entry), RC_DROPIT for in-progress dups, RC_REPLY from cached status or reply copy; entries use RC_LOCKED/RC_WANTED. */
+/* 中文：按 xid/过程号/客户端地址查哈希：未命中就插入 RC_INPROG 的 LRU 项并返回 RC_DOIT，进行中的重复请求返回 RC_DROPIT，已完成则用缓存状态或回复 mbuf 副本返回 RC_REPLY；每项用 RC_LOCKED 加锁、RC_WANTED 唤醒等待者。 */
 int
 nfsrv_getcache(nd, slp, repp)
 	register struct nfsrv_descript *nd;
@@ -271,6 +275,8 @@ loop:
 /*
  * Update a request cache entry after the rpc has been done
  */
+/* EN: Marks the matching xid/proc/client entry RC_DONE and, for a valid non-idempotent reply, saves the error status or a copy of the reply mbuf; uses RC_LOCKED/RC_WANTED waiting. */
+/* 中文：把匹配 xid/过程号/客户端的缓存项置为 RC_DONE；回复有效且过程非幂等时，保存错误码（RC_REPSTATUS）或回复 mbuf 的副本（RC_REPMBUF），等待同样用 RC_LOCKED/RC_WANTED。 */
 void
 nfsrv_updatecache(nd, repvalid, repmbuf)
 	register struct nfsrv_descript *nd;
@@ -321,6 +327,8 @@ loop:
 /*
  * Clean out the cache. Called when the last nfsd terminates.
  */
+/* EN: Unlinks every nfsrvcache from the hash and LRU list, frees it with free(M_NFSD), and resets numnfsrvcache to 0; called when the last nfsd terminates. */
+/* 中文：遍历 nfsrvlruhead 把每个 nfsrvcache 从哈希链和 LRU 链上摘除并用 free(M_NFSD) 释放，最后把 numnfsrvcache 归零；在最后一个 nfsd 退出时调用。 */
 void
 nfsrv_cleancache()
 {

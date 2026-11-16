@@ -45,6 +45,8 @@ static char sccsid[] = "@(#)notdi2.c	8.1 (Berkeley) 6/4/93";
  * Return ~a.  For some reason gcc calls this `one's complement' rather
  * than `not'.
  */
+/* EN: Bitwise complement of a quad_t: inverts both 32-bit words of the union independently and returns the resulting 64-bit value; pure helper with no side effects. */
+/* 中文：64 位按位取反：对低、高两个 32 位字分别取反后返回结果，纯辅助函数，无副作用。 */
 quad_t
 __one_cmpldi2(a)
 	quad_t a;

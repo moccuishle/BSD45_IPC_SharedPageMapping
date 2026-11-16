@@ -136,6 +136,8 @@ struct	isa_driver apxdriver = {
 
 #define TIMO 10000 /* used in apx_uprim */
 
+/* EN: Probes an Adax ISA board: for one or two MK5025 chips (id_msize bit 0 = single chip) fills apx_softc reg/hmem/dmem/modes/csr4 0x0210 and unit numbers, runs apxtest, returns 1. */
+/* 中文：探测 Adax ISA 板：按 id_msize 最低位判断单/双 MK5025 芯片，为每个芯片填写 apx_softc 的 msize/hmem/dmem/device/reg/sgcp、csr4 = 0x0210 及单元号，调用 apxtest，返回 1。 */
 apxprobe(id)
 	register struct	isa_device *id;
 {
@@ -170,6 +172,8 @@ apxprobe(id)
 	return 1;
 }
 
+/* EN: Attach hook that calls apx_ifattach on both ifnets of the board's unit pair (id_unit << 1 and the next one), then returns 0. */
+/* 中文：挂接钩子，对该板单元对（id_unit << 1 及其下一个）对应的两个 ifnet 分别调用 apx_ifattach，然后返回 0。 */
 apxattach(id)
 	struct	isa_device *id;
 {
@@ -186,6 +190,8 @@ apxattach(id)
  * record.  System will initialize the interface when it is ready
  * to accept packets.
  */
+/* EN: Fills the ifnet record: name "apc", mtu SGMTU, init/output/start/ioctl/reset pointing at apx routines, if_type from apx_default_modes, hdrlen 5, addrlen 8, then calls if_attach. */
+/* 中文：填充 ifnet 记录：名字 "apc"、mtu 为 SGMTU、初始化/输出/启动/ioctl/复位指向 apx 各函数、if_type 取自 apx_default_modes、hdrlen 5、addrlen 8，最后调用 if_attach。 */
 void
 apx_ifattach(ifp)
 	register struct ifnet *ifp;
@@ -208,6 +214,8 @@ apx_ifattach(ifp)
 /*
  * Initialization of interface
  */
+/* EN: Interface init: under splimp clears IFF_RUNNING/IFF_OACTIVE, and if apxreset(unit) succeeds while IFF_UP is set marks IFF_RUNNING and calls apxstart; returns 0 always. */
+/* 中文：接口初始化：在 splimp 下清除 IFF_RUNNING/IFF_OACTIVE，若 apxreset(unit) 成功且 IFF_UP 已置则置 IFF_RUNNING 并调用 apxstart；始终返回 0。 */
 apxinit(unit)
 	int unit;
 {
@@ -223,6 +231,8 @@ apxinit(unit)
 	return 0;
 }
 
+/* EN: Programs timer counter 2 via CCR 0xB0, writes 1 then 0, delays 50us, then latches status with 0xE8 and returns the counter value read from axr_cnt2. */
+/* 中文：通过 CCR 0xB0 配置定时器计数器 2,先写 1 再写 0,延时 50 微秒后用 0xE8 锁存状态,返回从 axr_cnt2 读出的计数值。 */
 apxctr(apx)
 	register struct apx_softc *apx;
 {
@@ -234,6 +244,8 @@ apxctr(apx)
 	return (APX_RCSR(apx, axr_cnt2));
 }
 
+/* EN: Probes the board: checks the timer counter on even units, programs SGS CSR4/CSR5, verifies csr5 high bits to set APXF_CHIPHERE, then issues SG_STOP. */
+/* 中文：探测板卡:对偶数单元检查定时器计数,写 SGS 的 CSR4/CSR5 并用 csr5 高位校验 5025 芯片,成功则置 APXF_CHIPHERE,最后发 SG_STOP 停止。 */
 void
 apxtest(apx)
 	register struct apx_softc *apx;
@@ -253,6 +265,8 @@ apxtest(apx)
 	(void) apx_uprim(apx, SG_STOP, "stop after probing");
 }
 
+/* EN: Merges both units' mode bytes into the CSRs and stops the chip; if IFF_UP is set it re-inits memory, sends SG_INIT/SG_STAT/SG_TRANS, enables IRQs and returns 1, else 0. */
+/* 中文：先把配对两单元的 mode/altmode 字节合并写入 CSR 并停止芯片;若 IFF_UP 已置则重新初始化内存、依次发 SG_INIT/SG_STAT/SG_TRANS 并开中断,成功返回 1,否则返回 0。 */
 apxreset(unit)
 	int	unit;
 {
@@ -283,6 +297,8 @@ apxreset(unit)
 	return 1;
 }
 
+/* EN: Sends an SGS command with SG_UAV and polls CSR1 until busy clears; returns 0 on success, 1 on missing chip, timeout or error, and early 0 for SG_STOP when already stopped. */
+/* 中文：发送带 SG_UAV 的 SGS 命令并轮询 CSR1 直到忙位清除;成功返回 0,无芯片、超时或出错返回 1,SG_STOP 且芯片已停止时提前返回 0。 */
 apx_uprim(apx, request, ident)
 	register struct apx_softc *apx;
 	char *ident;
@@ -307,6 +323,8 @@ apx_uprim(apx, request, ident)
 	return 0;
 }
 
+/* EN: Initializes shared memory: zeroes the header, sets mode 0x0108 and csr23, and fills the TX/RX descriptors and buffers as chip-owned via SET_SGAE/SET_SGDX. */
+/* 中文：初始化共享内存:清零头部,设置 mode 0x0108 与 csr23,并用 SET_SGAE/SET_SGDX 把收发描述符及缓冲区填成芯片所有。 */
 apx_meminit(apc, apx)
 	register struct apc_mem *apc;
 	struct apx_softc *apx;
@@ -341,6 +359,8 @@ apx_meminit(apc, apx)
  * off of the interface queue, and copy it to the interface
  * before starting the output.
  */
+/* EN: Copies queued mbufs (up to SGMTU each) into the TX ring, frees them, sets OWN/TUI/SLF/ELF and issues SG_TDMD; always returns 0, marking IFF_OACTIVE when the ring fills. */
+/* 中文：从 if_snd 取出 mbuf(每个最多 SGMTU 字节)拷入发送环并释放 mbuf,置 OWN/TUI/SLF/ELF 并发 SG_TDMD;始终返回 0,环满时置 IFF_OACTIVE。 */
 apxstart(ifp)
 	struct ifnet *ifp;
 {
@@ -375,6 +395,8 @@ apxstart(ifp)
 	return (0);
 }
 
+/* EN: Scans both units' CSR0 interrupt causes, acknowledges with SG_INEA|0xfe, re-inits via apxinit on mem/rx/tx errors, otherwise dispatches apxrint/apxtint and counts PINT. */
+/* 中文：扫描两个单元的 CSR0 中断原因并用 SG_INEA|0xfe 应答,内存/收/发错误时记日志并经 apxinit 重新初始化,否则分派 apxrint/apxtint 并统计 PINT。 */
 void
 apxintr()
 {
@@ -402,6 +424,8 @@ apxintr()
 	}
 }
 
+/* EN: Handles transmit-done: locates the completed descriptor, returns early as txnull if still chip-owned, clears IFF_OACTIVE, decrements txcnt and restarts output via apxstart. */
+/* 中文：处理发送完成:定位已完成描述符,若仍属芯片则记为 txnull 提前返回;否则清 IFF_OACTIVE、递减 txcnt 并调用 apxstart 继续发送。 */
 void
 apxtint(apx)
 	register struct apx_softc *apx;
@@ -425,6 +449,8 @@ apxtint(apx)
 	apxstart(&apx->apx_if);
 }
 
+/* EN: Receive handler: skips still-owned descriptors, drops chained buffers and re-syncs (calling apxreset on mismatch), passes good frames to apxinput, advancing apx_rxnum. */
+/* 中文：接收处理:跳过仍属芯片的描述符,丢弃链式缓冲并在失步时调用 apxreset 复位,正常帧交给 apxinput,并推进 rxnum。 */
 void
 apxrint(apx)
 	register struct apx_softc *apx;
@@ -481,6 +507,8 @@ dx = ++apx->apx_rxnum == SGRBUF ? &apc->apc_rxmd[apx->apx_rxnum = 0] : dx + 1;
 	}
 }
 
+/* EN: Wraps a received frame into an mbuf and queues it on ipintrq for NETISR_IP after stripping the 4-byte PPP HDLC header, dropping and counting when not IFF_UP or the queue is full. */
+/* 中文：把收到的帧封装成 mbuf,去掉 4 字节 PPP HDLC 头后挂到 ipintrq 并 schednetisr(NETISR_IP);接口未 UP 或队列满时计数并丢弃。 */
 void
 apxinput(ifp, buffer, len)
 	register struct ifnet *ifp;
@@ -529,6 +557,8 @@ apxinput(ifp, buffer, len)
 /*
  * Process an ioctl request.
  */
+/* EN: Handles SIOCSIFADDR, SIOCSIFFLAGS (re-inits on up/down change) and SIOCSIFMODE (saves apx_modes only while down, else EINVAL) at splimp; returns the error code. */
+/* 中文：在 splimp 下处理 SIOCSIFADDR、SIOCSIFFLAGS(上下线切换时重新初始化)和 SIOCSIFMODE(仅下线时保存 apx_modes,否则 EINVAL),返回错误码。 */
 apxioctl(ifp, cmd, data)
 	register struct ifnet *ifp;
 	int cmd;
@@ -574,6 +604,8 @@ apxioctl(ifp, cmd, data)
 	return (error);
 }
 
+/* EN: Logs a LOG_WARNING line naming the apc unit, the caller's message and the status word in hex; changes no state and returns nothing. */
+/* 中文：用 LOG_WARNING 打印一行日志,包含 apc 单元号、调用者消息和十六进制状态字;不改变任何状态,无返回值。 */
 apxerror(apx, msg, data)
 	register struct	apx_softc *apx;	
 	char	*msg;
@@ -585,6 +617,8 @@ apxerror(apx, msg, data)
 /*
  * For debugging loopback activity.
  */
+/* EN: Bumps if_opackets, prepends the 4-byte PPP header {-1,3,0,0x21}, queues on if_snd and kicks if_start unless IFF_OACTIVE; returns ENOBUFS on mbuf or queue shortage. */
+/* 中文：递增 if_opackets,前置 4 字节 PPP 头 {-1,3,0,0x21} 后挂到 if_snd,非 IFF_OACTIVE 时调用 if_start;分配失败或队列满返回 ENOBUFS。 */
 apxoutput(ifp, m, dst, rt)
 register struct ifnet *ifp;
 register struct mbuf *m;
