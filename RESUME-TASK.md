@@ -1,15 +1,38 @@
 # BSD45-ELF-x86 任务恢复文本（入口 + 缓存系统 S17）
 
-更新时间：2026-11-16（Asia/Shanghai）
-状态：**S17 完成**（缓存系统移植：buffer cache + name cache + page cache + mmap）；
-Windows（MSYS2 ucrt64 GCC 16.2 + `xorriso`）**17 套验收全绿**，
-Linux（Ubuntu 26.04 LTS）走同一套 `.sh` 脚本。
-仓库：https://github.com/moccuishle/BSD45_cache-mmap_filesystem
+更新时间：2026-11-17（Asia/Shanghai）
+状态：**os.md 机制 1/2/3/4/5 已落地**（IPL/抢占、COW、demand paging、
+内存压缩、VFS 同步/异步 + SQ/CQ 环）；`tools/all_tests.sh` **全部套件 PASSED**。
+仓库：https://github.com/moccuishle/BSD_object_orient_kernel
 
 > 本文件是恢复入口，并**合并了原 `恢复.md`**（4.5BSD VFS/VM 缓存层盘点与路线）。
 > 完整的 S0–S17 功能记录、43+ 条踩坑、构建脚本细节在
 > [`bsd45/RESUME-TASK.md`](bsd45/RESUME-TASK.md)；缓存实现的设计细节在
 > [`docs/cache-mmap.md`](docs/cache-mmap.md)。
+
+## 0. 最新状态（2026-11-17）
+
+### 0.1 内核目录合并（commit `d54ecaf`）
+
+- `kernel/obj/` → `kernel/lib/`（`kstr.c` / `kstr.h`）
+- `kernel/other/strings.c` → `kernel/lib/`；`glue.c`、`mon.c`、`usermode.c`、
+  `usermode_asm.s`、`stubs.c` → `kernel/sys/`
+- `kernel/other/` 的遗留 `tests/stand/stand.att/conf/compile/scripts`
+  → `kernel/sys/legacy/`
+- `kernel/fs/pagecache.c` → `kernel/vm/`
+- `kernel/obj/` 与 `kernel/other/` 已删除；当前 kernel 顶层为
+  `arch driver fs hal include lib net subsys sys thread vm`
+
+### 0.2 文档同步
+
+- `bsd45/README.md` 目录树已更新为合并后的结构
+- `docs/cache-mmap.md`、`docs/kernel-boundary.md` 中的 `usermode.c`、
+  `pagecache.c`、`glue.c` 等路径已更新
+
+### 0.3 下一步
+
+如果要继续整理，可做 `arch/legacy`（hp300/vax 等空占位）或
+`fs/legacy`、`net/proto` 的归并。
 
 ---
 
