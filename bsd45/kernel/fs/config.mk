@@ -1,4 +1,4 @@
-# config.mk - kernel/fs
+﻿# config.mk - kernel/fs
 #
 # Per-directory build configuration for the BSD45 kernel.
 # build_kernel.ps1 is the current driver; a kbuild-style build can
@@ -14,10 +14,11 @@
 #   vfs.c
 #   vfs_bio.c
 #   vfs_cache.c
-#   pagecache.c
+
 
 # subdirectories:
 #   isofs/
 #   miscfs/
 #   nfs/
 #   ufs/
+

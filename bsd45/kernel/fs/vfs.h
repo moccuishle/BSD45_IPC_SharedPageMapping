@@ -1,4 +1,4 @@
-/*
+﻿/*
  * vfs.h - a small vnode/VFS layer.
  *
  * Everything that used to be special-cased in the syscall switch (ramfs,
@@ -8,7 +8,7 @@
 #ifndef _VFS_H_
 #define _VFS_H_
 
-#include "obj/kstr.h"
+#include "lib/kstr.h"
 
 #define	VREG	1
 #define	VDIR	2
@@ -204,3 +204,4 @@ void	vfs_page_unmap(unsigned va);
 void	vfs_page_stats(unsigned *nalloc, unsigned *nfreed, unsigned *ninuse);
 
 #endif
+

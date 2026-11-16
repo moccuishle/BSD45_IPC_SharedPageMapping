@@ -1,4 +1,4 @@
-# 内核边界盘点（S100.1）
+﻿# 内核边界盘点（S100.1）
 
 > **目的**：在把 `bsd45` 分叉成 `microkernel/` 与 `monolithickernel/` 之前，先把
 > 「内核态保留什么、什么可以上移到用户态服务、两边通过哪些原语说话」固定成一份
@@ -31,12 +31,12 @@
 | `kernel/arch/i386/isa/pmap.c` | 1700 | 页表 / pmap | **留** |
 | `kernel/arch/i386/isa/machdep.c` | 1128 | 机器相关启动、控制台探测 | **留** |
 | `kernel/arch/i386/i386/cons.c` | 194 | ROM console 桩（实际用 pccon） | **留** |
-| `kernel/other/usermode.c` | 3100 | 进程/调度/信号/fd/系统调用/ELF 装载/**控制台行规程**/**tmpfs 页原语** | **拆**（见第 4 节） |
-| `kernel/other/usermode_asm.s` | 80 | `resume_user` 等 | **留** |
-| `kernel/other/glue.c` | 296 | 内核运行时 glue（printf、panic…） | **留** |
-| `kernel/other/mon.c` | 318 | 板载 monitor（`bsd45>`） | **留** |
-| `kernel/other/stubs.c` | 101 | 4.5BSD 桩 | **留** |
-| `kernel/other/strings.c` | 61 | 内核字符串 | **留** |
+| `kernel/sys/usermode.c` | 3100 | 进程/调度/信号/fd/系统调用/ELF 装载/**控制台行规程**/**tmpfs 页原语** | **拆**（见第 4 节） |
+| `kernel/sys/usermode_asm.s` | 80 | `resume_user` 等 | **留** |
+| `kernel/sys/glue.c` | 296 | 内核运行时 glue（printf、panic…） | **留** |
+| `kernel/sys/mon.c` | 318 | 板载 monitor（`bsd45>`） | **留** |
+| `kernel/sys/stubs.c` | 101 | 4.5BSD 桩 | **留** |
+| `kernel/lib/strings.c` | 61 | 内核字符串 | **留** |
 | `kernel/driver/pccon.c` | 264 | VGA 文本 + COM1 + 8042 键盘 | **一半**（字节 I/O 留，行规程走） |
 | `kernel/driver/atapi.c` | 263 | ATA PIO / ATAPI 包命令 | **协议栈可上移**，端口操作留 |
 | `kernel/fs/isofs.c` | 295 | ISO9660 目录记录解析 | **可上移** |
@@ -44,7 +44,7 @@
 | `kernel/fs/vfs.c` | 500 | vnode 池、`namei()`、挂载表 + ISO9660 vnodeops | **转发层留，ISO 后端待搬** |
 | `kernel/fs/vfs_bio.c` | ~330 | **S17** 2K 块 buffer cache（hash+LRU、bread/breada） | 留（bdev 缓存，S100.4 后可下沉） |
 | `kernel/fs/vfs_cache.c` | ~300 | **S17** 目录项 name cache（`v_id` 键） | 留（路径解析加速，非特权） |
-| `kernel/fs/pagecache.c` | ~360 | **S17** 4K 文件页缓存 / `mmap` 页源（vnode_pager 等价） | 可上移（S100.3 的 fs_server 共享页） |
+| `kernel/vm/pagecache.c` | ~360 | **S17** 4K 文件页缓存 / `mmap` 页源（vnode_pager 等价） | 可上移（S100.3 的 fs_server 共享页） |
 
 **合计约 11.4k 行**（S100.2a 的 10.4k + S17 新增约 1.0k）。
 
@@ -104,8 +104,8 @@
 | `kernel/fs/tmpfs.c:67` | tmpfs 数据页直接 `pmap_map()`（S100.2a 前在 `vfs.c:73`） | KP-2 的 `vfs_page_map()` 包装 | S100.2b |
 | `kernel/fs/vfs.c:178` | ISO vnode 的 read 里直接 `atapi_read()` | 块设备接口 `bdev_read()` | S100.4 |
 | `kernel/fs/isofs.c:79,108,110,236,291` | 直接 `atapi_read()` / `atapi_present()` | 同上 | S100.4 |
-| `kernel/other/usermode.c:1778` | 控制台行规程 `console_read()` 和进程/fd 混在一个文件 | 搬到 `tty_server` | S100.5 |
-| `kernel/other/usermode.c:1200,1502,1953,2111` | 手写 `P_BLOCKED` 状态机 | KP-4 `block_on()/wakeup()` | S100.3 前置 |
+| `kernel/sys/usermode.c:1778` | 控制台行规程 `console_read()` 和进程/fd 混在一个文件 | 搬到 `tty_server` | S100.5 |
+| `kernel/sys/usermode.c:1200,1502,1953,2111` | 手写 `P_BLOCKED` 状态机 | KP-4 `block_on()/wakeup()` | S100.3 前置 |
 | `kernel/driver/atapi.c` | `inb/outb/insw` + 忙等延时 | 留内核，但包成 bdev 服务（端口代理） | S100.6 |
 
 > `pmap_map()` 本身不算违规（它就是 KP-2），要修的是「FS 直接调它」这个方向；
@@ -150,3 +150,4 @@
 | 日期 | 内容 |
 |---|---|
 | 2026-11-15 | 初稿（S100.1），基于 `c89e4fd` 的符号审计 |
+

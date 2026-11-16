@@ -1,4 +1,4 @@
-# build_kernel.ps1 - cross-build the 4.5BSD-Lite2 i386 kernel as UNIX ELF
+﻿# build_kernel.ps1 - cross-build the 4.5BSD-Lite2 i386 kernel as UNIX ELF
 # using the MSYS2 mingw32 (i686-w64-mingw32) gcc.
 param(
     [switch]$NoLink,
@@ -208,18 +208,18 @@ $c_sources = [ordered]@{
     "bcmp.o"     = @("c",   "$src\lib\bcmp.c")
     "strcmp.o"   = @("c",   "$src\lib\strcmp.c")
     "strlen.o"   = @("c",   "$src\lib\strlen.c")
-    "strings.o"  = @("c",   "$ws\kernel\other\strings.c")
-    "usermode.o" = @("c",   "$ws\kernel\other\usermode.c")
-    "usermode_asm.o" = @("asm", "$ws\kernel\other\usermode_asm.s")
+    "strings.o"  = @("c",   "$ws\kernel\lib\strings.c")
+    "usermode.o" = @("c",   "$ws\kernel\sys\usermode.c")
+    "usermode_asm.o" = @("asm", "$ws\kernel\sys\usermode_asm.s")
     "embed.o"    = @("c",   "$bld\embed.c")
     "pccon.o"    = @("c",   "$ws\kernel\driver\pccon.c")
-    "stubs.o"    = @("c",   "$ws\kernel\other\stubs.c")
-    "glue.o"     = @("c",   "$ws\kernel\other\glue.c")
-    "mon.o"      = @("c",   "$ws\kernel\other\mon.c")
+    "stubs.o"    = @("c",   "$ws\kernel\sys\stubs.c")
+    "glue.o"     = @("c",   "$ws\kernel\sys\glue.c")
+    "mon.o"      = @("c",   "$ws\kernel\sys\mon.c")
     "atapi.o"    = @("c",   "$ws\kernel\driver\atapi.c")
     "isofs.o"    = @("c",   "$ws\kernel\fs\isofs.c")
     "tmpfs.o"    = @("c",   "$ws\kernel\fs\tmpfs.c")
-    "kstr.o"     = @("c",   "$ws\kernel\obj\kstr.c")
+    "kstr.o"     = @("c",   "$ws\kernel\lib\kstr.c")
     "subsys.o"   = @("c",   "$ws\kernel\subsys\subsys.c")
     "subsys_unix.o"   = @("c", "$ws\kernel\subsys\subsys_unix.c")
     "subsys_posix.o"  = @("c", "$ws\kernel\subsys\subsys_posix.c")
@@ -238,7 +238,7 @@ $c_sources = [ordered]@{
     "aio.o"      = @("c",   "$ws\kernel\fs\aio.c")
     "vfs_bio.o"  = @("c",   "$ws\kernel\fs\vfs_bio.c")
     "vfs_cache.o" = @("c",  "$ws\kernel\fs\vfs_cache.c")
-    "pagecache.o" = @("c",  "$ws\kernel\fs\pagecache.c")
+    "pagecache.o" = @("c",  "$ws\kernel\vm\pagecache.c")
 "vfs.o"      = @("c",   "$ws\kernel\fs\vfs.c")
 }
 
@@ -301,6 +301,7 @@ if ($LASTEXITCODE -ne 0) { Write-Host "objcopy failed" -ForegroundColor Red; exi
 Copy-Item "$bld\bsd45.elf" (Join-Path $ws "out\BSD45.ELF") -Force -ErrorAction SilentlyContinue
 Write-Host "built $bld\bsd45.elf"
 & $OD -h "$bld\bsd45.elf" | Select-Object -First 12
+
 
 
 

@@ -1,10 +1,10 @@
-# S17：缓存系统移植（buffer cache / name cache / page cache / mmap）
+﻿# S17：缓存系统移植（buffer cache / name cache / page cache / mmap）
 
 > 状态：**已实现并验收**（Windows 17 套全绿）
 > 基线：4.5BSD-Lite2 i386 端口，路线 B（把 4.5BSD 的缓存职责写进当前端口）
-> 相关代码：`kernel/fs/vfs_bio.c`、`kernel/fs/vfs_cache.c`、`kernel/fs/pagecache.c`、
+> 相关代码：`kernel/fs/vfs_bio.c`、`kernel/fs/vfs_cache.c`、`kernel/vm/pagecache.c`、
 > `kernel/fs/vfs.c`、`kernel/fs/isofs.c`、`kernel/fs/tmpfs.c`、
-> `kernel/other/usermode.c`、`libexec/{vmstat,mmaptest}.c`
+> `kernel/sys/usermode.c`、`libexec/{vmstat,mmaptest}.c`
 
 ---
 
@@ -99,7 +99,7 @@ ISO9660 的所有元数据都走它：PVD（`iso_mount`）、目录扫描
 
 ---
 
-## 5. page cache（`kernel/fs/pagecache.c`）
+## 5. page cache（`kernel/vm/pagecache.c`）
 
 | 项 | 值 |
 |---|---|
@@ -127,7 +127,7 @@ S10.1 的 `vstat` 里 `pages ... inuse` 的基线包含 192 页缓存，压力�
 
 ---
 
-## 6. mmap / munmap / msync（`kernel/other/usermode.c`）
+## 6. mmap / munmap / msync（`kernel/sys/usermode.c`）
 
 本端口没有缺页处理（page fault 会停机），所以映射采取**立即填充**：
 
@@ -235,3 +235,4 @@ S17 mmap: PASSED
    否则物理页被双重释放。
 6. **`pipe /dev/vmstat` 不要照抄 `/dev/ps` 的静态快照**：计数器是活的，
    每次 read 重新 `vfs_cache_report()`。
+

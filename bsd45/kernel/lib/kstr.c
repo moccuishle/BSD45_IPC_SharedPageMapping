@@ -1,4 +1,4 @@
-/*
+﻿/*
  * Copyright (c) 2026 jialiang.  All rights reserved.
  */
 
@@ -12,7 +12,7 @@
 #include <sys/param.h>
 #include <sys/systm.h>
 
-#include "obj/kstr.h"
+#include "lib/kstr.h"
 
 extern void bcopy(const void *, void *, unsigned);
 extern unsigned strlen(const char *);
@@ -516,3 +516,4 @@ kstr_push_unit(struct kstr *s, unsigned c)
 }
 
 #endif /* KERNEL_UNICODE */
+

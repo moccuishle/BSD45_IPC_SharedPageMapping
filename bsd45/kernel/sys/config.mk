@@ -1,4 +1,4 @@
-# config.mk - kernel/sys
+﻿# config.mk - kernel/sys
 #
 # Per-directory build configuration for the BSD45 kernel.
 # build_kernel.ps1 is the current driver; a kbuild-style build can
@@ -63,3 +63,11 @@
 #   vfs_subr.c
 #   vfs_syscalls.c
 #   vfs_vnops.c
+#   glue.c
+#   mon.c
+#   usermode.c
+#   usermode_asm.s
+#   stubs.c
+
+# legacy subdirectories (not built):
+#   legacy/

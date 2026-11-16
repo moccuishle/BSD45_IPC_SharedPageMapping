@@ -173,14 +173,14 @@ bsd45/
     include/machine/        原 sys/i386/include
     arch/i386/i386/         机器相关源码（locore.s、machdep.c、pmap.c、cons.c）
     arch/i386/{isa,conf,...}  i386 下的驱动/配置/启动代码
-    fs/                     ufs/miscfs/isofs/nfs + 自有的 vfs.c、isofs.c
-    vm/                     Mach VM（pmap 源）
-    libkern/                内核库例程（bcmp/strcmp/strlen/quad 等）
-    libexec/                带 main() 的程序源码：host 工具（genassym/mknodes）与用户态工具（ls/cat/echo/mkdir/kill/sleep/t_libc）
+    fs/                     VFS（vfs.c/aio.c/vfs_bio.c/vfs_cache.c）+ isofs/tmpfs
+    fs/legacy/              未参与构建的 ufs/nfs/miscfs 等 4.5BSD 源码
+    vm/                     Mach VM、pagecache.c、zcomp.c
+    lib/                    bcmp/strcmp/strlen/quad + kstr.c + strings.c
+    sys/                    4.5BSD kern/* + 自有 glue.c/mon.c/usermode.c/stubs.c
+    sys/legacy/             未参与构建的 conf/stand/tests 等 4.5BSD 源码
     driver/                 dev + 自有的 atapi.c、pccon.c
     net/                    net/netinet/netiso/netccitt/netns
-    other/                  kern、conf、libkern、tests + 自有的 glue.c/mon.c/
-                            usermode.c/stubs.c/strings.c
   libc/                     用户态 C 库与工具
     include/                stdarg.h、ctype.h、histedit.h（用户态头文件）
     src/                   只有 libc 依赖实现：crt0.s、jmp.s、chkstk_ms.s、libc_sys.c、

@@ -1,4 +1,4 @@
-/*
+﻿/*
  * glue.c - minimal 4.4BSD-Lite2 kernel runtime for the i386 ELF port.
  *
  * The machine dependent core (locore.s, pmap.c, machdep.c, cons.c) is the
@@ -30,7 +30,7 @@
 #include "atapi.h"
 #include "isofs.h"
 #include "vfs.h"
-#include "obj/kstr.h"
+#include "lib/kstr.h"
 #include "subsys/subsys.h"
 #include "thread/kthread.h"
 #include "hal/ipl.h"
@@ -375,3 +375,4 @@ main(vm_offset_t firstaddr)
 
 	monitor();
 }
+

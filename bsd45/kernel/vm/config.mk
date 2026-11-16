@@ -1,4 +1,4 @@
-# config.mk - kernel/vm
+﻿# config.mk - kernel/vm
 #
 # Per-directory build configuration for the BSD45 kernel.
 # build_kernel.ps1 is the current driver; a kbuild-style build can
@@ -26,3 +26,5 @@
 #   vm_unix.c
 #   vm_user.c
 #   vnode_pager.c
+#   pagecache.c
+#   zcomp.c

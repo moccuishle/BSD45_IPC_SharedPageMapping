@@ -1,4 +1,4 @@
-#!/usr/bin/env bash
+﻿#!/usr/bin/env bash
 # build_kernel.sh - cross-build the 4.5BSD-Lite2 i386 kernel as ELF32.
 set -uo pipefail
 ws="$(cd "$(dirname "$0")" && pwd)"
@@ -155,18 +155,18 @@ sources=(
     "c:$src/lib/bcmp.c"
     "c:$src/lib/strcmp.c"
     "c:$src/lib/strlen.c"
-    "c:$src/other/strings.c"
-    "c:$src/other/usermode.c"
-    "asm:$src/other/usermode_asm.s"
+    "c:$src/lib/strings.c"
+    "c:$src/sys/usermode.c"
+    "asm:$src/sys/usermode_asm.s"
     "c:$bld/embed.c"
     "c:$src/driver/pccon.c"
-    "c:$src/other/stubs.c"
-    "c:$src/other/glue.c"
-    "c:$src/other/mon.c"
+    "c:$src/sys/stubs.c"
+    "c:$src/sys/glue.c"
+    "c:$src/sys/mon.c"
     "c:$src/driver/atapi.c"
     "c:$src/fs/isofs.c"
     "c:$src/fs/tmpfs.c"
-    "c:$src/obj/kstr.c"
+    "c:$src/lib/kstr.c"
     "c:$src/subsys/subsys.c"
     "c:$src/subsys/subsys_unix.c"
     "c:$src/subsys/subsys_posix.c"
@@ -185,7 +185,7 @@ sources=(
     "c:$src/fs/aio.c"
     "c:$src/fs/vfs_bio.c"
     "c:$src/fs/vfs_cache.c"
-    "c:$src/fs/pagecache.c"
+    "c:$src/vm/pagecache.c"
     "c:$src/fs/vfs.c"
 )
 for spec in "${sources[@]}"; do
@@ -207,3 +207,4 @@ ld -m elf_i386 -T "$ws/boot/i386/kernel.ld" -e start --gc-sections \
 cp -f "$bld/bsd45.elf" "$ws/out/BSD45.ELF"
 echo "built $bld/bsd45.elf"
 objdump -h "$bld/bsd45.elf" | head -12
+

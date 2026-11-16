@@ -1,4 +1,4 @@
-# config.mk - kernel/lib
+﻿# config.mk - kernel/lib
 #
 # Per-directory build configuration for the BSD45 kernel.
 # build_kernel.ps1 is the current driver; a kbuild-style build can
@@ -44,3 +44,5 @@
 
 # subdirectories:
 #   sparc/
+#   kstr.c
+#   strings.c
