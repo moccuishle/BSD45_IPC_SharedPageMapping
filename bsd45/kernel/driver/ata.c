@@ -36,7 +36,7 @@
 #define	ST_ERR		0x01
 
 #define	CMD_IDENTIFY	0xec
-#define	CMD_READ_LBA	0x28		/* READ SECTORS (LBA28) */
+#define	CMD_READ_LBA	0x20		/* READ SECTORS (LBA28); 0x28 is undefined */
 #define	CMD_WRITE_LBA	0x30		/* WRITE SECTORS (LBA28) */
 
 static int ata_found = 0;
@@ -204,16 +204,38 @@ ata_read(unsigned lba, unsigned nsec, void *buf)
 	if (!ata_found || nsec == 0)
 		return (-1);
 	for (n = 0; n < nsec; n++) {
-		if (ata_setup_lba(lba + n, 1) < 0)
+		if (ata_setup_lba(lba + n, 1) < 0) {
+			printf("ata_read: setup failed st=");
+			printf("%x", hal_inb(ATA_IO + ATA_STATUS));
+			printf(" err=");
+			printf("%x", hal_inb(ATA_IO + ATA_ERROR));
+			printf("\n");
 			return (-1);
+		}
 		hal_outb(ATA_IO + ATA_COMMAND, CMD_READ_LBA);
 		ata_settle();
-		if (ata_wait(ST_BSY, 0, 200000) < 0)
+		if (ata_wait(ST_BSY, 0, 200000) < 0) {
+			printf("ata_read: bsy timeout\n");
 			return (-1);
-		if (hal_inb(ATA_IO + ATA_STATUS) & ST_ERR)
-			return (-1);
-		if (ata_wait(ST_DRQ, ST_DRQ, 200000) < 0)
-			return (-1);
+		}
+		{
+			int s1 = hal_inb(ATA_IO + ATA_STATUS);
+
+			if (s1 & ST_ERR) {
+				printf("ata_read: cmd aborted st=");
+				printf("%x", s1);
+				printf(" err=");
+				printf("%x", hal_inb(ATA_IO + ATA_ERROR));
+				printf("\n");
+				return (-1);
+			}
+			if (ata_wait(ST_DRQ, ST_DRQ, 200000) < 0) {
+				printf("ata_read: no drq st=");
+				printf("%x", s1);
+				printf("\n");
+				return (-1);
+			}
+		}
 		hal_insw(ATA_IO + ATA_DATA, p, 256);	/* 512 bytes = 256 words */
 		(void)ata_wait(ST_BSY, 0, 200000);
 		p += 512;

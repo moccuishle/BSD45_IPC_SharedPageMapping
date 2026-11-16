@@ -97,11 +97,21 @@ ffs_mount(void)
 	/* fs_magic sits at superblock offset 1372, so read >= 4 sectors (2048B).
 	 * A single 512B sector used to overflow this buffer. */
 	unsigned char sb[2048];
+	int r;
 
-	if (ata_present() == 0 || ata_read(SBYTE / SECSZ, 4, sb) < 0)
+	if (ata_present() == 0) {
+		printf("ffs: no ATA disk\n");
 		return (-1);
-	if (le32(sb + 1372) != FS_MAGIC)	/* fs_magic offset in struct fs */
+	}
+	r = ata_read(SBYTE / SECSZ, 4, sb);
+	if (r < 0) {
+		printf("ffs: superblock read failed (%d)\n", r);
 		return (-1);
+	}
+	if (le32(sb + 1372) != FS_MAGIC) {	/* fs_magic offset in struct fs */
+		printf("ffs: bad magic %x\n", le32(sb + 1372));
+		return (-1);
+	}
 	f_bsize  = le32(sb + 48);		/* fs_bsize */
 	f_fsize  = le32(sb + 52);		/* fs_fsize */
 	f_frag   = le32(sb + 56);		/* fs_frag */
@@ -111,8 +121,13 @@ ffs_mount(void)
 	f_nindir = le32(sb + 116);		/* fs_nindir */
 	f_fsbtodb = le32(sb + 100);		/* fs_fsbtodb */
 	f_ipg    = le32(sb + 184);		/* fs_ipg */
-	if (f_bsize == 0 || f_fsize == 0 || f_inopb == 0 || f_ipg == 0)
+	if (f_bsize == 0 || f_fsize == 0 || f_inopb == 0 || f_ipg == 0) {
+		printf("ffs: bad geometry bsize=%d fsize=%d inopb=%d ipg=%d\n",
+		    f_bsize, f_fsize, f_inopb, f_ipg);
 		return (-1);
+	}
+	printf("ffs: mounted bsize %d fsize %d frag %d iblkno %d dblkno %d inopb %d\n",
+	    f_bsize, f_fsize, f_frag, f_iblkno, f_dblkno, f_inopb);
 	f_mounted = 1;
 	return (0);
 }
