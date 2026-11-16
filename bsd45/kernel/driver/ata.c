@@ -164,18 +164,34 @@ ata_capacity(void)
 	return (ata_nsectors);
 }
 
-/* EN: Program LBA28 in the task-file registers for an nsec-sector transfer. */
-static void
+/* EN: Select master and program a 1-sector LBA28 task file in ONE pass.
+ * Writing ATA_DRIVE twice (once here, once in a separate select) makes
+ * QEMU abort the following WRITE with ERR=0x04, so DRIVE is written once,
+ * last, then settled.  Returns 0 when the device is idle and ready. */
+static int
 ata_setup_lba(unsigned lba, int nsec)
 {
-	/* ATAPI packet commands leave FEATURES/HOB stale; clear before a
-	 * PIO task-file command or QEMU aborts WRITE with ERR=0x04 (ABRT). */
-	hal_outb(ATA_IO + ATA_FEATURES, 0);
+	int st;
+
+	if (ata_wait(ST_BSY, 0, 200000) < 0)
+		return (-1);
+	hal_outb(ATA_IO + ATA_FEATURES, 0);	/* clear ATAPI residue */
 	hal_outb(ATA_IO + ATA_SECCOUNT, nsec & 0xff);
 	hal_outb(ATA_IO + ATA_LBA0, lba & 0xff);
 	hal_outb(ATA_IO + ATA_LBA1, (lba >> 8) & 0xff);
 	hal_outb(ATA_IO + ATA_LBA2, (lba >> 16) & 0xff);
 	hal_outb(ATA_IO + ATA_DRIVE, 0xe0 | ((lba >> 24) & 0x0f));
+	ata_settle();
+	if (ata_wait(ST_BSY, 0, 200000) < 0)
+		return (-1);
+	if (ata_wait(ST_DRDY, ST_DRDY, 200000) < 0)
+		return (-1);
+	st = hal_inb(ATA_IO + ATA_STATUS);
+	if (st & ST_ERR)
+		return (-1);
+	if (st & ST_DRQ)			/* must be idle before WRITE */
+		return (-1);
+	return (0);
 }
 
 /* EN: Read nsec 512-byte sectors starting at lba into buf; 0 on success, -1 on error. One sector per command keeps the PIO loop simple. */
@@ -188,9 +204,8 @@ ata_read(unsigned lba, unsigned nsec, void *buf)
 	if (!ata_found || nsec == 0)
 		return (-1);
 	for (n = 0; n < nsec; n++) {
-		if (ata_select() < 0)
+		if (ata_setup_lba(lba + n, 1) < 0)
 			return (-1);
-		ata_setup_lba(lba + n, 1);
 		hal_outb(ATA_IO + ATA_COMMAND, CMD_READ_LBA);
 		ata_settle();
 		if (ata_wait(ST_BSY, 0, 200000) < 0)
@@ -247,10 +262,8 @@ ata_write(unsigned lba, unsigned nsec, const void *buf)
 	if (!ata_found || nsec == 0)
 		return (-1);
 	for (n = 0; n < nsec; n++) {
-	if (ata_select() < 0)
+		if (ata_setup_lba(lba + n, 1) < 0)
 			return (-1);
-		ata_setup_lba(lba + n, 1);
-		ata_settle();		/* settle after the final DRIVE write */
 		hal_outb(ATA_IO + ATA_COMMAND, CMD_WRITE_LBA);
 		ata_settle();
 		{
