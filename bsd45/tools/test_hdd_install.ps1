@@ -87,16 +87,17 @@ function Run-Phase([string[]]$qemuArgs, [string[]]$keys, [string]$waitText,
     return $sb.ToString()
 }
 
-# Path has no spaces; avoid embedded quotes (they can make QEMU open the
-# image read-only, which surfaces as ATA ERR=0x04 on WRITE SECTORS).
+# QEMU rejects `index=` combined with `bus=`.  Use the canonical
+# if=ide,index=N form: index 0 = primary master (disk, the VMware ide0:0
+# equivalent), index 2 = secondary master (CD-ROM, the VMware ide1:0 one).
 $diskArg = $Disk
 
 # ---- phase 1: boot ISO, run install ------------------------------------
 Write-Host "`n=== PHASE 1: boot ISO + install ==="
-$cdArg = "file=`"$Iso`",media=cdrom,if=ide,index=0,bus=1"
+$cdArg = "file=$Iso,media=cdrom,if=ide,index=2"
 $args1 = @(
     "-drive", $cdArg, "-boot", "d", "-m", "64",
-    "-drive", "file=$diskArg,format=raw,if=ide,index=0,bus=0,media=disk,cache=writeback",
+    "-drive", "file=$diskArg,format=raw,if=ide,index=0,media=disk,cache=writeback",
     "-display", "none", "-no-reboot",
     "-serial", "tcp:127.0.0.1:$SerialPort,server=on,wait=on",
     "-monitor", "tcp:127.0.0.1:$MonitorPort,server=on,nowait"
@@ -114,7 +115,7 @@ Write-Host "`n*** INSTALL OK ***" -ForegroundColor Green
 # ---- phase 2: boot from disk, no CD ------------------------------------
 Write-Host "`n=== PHASE 2: boot from virtual disk (no CD) ==="
 $args2 = @(
-    "-drive", "file=$diskArg,format=raw,if=ide,index=0,bus=0,media=disk,cache=writeback",
+    "-drive", "file=$diskArg,format=raw,if=ide,index=0,media=disk,cache=writeback",
     "-m", "64", "-display", "none", "-no-reboot", "-boot", "c",
     "-serial", "tcp:127.0.0.1:$SerialPort,server=on,wait=on",
     "-monitor", "tcp:127.0.0.1:$MonitorPort,server=on,nowait"
