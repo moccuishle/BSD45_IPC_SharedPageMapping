@@ -26,6 +26,7 @@
 #include <sys/errno.h>
 
 #include "atapi.h"
+#include "ata.h"
 #include "vfs.h"
 
 #ifndef PAGE_SIZE
@@ -200,11 +201,18 @@ static int
 bio_read_block(unsigned dev, unsigned blkno, void *data)
 {
 
-	if (dev != BDEV_CD)
-		return (-EINVAL);
-	if (atapi_read(blkno, 1, data) < 0)
-		return (-EIO);
-	return (0);
+	if (dev == BDEV_CD) {
+		if (atapi_read(blkno, 1, data) < 0)
+			return (-EIO);
+		return (0);
+	}
+	if (dev == BDEV_WD) {
+		/* 2048-byte buffer cache block = 4 x 512 ATA sectors. */
+		if (ata_read(blkno * 4, 4, data) < 0)
+			return (-EIO);
+		return (0);
+	}
+	return (-EINVAL);
 }
 
 /*
@@ -342,7 +350,13 @@ bwrite(struct buf *bp)
 	if (bp == 0)
 		return (-EINVAL);
 	if (bp->b_dev == BDEV_CD)
-		return (-EROFS);		/* no writable device yet */
+		return (-EROFS);		/* the CD is read-only */
+	if (bp->b_dev == BDEV_WD) {
+		if (ata_write(bp->b_blkno * 4, 4, bp->b_data) < 0)
+			return (-EIO);
+		bp->b_flags &= ~B_DIRTY;
+		return (0);
+	}
 	return (-ENXIO);
 }
 

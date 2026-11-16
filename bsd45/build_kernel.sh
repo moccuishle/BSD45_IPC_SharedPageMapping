@@ -164,6 +164,7 @@ sources=(
     "c:$src/sys/glue.c"
     "c:$src/sys/mon.c"
     "c:$src/driver/atapi.c"
+    "c:$src/driver/ata.c"
     "c:$src/fs/isofs.c"
     "c:$src/fs/tmpfs.c"
     "c:$src/lib/kstr.c"

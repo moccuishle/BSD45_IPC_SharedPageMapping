@@ -20,7 +20,9 @@
 #include <machine/cpu.h>
 #include <machine/pmap.h>
 
+#include "ata.h"
 #include "isofs.h"
+#include "ffs/ffs.h"
 #include "vfs.h"
 #include "subsys/subsys.h"
 #include "thread/kthread.h"
@@ -28,6 +30,7 @@
 #include "hal/clock.h"
 #include "vm/zcomp.h"
 extern void cow_print(void);
+extern int install_to_disk(void);
 
 extern vm_offset_t avail_start, avail_end, virtual_avail, virtual_end;
 extern int KPTphys;
@@ -318,7 +321,8 @@ monitor(void)
 			    "      ipl  ipltest  clock  lat  cow  ipltrace\n"
 			    "      zcomp  zcomptest\n"
 			    "      aio  aiotest\n"
-			    "      wtest\n");
+			    "      wtest\n"
+			    "      install  disk      (ISO -> virtual disk install)\n");
 		else if (!strcmp(line, "mem"))
 			cmd_mem();
 		else if (!strcmp(line, "vstat"))
@@ -397,6 +401,18 @@ monitor(void)
 				    iso_root(), iso_root_size());
 			else
 				printf("no ISO9660 root mounted\n");
+		}
+		else if (!strcmp(line, "disk")) {
+			if (ata_present())
+				printf("ATA disk: %d sectors (%d MiB), FFS %s\n",
+				    ata_capacity(), ata_capacity() / 2048,
+				    ffs_mounted() ? "mounted" : "not mounted");
+			else
+				printf("no ATA disk detected\n");
+		}
+		else if (!strcmp(line, "install")) {
+			if (install_to_disk() != 0)
+				printf("install: FAILED (see messages above)\n");
 		}
 		else if (!strcmp(line, "test"))
 			start_prog("/test", 0);

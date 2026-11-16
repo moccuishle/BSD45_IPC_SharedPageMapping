@@ -39,24 +39,28 @@ _hal_outw:
 	.globl	_hal_insw
 	.align	4
 _hal_insw:
-	movl	4(%esp), %edx
-	movl	8(%esp), %edi
-	movl	12(%esp), %ecx
+	pushl	%edi
+	movl	8(%esp), %edx
+	movl	12(%esp), %edi
+	movl	16(%esp), %ecx
 	cld
 	rep
 	insw
+	popl	%edi
 	ret
 
 /* void hal_outsw(int port, const void *addr, unsigned count) */
 	.globl	_hal_outsw
 	.align	4
 _hal_outsw:
-	movl	4(%esp), %edx
-	movl	8(%esp), %esi
-	movl	12(%esp), %ecx
+	pushl	%esi
+	movl	8(%esp), %edx
+	movl	12(%esp), %esi
+	movl	16(%esp), %ecx
 	cld
 	rep
 	outsw
+	popl	%esi
 	ret
 
 /* void cpu_load_cr3(unsigned pd) */

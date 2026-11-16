@@ -13,6 +13,7 @@
 
 #include "atapi.h"
 #include "isofs.h"
+#include "ffs/ffs.h"
 #include "vfs.h"
 
 extern void bcopy(const void *, void *, unsigned);
@@ -28,6 +29,23 @@ struct vnodeops iso_vnodeops;
 
 static struct vnode iso_rootv;
 struct vnode *rootvnode = &iso_rootv;
+
+/* EN: Which filesystem backs "/".  glue.c sets this before vfs_init() based on whether we booted from the ISO or the installed disk. */
+static int vfs_root_src = VFS_ROOT_ISO;
+
+void
+vfs_set_root_source(int source)
+{
+
+	vfs_root_src = source;
+}
+
+int
+vfs_root_source(void)
+{
+
+	return (vfs_root_src);
+}
 
 /* ---------------------------------------------------------------- helpers */
 
@@ -96,7 +114,7 @@ vn_free(struct vnode *vp)
 {
 	int i;
 
-	if (vp == 0 || vp == &iso_rootv || tmpfs_is_root(vp))
+	if (vp == 0 || vp == &iso_rootv || tmpfs_is_root(vp) || ffs_is_root(vp))
 		return;
 	i = vp - vnode_pool;
 	if (i < 0 || i >= VNODES)
@@ -179,7 +197,7 @@ void
 vn_put(struct vnode *vp)
 {
 
-	if (vp == 0 || vp == &iso_rootv || tmpfs_is_root(vp))
+	if (vp == 0 || vp == &iso_rootv || tmpfs_is_root(vp) || ffs_is_root(vp))
 		return;
 	if (--vp->ref <= 0) {
 		vp->ref = 0;
@@ -449,18 +467,37 @@ vfs_init(void)
 	namecache_init();
 	bio_init();
 	pagecache_init();
-	bzero(&iso_rootv, sizeof(iso_rootv));
-	iso_rootv.ref = 1;
-	iso_rootv.type = VDIR;
-	iso_rootv.ops = &iso_vnodeops;
-	iso_rootv.lba = iso_root();
-	iso_rootv.size = iso_root_size();
-	iso_rootv.v_id = vn_newid();
-	iso_rootv.v_key = 0x80000000u | (iso_rootv.lba & 0x7fffffff);
 	tmpfs_init();
 	tmpfs_root()->v_id = vn_newid();
-	rootvnode = &iso_rootv;
-	mount_add("/", &iso_rootv);
+
+	if (vfs_root_src == VFS_ROOT_FFS && ffs_mounted()) {
+		struct vnode *fr = ffs_root();
+
+		bzero(fr, sizeof(*fr));
+		fr->ref = 1;
+		fr->type = VDIR;
+		fr->ops = &ffs_vnodeops;
+		fr->lba = 2;			/* FFS root inode */
+		fr->size = 0;
+		fr->v_id = vn_newid();
+		fr->v_key = 0x40000000u | 2;	/* FFS inode key prefix */
+		rootvnode = fr;
+		mount_add("/", fr);
+	} else if (vfs_root_src == VFS_ROOT_TMPFS) {
+		rootvnode = tmpfs_root();
+		mount_add("/", tmpfs_root());
+	} else {
+		bzero(&iso_rootv, sizeof(iso_rootv));
+		iso_rootv.ref = 1;
+		iso_rootv.type = VDIR;
+		iso_rootv.ops = &iso_vnodeops;
+		iso_rootv.lba = iso_root();
+		iso_rootv.size = iso_root_size();
+		iso_rootv.v_id = vn_newid();
+		iso_rootv.v_key = 0x80000000u | (iso_rootv.lba & 0x7fffffff);
+		rootvnode = &iso_rootv;
+		mount_add("/", &iso_rootv);
+	}
 	mount_add("/tmp", tmpfs_root());
 }
 

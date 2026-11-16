@@ -127,6 +127,17 @@ void	tmpfs_init(void);
 struct vnode *tmpfs_root(void);
 int	tmpfs_is_root(struct vnode *vp);
 
+/*
+ * Root filesystem source (S-install): the ISO live CD mounts the ISO9660
+ * root; a machine booted from the installed virtual disk mounts the FFS
+ * root.  glue.c sets this before vfs_init().
+ */
+#define	VFS_ROOT_ISO	0
+#define	VFS_ROOT_FFS	1
+#define	VFS_ROOT_TMPFS	2
+void	vfs_set_root_source(int);
+int	vfs_root_source(void);
+
 void	vfs_init(void);
 int	vfs_namei(const char *path, struct vnode **vpp);
 /*
@@ -159,6 +170,7 @@ void	vfs_stats(unsigned *vtotal, unsigned *vused, unsigned *vfree,
 struct buf;
 
 #define	BDEV_CD		0
+#define	BDEV_WD		1		/* ATA hard disk (the VMware virtual disk) */
 
 void	bio_init(void);
 struct buf *bread(unsigned dev, unsigned blkno);
