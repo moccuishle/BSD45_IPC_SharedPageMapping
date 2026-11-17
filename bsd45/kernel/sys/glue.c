@@ -33,10 +33,10 @@
 #include "ffs/ffs.h"
 #include "vfs.h"
 #include "lib/kstr.h"
-#include "subsys/subsys.h"
+#include "sys/platform.h"
 #include "thread/kthread.h"
-#include "hal/ipl.h"
-#include "hal/clock.h"
+#include "sys/platform.h"
+#include "sys/platform.h"
 #include "vm/zcomp.h"
 
 /* GCC builtins: the mingw <stdarg.h> is only an include_next stub. */
@@ -394,24 +394,16 @@ main(vm_offset_t firstaddr)
 	 */
 	zcomp_init();
 	printf("kstr: strings %s\n", KSTR_UTF16 ? "UTF-16" : "ASCII");
-	subsys_init();
-	printf("subsys: %d personalities (unix/posix/linux/win32)\n",
-	    subsys_count());
 	/*
-	 * S21: kernel execution carriers for softirq/page reclaim work.
-	 * They run at user blocking points (and explicit polls) until the
-	 * timer interrupt lands.
+	 * Kernel execution carriers for deferred/page-reclaim work.  The old
+	 * subsys/ personality layer and IPL/preemption space were removed:
+	 * syscalls dispatch straight to bsd45_syscall(), and the PIT is a
+	 * plain tick source.
 	 */
 	kthread_init();
 	softirq_init();
 	vfs_aio_init();
 	aio_user_init();
-	/*
-	 * os.md mechanism 4: one 16-level IPL space for hardware and soft
-	 * interrupts, then the PIT as the preemption source.  IRQ0 stays
-	 * masked by IF=0 until the first iret to ring 3 enables IF.
-	 */
-	ipl_init();
 	clock_init();
 	printf("\n");
 

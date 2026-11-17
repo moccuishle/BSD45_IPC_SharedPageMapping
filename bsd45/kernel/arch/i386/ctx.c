@@ -5,10 +5,9 @@
  *
  * This is the only place that knows about the TSS ring-0 stack pointer,
  * the kswitch assembly entry, the ring-3 CS bits and the IF flag.  The
- * scheduler calls the generic hooks from kernel/hal/context.h.
- * 本文件是 i386 的上下文 HAL：只有它知道 TSS ring0 栈指针、kswitch 汇编
- * 入口、ring3 的 CS 位和 IF 标志；调度器只调用 kernel/hal/context.h 的
- * 通用钩子。
+ * scheduler calls the hooks declared at the top of this file.
+ * 本文件是 i386 的上下文切换层：只有它知道 TSS ring0 栈指针、kswitch 汇编
+ * 入口、ring3 的 CS 位和 IF 标志；调度器只调用本文件顶部声明的钩子。
  */
 #include <sys/param.h>
 #include <sys/systm.h>
@@ -16,10 +15,25 @@
 
 #include <machine/segments.h>
 
-#include "arch/i386/hal/hal.h"
-#include "hal/context.h"
-#include "subsys/subsys.h"
+#include "arch/i386/io.h"
+#include "sys/platform.h"
 #include "thread/kthread.h"
+
+/*
+ * Context-switch hooks (formerly declared in hal/context.h).  These are the
+ * generic kernel-side entry points the scheduler calls; the i386 specifics
+ * (TSS esp0, kswitch, CR3, IF flag, IDT gate) live here.
+ */
+struct sysregs;
+void	hal_kernel_stack_set(unsigned top);
+void	hal_switch_stack(unsigned *old_sp, unsigned new_sp);
+int	hal_intr_from_user(const struct sysregs *r);
+void	hal_intr_user_resume(struct sysregs *r);
+unsigned hal_user_stack_top(void);
+void	hal_address_space_activate(unsigned pd);
+unsigned hal_address_space_current(void);
+void	hal_cpu_halt(void);
+void	hal_syscall_gate_init(void);
 
 extern struct user *proc0paddr;
 extern void syscall_entry(void);

@@ -12,7 +12,7 @@
 #include <sys/systm.h>
 
 #include "thread/kthread.h"
-#include "hal/context.h"
+#include "sys/platform.h"
 
 #ifndef PAGE_SIZE
 #define	PAGE_SIZE	4096

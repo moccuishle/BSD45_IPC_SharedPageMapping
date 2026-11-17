@@ -14,7 +14,7 @@
 #include <sys/systm.h>
 #include <sys/types.h>
 
-#include "arch/i386/hal/hal.h"
+#include "arch/i386/io.h"
 
 #define	ATA_IO		0x1f0
 #define	ATA_CTL		0x3f6

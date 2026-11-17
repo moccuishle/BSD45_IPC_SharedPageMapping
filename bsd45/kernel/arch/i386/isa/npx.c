@@ -33,7 +33,7 @@
  *
  *	@(#)npx.c	8.1 (Berkeley) 6/11/93
  */
-#include "arch/i386/hal/hal.h"
+#include "arch/i386/io.h"
 #include "npx.h"
 #if NNPX > 0
 

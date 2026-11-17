@@ -24,10 +24,8 @@
 #include "isofs.h"
 #include "ffs/ffs.h"
 #include "vfs.h"
-#include "subsys/subsys.h"
+#include "sys/platform.h"
 #include "thread/kthread.h"
-#include "hal/ipl.h"
-#include "hal/clock.h"
 #include "vm/zcomp.h"
 extern void cow_print(void);
 extern int install_to_disk(void);
@@ -351,9 +349,8 @@ monitor(void)
 		if (!strcmp(line, "help"))
 			printf("help  mem  vstat  vstress  pte <addr>  map  banner  "
 			    "usermode  shell  test  cd  reboot  halt\n"
-			    "      subsys  subsystest\n"
-			    "      kthread  softirq  kthreadtest  softirqtest\n"
-			    "      ipl  ipltest  clock  lat  cow  ipltrace\n"
+			    			    "      kthread  softirq  kthreadtest  softirqtest\n"
+			    "      clock  lat  cow\n"
 			    "      zcomp  zcomptest\n"
 			    "      aio  aiotest\n"
 			    "      wtest\n"
@@ -364,14 +361,6 @@ monitor(void)
 			cmd_vstat();
 		else if (!strcmp(line, "vstress"))
 			cmd_vstress();
-		else if (!strcmp(line, "subsys"))
-			subsys_print();
-		else if (!strcmp(line, "subsystest")) {
-			int rv = subsys_selftest();
-
-			if (rv != 0)
-				printf("subsystest: FAIL\n");
-		}
 		else if (!strcmp(line, "kthread"))
 			kthread_print();
 		else if (!strcmp(line, "softirq"))
@@ -388,10 +377,6 @@ monitor(void)
 			printf("softirqtest: count %d %s\n", n,
 			    n > 0 ? "PASS" : "FAIL");
 		}
-		else if (!strcmp(line, "ipl"))
-			ipl_print();
-		else if (!strcmp(line, "ipltrace"))
-			ipl_trace_print(64);
 		else if (!strcmp(line, "clock"))
 			clock_print();
 		else if (!strcmp(line, "lat"))
@@ -415,13 +400,6 @@ monitor(void)
 		}
 		else if (!strcmp(line, "cow"))
 			cow_print();
-		else if (!strcmp(line, "ipltest")) {
-			int rv = ipl_selftest();
-			int rv2 = kthread_ipl_selftest();
-
-			printf("ipltest: %s\n",
-			    (rv == 0 && rv2 == 0) ? "PASS" : "FAIL");
-		}
 		else if (!strcmp(line, "wtest"))
 			cmd_wtest();
 		else if (!strncmp(line, "pte", 3))

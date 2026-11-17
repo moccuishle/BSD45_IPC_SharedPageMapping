@@ -133,35 +133,14 @@ foreach ($pair in @(
 # S-install: build the FFS image that the in-guest `install` command writes
 # to the VMware virtual disk.  It is shipped on the ISO as BSD45.FFS.
 # Resolve a *working* python (the WindowsApps "python3" stub does not run).
-function Get-Python {
-    $cands = @()
-    $wb = Join-Path $env:USERPROFILE ".workbuddy\binaries\python\versions"
-    if (Test-Path $wb) {
-        Get-ChildItem $wb -Directory | Sort-Object Name -Descending | ForEach-Object {
-            $cands += (Join-Path $_.FullName "python3.exe")
-        }
-    }
-    $cands += "python3", "python"
-    foreach ($c in $cands) {
-        $exe = $c
-        $cmd = Get-Command $c -ErrorAction SilentlyContinue
-        if ($cmd) { $exe = $cmd.Source }
-        & $exe -c "import sys" 2>$null | Out-Null
-        if ($LASTEXITCODE -eq 0) { return $exe }
-    }
-    return $null
-}
-$py = Get-Python
-if ($py) {
-    & $py (Join-Path $ws "hdd\make_install_ffs.py") (Join-Path $ws "hdd\BSD45.FFS")
-    if ($LASTEXITCODE -ne 0) { throw "make_install_ffs.py failed" }
-    $ffsImg = Join-Path $ws "hdd\BSD45.FFS"
-    if (Test-Path $ffsImg) {
-        Copy-Item $ffsImg "$isodir\BSD45.FFS" -Force
-        Write-Host ("BSD45.FFS: {0:N0} bytes" -f (Get-Item $ffsImg).Length)
-    }
-} else {
-    Write-Host "warning: python3 not found, BSD45.FFS not generated (install command will be unavailable)" -ForegroundColor Yellow
+# S-install: build the FFS image with the pure-PowerShell port
+# (hdd/make_install_ffs.ps1 -> mkffs.ps1); no python required.
+& powershell -NoProfile -ExecutionPolicy Bypass -File (Join-Path $ws "hdd\make_install_ffs.ps1") (Join-Path $ws "hdd\BSD45.FFS")
+if ($LASTEXITCODE -ne 0) { throw "make_install_ffs.ps1 failed" }
+$ffsImg = Join-Path $ws "hdd\BSD45.FFS"
+if (Test-Path $ffsImg) {
+    Copy-Item $ffsImg "$isodir\BSD45.FFS" -Force
+    Write-Host ("BSD45.FFS: {0:N0} bytes" -f (Get-Item $ffsImg).Length)
 }
 
 Copy-Item "$bld\boot.img" "$isodir\boot.img" -Force

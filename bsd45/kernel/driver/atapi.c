@@ -11,7 +11,7 @@
 #include <sys/types.h>
 
 #include "atapi.h"
-#include "arch/i386/hal/hal.h"
+#include "arch/i386/io.h"
 
 #define	PRIMARY_IO	0x1f0
 #define	PRIMARY_CTL	0x3f6

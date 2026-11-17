@@ -34,12 +34,12 @@
 #include "atapi.h"
 #include "isofs.h"
 #include "vfs.h"
-#include "subsys/subsys.h"
+#include "sys/platform.h"
 #include "thread/kthread.h"
-/* platform-independent context hooks live in kernel/hal/context.h */
-#include "hal/context.h"
-#include "hal/ipl.h"
-#include "hal/clock.h"
+/* context-switch hooks are declared in sys/platform.h */
+#include "sys/platform.h"
+#include "sys/platform.h"
+#include "sys/platform.h"
 #include "vm/zcomp.h"
 #include "fs/uring.h"
 
@@ -177,7 +177,7 @@ struct fd {
 	struct vnode		*vp;		/* file/dir through the VFS */
 };
 
-/* saved user context lives in subsys/subsys.h so personalities can see it */
+/* saved user context (struct sysregs) is declared in sys/platform.h */
 
 #define	NPROC		8
 #define	P_FREE		0
@@ -871,11 +871,11 @@ zcomp_refault(unsigned va)
  * User-space asynchronous I/O ABI (os.md mechanism 5).
  *
  * submit returns a token immediately; the VFS aio worker runs the shared
- * read_iter/write_iter backend and completes through an IPL_AIO softirq.
+ * read_iter/write_iter backend and completes through a deferred softirq callback.
  * A read completes into the per-slot kernel page and is copied out before
  * the waiting process is woken; a write copies the user buffer in at submit.
  * 用户态异步 I/O ABI：submit 立即返回 token；VFS aio worker 执行共享的
- * read_iter/write_iter 后端，并通过 IPL_AIO 软中断完成。读先落到每槽内核
+ * read_iter/write_iter 后端，并通过延迟软中断回调完成。读先落到每槽内核
  * 页，在唤醒等待进程前拷回用户；写在提交时先把用户缓冲拷入。
  */
 #define	NAIO		8
@@ -930,8 +930,8 @@ static int		aio_next_token;
 
 static void aio_soft(void *arg);
 
-/* 中文：初始化用户态异步 I/O：清零 aio 槽、为每个槽分配并映射内核缓冲页，注册 IPL_AIO 软中断处理 */
-/* EN: Initialize userland async I/O: clear aio slots, allocate and map a kernel buffer page per slot, and register the IPL_AIO softirq handler */
+/* 中文：初始化用户态异步 I/O：清零 aio 槽、为每个槽分配并映射内核缓冲页，注册延迟软中断处理 */
+/* EN: Initialize userland async I/O: clear aio slots, allocate and map a kernel buffer page per slot, and register the deferred softirq handler */
 void
 aio_user_init(void)
 {
@@ -947,7 +947,6 @@ aio_user_init(void)
 		    VM_PROT_READ | VM_PROT_WRITE);
 		aios[i].a_kbuf = (unsigned char *)(AIO_VA + i * PAGE_SIZE);
 	}
-	ipl_register(IPL_AIO, aio_soft, 0, "aio");
 	printf("aio: %d submission slots at %x\n", NAIO, AIO_VA);
 }
 
@@ -982,7 +981,7 @@ aio_complete_kiocb(struct kiocb *ki, int r)
 		uring_wake(rg);
 		return;
 	}
-	softirq_raise(IPL_AIO, aio_soft, s);
+	softirq_defer(aio_soft, s);
 }
 
 /* 中文：aio 完成软中断：找到等待该 token 的进程，把结果写入其 regs.eax、置为可运行并释放槽位；ring 完成不走此路 */
@@ -2440,7 +2439,7 @@ proc_sched(void)
  * frame; irq0_entry's iret then returns straight into the new thread.
  * Interrupts are off (interrupt gate) for the whole switch, and we never
  * switch while the interrupted context is in kernel mode: kernel-side
- * deferred work is handled at preempt_point() instead.
+ * deferred work is handled at syscall exit via softirq_dispatch().
  */
 int	need_resched;
 unsigned sched_switches;
@@ -2456,7 +2455,7 @@ sched_tick(struct sysregs *r)
 
 	if (cur == 0 || me == 0 || r == 0 || !hal_intr_from_user(r))
 		return;
-	if (me->t_base_ipl >= IPL_CLOCK)	/* this thread asked not to be preempted */
+	if (me->t_base_ipl >= KTHREAD_NO_PREEMPT)	/* thread opted out of preemption */
 		return;
 
 	/* save the interrupted context */
@@ -4885,24 +4884,22 @@ bsd45_syscall(struct sysregs *r)
 }
 
 /*
- * Trap entry point (called from usermode_asm.s).  The active personality
- * translates its API into bsd45_syscall(); the trap path never changes.
+ * Trap entry point (called from usermode_asm.s).  The old personality
+ * subsystem (subsys/) is gone: syscalls dispatch straight to bsd45_syscall().
  */
-/* 中文：非原生 ABI 的陷阱入口：由当前 personality 把其 API 转换为 bsd45_syscall，陷阱路径本身不变 */
-/* EN: Trap entry for non-native ABIs: the active personality translates its API into bsd45_syscall; the trap path itself is unchanged */
+/* 中文：陷阱入口：personality 子系统已删除，系统调用直接分发到 bsd45_syscall */
+/* EN: Trap entry: the personality subsystem is gone, dispatch straight to bsd45_syscall */
 void
 syscall_dispatch(struct sysregs *r)
 {
 
-	(void)subsys_dispatch(r);
+	(void)bsd45_syscall(r);		/* writes the result into r->eax itself */
 	/*
-	 * S21 + os.md M4: syscall exit is a preempt_point(): serve pending
-	 * soft interrupts and deferred kernel work without disturbing the
-	 * user context that is about to be resumed.
-	 * S21 + os.md M4：系统调用出口是安全抢占点：先服务 pending 软中断和
-	 * 延迟内核工作，再决定是否切换到其它线程。
+	 * Syscall exit is a safe point: drain deferred work before deciding
+	 * whether to switch threads.
+	 * 系统调用出口是安全点：先排空延迟工作，再决定是否切换线程。
 	 */
-	preempt_point();
+	softirq_dispatch();
 	/*
 	 * Kernel-mode safe-point preemption: the syscall is complete, so the
 	 * current user context can be saved and another thread scheduled.

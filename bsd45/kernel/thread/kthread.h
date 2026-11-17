@@ -16,7 +16,7 @@
 #ifndef _KTHREAD_H_
 #define _KTHREAD_H_
 
-#include "subsys/subsys.h"
+#include "sys/platform.h"
 
 #define	NKTHREAD	16
 #define	KT_FREE		0

@@ -1,4 +1,4 @@
-﻿#!/usr/bin/env bash
+#!/usr/bin/env bash
 # build_kernel.sh - cross-build the 4.5BSD-Lite2 i386 kernel as ELF32.
 set -uo pipefail
 ws="$(cd "$(dirname "$0")" && pwd)"
@@ -207,20 +207,15 @@ sources=(
     "c:$src/fs/ffs/install.c"
     "c:$src/fs/tmpfs.c"
     "c:$src/lib/kstr.c"
-    "c:$src/subsys/subsys.c"
-    "c:$src/subsys/subsys_unix.c"
-    "c:$src/subsys/subsys_posix.c"
-    "c:$src/subsys/subsys_linux.c"
-    "c:$src/subsys/subsys_win32.c"
+    # subsys/ personality layer removed: syscalls dispatch straight to
+    # bsd45_syscall(); struct sysregs now lives in include/sys/platform.h
     "c:$src/thread/kthread.c"
     "c:$src/thread/softirq.c"
     "asm:$src/thread/kswitch.s"
     "asm:$src/arch/$ARCH/x86.asm"
-    "c:$src/hal/ipl.c"
-    "c:$src/arch/$ARCH/hal/ipl_arch.c"
-    "c:$src/arch/$ARCH/hal/context_arch.c"
-    "c:$src/hal/clock.c"
-    "c:$src/arch/$ARCH/hal/clock_arch.c"
+    # kernel/hal removed: context + timer folded into arch/i386, no IPL layer
+    "c:$src/arch/$ARCH/ctx.c"
+    "c:$src/arch/$ARCH/timer.c"
     "c:$src/vm/zcomp.c"
     "c:$src/fs/aio.c"
     "c:$src/fs/vfs_bio.c"

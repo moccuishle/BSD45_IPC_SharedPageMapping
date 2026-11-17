@@ -18,7 +18,7 @@
 
 #include <i386/i386/cons.h>
 
-#include "arch/i386/hal/hal.h"
+#include "arch/i386/io.h"
 
 #define	COM1		0x3f8
 #define	COM1_LSR	(COM1 + 5)

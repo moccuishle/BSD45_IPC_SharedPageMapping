@@ -1,4 +1,4 @@
-﻿#!/usr/bin/env bash
+#!/usr/bin/env bash
 # build_sh.sh - build the real 4.5BSD /bin/sh (and the small tools) as ELF32.
 #
 #   build_sh.sh            -> out/userland/sh.elf + echo/ls/cat/mkdir
@@ -36,7 +36,9 @@ prepare_headers() {
     cp -f "$ws/libc/include/stdarg.h" "$incu/stdarg.h"
     cp -f "$ws/libc/include/ctype.h"  "$incu/ctype.h"
     cp -f "$ws/libc/include/histedit.h" "$incu/histedit.h"
+    cp -f "$ws/libc/include/pthread.h" "$incu/pthread.h"
     cp -f "$ws/libc/include/uring.h" "$incu/uring.h"
+    cp -f "$ws/libc/include/syscall_arch.h" "$incu/syscall_arch.h"
     [ -f "$incu/errno.h" ] && return 0
     step "preparing libc header view"
     # Mirror build_sh.ps1 exactly: 4.5BSD usr/include, sys/sys (also at the
@@ -59,7 +61,9 @@ prepare_headers() {
     cp -f "$ws/libc/include/stdarg.h" "$incu/stdarg.h"
     cp -f "$ws/libc/include/ctype.h"  "$incu/ctype.h"
     cp -f "$ws/libc/include/histedit.h" "$incu/histedit.h"
+    cp -f "$ws/libc/include/pthread.h" "$incu/pthread.h"
     cp -f "$ws/libc/include/uring.h" "$incu/uring.h"
+    cp -f "$ws/libc/include/syscall_arch.h" "$incu/syscall_arch.h"
 }
 
 prepare_headers
@@ -102,11 +106,36 @@ objs=()
 add() { objs+=("$1"); }
 
 step "startup objects"
-compile_asm "$ws/libc/src/crt0.s" "$obj/crt0.o" && add "$obj/crt0.o"
-compile_asm "$ws/libc/src/jmp.s"  "$obj/jmp.o"  && add "$obj/jmp.o"
+# Mirror build_sh.ps1: read the asm-y list from libc/arch/x86/config.mk and
+# compile each from libc/arch/x86/ (not the stale libc/src/ path).  Skip
+# chkstk_ms.s here -- it is added separately below, like the PowerShell build.
+libc_arch="$ws/libc/arch/x86"
+arch_cfg="$libc_arch/config.mk"
+asm_srcs=()
+if [ -f "$arch_cfg" ]; then
+    while IFS= read -r line; do
+        # Skip comment lines (e.g. "# asm-y += (same list, explicit)").
+        case "$line" in \#*) continue ;; esac
+        case "$line" in
+            *asm-y*+=*)
+                a="${line#*=}"
+                a="$(echo "$a" | sed -e 's/^[[:space:]]*//' -e 's/[[:space:]]*$//')"
+                [ -n "$a" ] && asm_srcs+=("$a")
+                ;;
+        esac
+    done < "$arch_cfg"
+fi
+for af in "${asm_srcs[@]}"; do
+    [ "$af" = "chkstk_ms.s" ] && continue
+    base="${af%.*}"
+    oname="$base.o"
+    [ "$base" = "pthread" ] && oname="pthread_asm.o"
+    compile_asm "$libc_arch/$af" "$obj/$oname" && add "$obj/$oname"
+done
 
 step "port glue"
 compile_c "$ws/libc/src/libc_sys.c"      "$obj/libc_sys.o"      && add "$obj/libc_sys.o"
+compile_c "$ws/libc/src/pthread.c"       "$obj/pthread_lib.o"   && add "$obj/pthread_lib.o"
 compile_c "$ws/libc/src/dtoa.c"          "$obj/dtoa.o"          && add "$obj/dtoa.o"
 compile_c "$ws/libc/src/histedit_stub.c" "$obj/histedit_stub.o" && add "$obj/histedit_stub.o"
 

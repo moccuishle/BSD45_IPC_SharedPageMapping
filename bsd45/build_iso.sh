@@ -1,4 +1,4 @@
-﻿#!/usr/bin/env bash
+#!/usr/bin/env bash
 # build_iso.sh - build the El Torito boot image and the BSD45-ELF-x86 ISO.
 set -uo pipefail
 ws="$(cd "$(dirname "$0")" && pwd)"
@@ -76,20 +76,15 @@ done
 
 # S-install: build the FFS image that the in-guest `install` command writes
 # to the VMware virtual disk, and ship it on the ISO as BSD45.FFS.
-# This is the Ubuntu equivalent of the Get-Python block in build_iso.ps1.
-if command -v python3 >/dev/null 2>&1; then
-    if python3 "$ws/hdd/make_install_ffs.py" "$ws/hdd/BSD45.FFS"; then
-        ffs_img="$ws/hdd/BSD45.FFS"
-        if [ -f "$ffs_img" ]; then
-            cp -f "$ffs_img" "$isodir/BSD45.FFS"
-            echo "BSD45.FFS: $(stat -c%s "$ffs_img" 2>/dev/null || wc -c < "$ffs_img") bytes"
-        fi
-    else
-        echo "ERROR: make_install_ffs.py failed, BSD45.FFS not shipped" >&2
-        exit 1
+# Uses the pure-Bash port (hdd/make_install_ffs.sh -> mkffs.sh); no python.
+if bash "$ws/hdd/make_install_ffs.sh" "$ws/hdd/BSD45.FFS"; then
+    ffs_img="$ws/hdd/BSD45.FFS"
+    if [ -f "$ffs_img" ]; then
+        cp -f "$ffs_img" "$isodir/BSD45.FFS"
+        echo "BSD45.FFS: $(stat -c%s "$ffs_img" 2>/dev/null || wc -c < "$ffs_img") bytes"
     fi
 else
-    echo "ERROR: python3 not found, BSD45.FFS not generated (install would be unavailable)" >&2
+    echo "ERROR: make_install_ffs.sh failed, BSD45.FFS not shipped" >&2
     exit 1
 fi
 
