@@ -388,6 +388,42 @@ kthread_count(void)
 	return (n);
 }
 
+/* ------------------------------------------------- preemption control */
+
+/* EN: Enter a non-preemptable kernel critical section (nestable). */
+void
+preempt_disable(void)
+{
+
+	if (curk != 0)
+		curk->t_preempt_cnt++;
+	else if (cur_proc_kthread() != 0)	/* user thread running in kernel */
+		cur_proc_kthread()->t_preempt_cnt++;
+}
+
+/* EN: Leave a critical section.  The actual reschedule is deferred to the
+ * next safe point (syscall exit / irq return to user mode). */
+void
+preempt_enable(void)
+{
+	struct kthread *t = (curk != 0) ? curk : cur_proc_kthread();
+
+	if (t == 0)
+		return;
+	if (t->t_preempt_cnt > 0)
+		t->t_preempt_cnt--;
+	/* need_resched is consumed only at a safe point, never here */
+}
+
+/* EN: Is the current thread in a kernel critical section? */
+int
+preempt_is_disabled(void)
+{
+	struct kthread *t = (curk != 0) ? curk : cur_proc_kthread();
+
+	return (t != 0 && t->t_preempt_cnt > 0);
+}
+
 /* ------------------------------------------------- dynamic priority */
 
 /* EN: Initialize a thread's base/effective priority and default quantum. */
@@ -679,8 +715,28 @@ sched_prio_selftest(void)
 	prio_restore(&holder);
 	if (sched_effective_prio(&holder) != PRI_BATCH || holder.t_inherit_prio != 0)
 		ok = 0;
+	/* preemption control: user preemptable, kernel critical section not */
+	{
+		struct kthread *tmp = curk;
+		curk = &waiter;
+		waiter.t_preempt_cnt = 0;
+		if (preempt_is_disabled())
+			ok = 0;		/* idle thread: preemptable */
+		preempt_disable();
+		preempt_disable();	/* nest */
+		if (!preempt_is_disabled() || waiter.t_preempt_cnt != 2)
+			ok = 0;
+		preempt_enable();
+		if (!preempt_is_disabled() || waiter.t_preempt_cnt != 1)
+			ok = 0;
+		preempt_enable();
+		if (preempt_is_disabled() || waiter.t_preempt_cnt != 0)
+			ok = 0;
+		curk = tmp;
+	}
 	ipl_donations = 0;
-	printf("schedtest: 20-level prio + inheritance %s\n", ok ? "PASS" : "FAIL");
+	printf("schedtest: 20-level prio + inheritance + preempt-gate %s\n",
+	    ok ? "PASS" : "FAIL");
 	return (ok ? 0 : -1);
 }
 

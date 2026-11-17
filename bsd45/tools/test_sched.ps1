@@ -22,9 +22,9 @@ function Check([string]$name, [string]$log, [string[]]$needles) {
 Write-Host "Priority scheduler acceptance: 20-level + inheritance"
 $log = (& $script -Iso $Iso -Keys @(
     "schedtest",
-    "kthread") -WaitFor "20-level prio + inheritance PASS" -TimeoutSec 60) -join "`n"
+    "kthread") -WaitFor "20-level prio + inheritance + preempt-gate PASS" -TimeoutSec 60) -join "`n"
 
-Check "levels"      $log @("schedtest: 20-level prio + inheritance PASS")
+Check "levels"      $log @("schedtest: 20-level prio + inheritance + preempt-gate PASS")
 
 if ($log -match 'TRAP') {
     Write-Host "  FAIL kernel trap" -ForegroundColor Red

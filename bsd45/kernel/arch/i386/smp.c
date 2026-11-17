@@ -9,6 +9,8 @@
 #include <sys/systm.h>
 
 #include "sys/smp.h"
+#include "sys/platform.h"
+#include "thread/kthread.h"
 #include "arch/i386/io.h"
 
 extern void pmap_map(unsigned virt, unsigned start, unsigned end, int prot);
@@ -84,8 +86,10 @@ spin_lock(struct spinlock *lk)
 		prev = 0;
 		__asm __volatile("xchgl %0,%1"
 		    : "=r" (prev) : "m" (lk->locked), "0" (1) : "memory");
-		if (prev == 0)
+		if (prev == 0) {
+			preempt_disable();	/* hold lock => no preemption */
 			return;			/* acquired */
+		}
 		__asm __volatile("pause");	/* spin hint */
 	}
 }
@@ -95,8 +99,10 @@ void
 spin_unlock(struct spinlock *lk)
 {
 
-	if (lk != 0)
+	if (lk != 0) {
 		lk->locked = 0;
+		preempt_enable();	/* released lock => preemption allowed */
+	}
 }
 
 /* EN: Return the local APIC ID of this CPU. */

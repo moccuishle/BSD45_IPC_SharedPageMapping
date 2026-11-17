@@ -199,6 +199,14 @@ static struct file ramfs[] = {
 static struct proc	procs[NPROC];
 static struct proc	*cur;		/* current process (kernel object) */
 static struct kthread	*cur_thread;	/* current execution flow */
+
+/* EN: Accessor for the current user thread's TCB (used by preemption core). */
+struct kthread *
+cur_proc_kthread(void)
+{
+
+	return (cur_thread);
+}
 static unsigned	cur_pd;		/* currently loaded page directory (CR3) */
 static int		next_pid = 2;
 
@@ -2555,10 +2563,22 @@ sched_tick(struct sysregs *r)
 	struct proc *p;
 	int main_thread;
 
-	if (cur == 0 || me == 0 || r == 0 || !hal_intr_from_user(r))
+	if (cur == 0 || me == 0 || r == 0)
 		return;
-	if (me->t_base_ipl >= KTHREAD_NO_PREEMPT)	/* thread opted out of preemption */
+	/*
+	 * Preemption rule: user mode is always preemptable; kernel mode may
+	 * be inside a critical section (t_preempt_cnt > 0) or an opted-out
+	 * thread, in which case we only set the flag and defer the switch to
+	 * the next safe point (return to user mode).
+	 */
+	if (!hal_intr_from_user(r)) {
+		need_resched = 1;	/* deferred: no switch in kernel context */
 		return;
+	}
+	if (me->t_preempt_cnt > 0 || me->t_base_ipl >= KTHREAD_NO_PREEMPT) {
+		need_resched = 1;
+		return;
+	}
 
 	/* save the interrupted context */
 	if (me->t_tid == mp->uk_pid)
@@ -5046,7 +5066,10 @@ syscall_dispatch(struct sysregs *r)
 	 * 内核态安全点抢占：系统调用已完成，可保存当前用户上下文并调度
 	 * 其它线程；不在内核执行中途抢占。
 	 */
+	/* Safe point: returning to user mode.  A kernel critical section
+	 * (preempt_cnt > 0) or an opted-out thread defers the switch. */
 	if (need_resched && cur != 0 && cur_thread != 0 &&
+	    cur_thread->t_preempt_cnt == 0 &&
 	    cur_thread->t_base_ipl == 0 && cur_thread->t_preemptable) {
 		need_resched = 0;
 		if (cur_thread->t_tid == cur->uk_pid) {

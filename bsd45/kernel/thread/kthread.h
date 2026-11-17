@@ -75,6 +75,10 @@ struct kthread {
 	int		t_base_prio;	/* original priority before inheritance */
 	int		t_inherit_prio;	/* donated priority (0 = none) */
 	int		t_blocked_on;	/* tid of thread holding the wanted lock, -1 none */
+	/* preemption control: >0 means in a kernel critical section; the
+	 * thread cannot be preempted until it returns to zero.  User mode is
+	 * always preemptable; preemption happens at safe points only. */
+	int		t_preempt_cnt;
 	int		t_ticks;	/* ticks consumed in current quantum */
 	int		t_quantum;	/* quantum for this slice (workload-tuned) */
 	int		t_sleep_ticks;	/* ticks slept: I/O-bound detector */
@@ -140,6 +144,12 @@ int	sched_is_cpu_bound(struct kthread *t);
 void	prio_inherit(struct kthread *waiter, struct kthread *holder);
 void	prio_restore(struct kthread *holder);
 int	sched_prio_selftest(void);
+/* preemption control: kernel critical sections disable preemption */
+void	preempt_disable(void);
+void	preempt_enable(void);	/* may schedule when count drops to 0 */
+int	preempt_is_disabled(void);
+/* current user thread's TCB (provided by usermode.c), or 0 if none */
+struct kthread *cur_proc_kthread(void);
 
 /* os.md mechanism 4: per-thread IPL policy + priority inheritance */
 void	thread_ipl_set(struct kthread *t, int base_ipl, int preemptable);
