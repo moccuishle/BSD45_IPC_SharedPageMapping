@@ -105,5 +105,12 @@ bsd45> clock
 ## 常见问题
 
 - 命令找不到：ISO 用 8.3 名，`pthpreempt`→`PTHPRE.ELF`、`schedtest`→`SCHEDTES.ELF`
-- 输出没有交错：确认不是只跑单线程；`pthpre` 必须创建两个线程
+- **输出没有交错（全是 AAAA 然后 BBBB）**：这是最容易踩的坑。原因不是抢占坏了，
+  而是 burn 循环太短或在循环里调了 syscall（`getticks`/`write`）：
+  - 循环太短 → 一个调度周期（20ms）内就跑完，没到切换点；
+  - 循环里调 `int $0x80` → CPU 停留在 ring0，PIT 中断帧是内核帧，按禁抢占语义
+    **不会**在中断里切换（只置 need_resched，等 syscall 返回安全点）。
+  现在的 `pthpreempt.c` 已改为：先用 `calibrate()` 测出跨 ≥3 个 tick 的循环数，
+  再用**纯算术循环** burn（不含 syscall），`write` 只在每轮末尾调一次。
+  这样 IRQ0 落在 ring3，抢占必然发生。实测输出 `ABABAB...`。
 - 在 VMware 里敲键盘没反应：先点一下 VM 窗口捕获输入
