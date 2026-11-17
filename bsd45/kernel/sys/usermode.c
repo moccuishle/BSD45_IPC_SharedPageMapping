@@ -203,6 +203,56 @@ static unsigned	cur_pd;		/* currently loaded page directory (CR3) */
 static int		next_pid = 2;
 
 /*
+ * KLT blocking primitives.  A block affects only the calling TCB, never the
+ * whole process: sibling threads sharing the address space stay runnable.
+ * proc->uk_state is kept in sync as a coarse "any thread blocked/waiting"
+ * marker so the existing wait/wake code paths keep working, but runnability
+ * is decided per TCB (t_state) by the scheduler.
+ */
+
+/* EN: Block the calling TCB with reason wchan; its process stays alive for siblings. */
+static void
+kthread_block_tcb(void *wchan)
+{
+	struct kthread *t = cur_thread;
+
+	/*
+	 * Rule: a single-threaded process blocks as a whole (classic BSD
+	 * wait/pipe semantics, all waiters/wakers key off proc state).  Only
+	 * a process with >1 live threads blocks just the calling TCB, leaving
+	 * its siblings runnable -- the KLT advantage over ULT.
+	 */
+	if (cur != 0 && cur->uk_p_nthreads <= 1) {
+		cur->uk_state = P_BLOCKED;
+		return;
+	}
+	if (t != 0) {
+		t->t_state = KT_BLOCK;
+		t->t_wchan = wchan;
+	}
+	/* multi-threaded: keep the process P_RUN so siblings keep running */
+}
+
+/* EN: Wake a process and restore its blocked TCB(s) to runnable. */
+static void
+proc_wake(struct proc *p)
+{
+	struct kthread *t;
+	int i;
+
+	if (p == 0)
+		return;
+	p->uk_state = P_RUN;
+	for (i = 0; i < NKTHREAD; i++) {
+		t = &kthreads[i];
+		if (t->t_used && t->t_proc == p && t->t_state == KT_BLOCK) {
+			t->t_state = KT_RUN;
+			t->t_wchan = 0;
+		}
+	}
+}
+
+/*
  * KLT address-space switch: only reload CR3 when the selected thread belongs
  * to a different process.  Threads of one process share the page directory,
  * so a same-process switch updates only the TCB (kernel stack / registers).
@@ -961,7 +1011,7 @@ aio_soft(void *arg)
 	    p->uk_aio_wait_token == s->a_token) {
 		p->uk_aio_wait_token = 0;
 		p->uk_regs.eax = (unsigned)s->a_result;
-		p->uk_state = P_RUN;
+		proc_wake(p);
 		vn_put(s->a_ki.ki_vp);
 		s->a_used = 0;
 		s->a_woken = 1;
@@ -1064,7 +1114,7 @@ found:
 	 */
 	cur->uk_aio_wait_token = token;
 	cur->uk_regs = *r;
-	cur->uk_state = P_BLOCKED;
+	kthread_block_tcb(0);
 	proc_sched();
 	return (0);
 }
@@ -1129,7 +1179,7 @@ uring_wake(struct uring_ring *rg)
 	if (p != 0 && p->uk_state == P_BLOCKED) {
 		p->uk_uring_wait = 0;
 		p->uk_regs.eax = (unsigned)rg->r_wait_result;
-		p->uk_state = P_RUN;
+		proc_wake(p);
 	}
 	rg->r_wait_pid = 0;
 }
@@ -1243,7 +1293,7 @@ uring_enter_sys(unsigned to_submit, int wait, struct sysregs *r)
 		rg->r_wait_result = (int)submitted;
 		cur->uk_uring_wait = 1;
 		cur->uk_regs = *r;
-		cur->uk_state = P_BLOCKED;
+		kthread_block_tcb(0);
 		proc_sched();
 	}
 	return ((int)submitted);
@@ -1941,7 +1991,7 @@ pipe_wake_reader(struct pipe *pp, int eof)
 		return;
 	if (eof) {
 		p->uk_regs.eax = 0;
-		p->uk_state = P_RUN;
+		proc_wake(p);
 		return;
 	}
 	n = pp->count;
@@ -1956,7 +2006,7 @@ pipe_wake_reader(struct pipe *pp, int eof)
 	pp->rpos = (pp->rpos + n) % PIPESZ;
 	pp->count -= n;
 	p->uk_regs.eax = n;
-	p->uk_state = P_RUN;
+	proc_wake(p);
 }
 
 /* 中文：把管道数据在写者上下文拷入阻塞读者缓冲，处理环形回绕并置结果唤醒；epipe 时返回 -EPIPE */
@@ -1975,7 +2025,7 @@ pipe_wake_writer(struct pipe *pp, int epipe)
 		return;
 	if (epipe) {
 		p->uk_regs.eax = (unsigned)-EPIPE;
-		p->uk_state = P_RUN;
+		proc_wake(p);
 		return;
 	}
 	space = PIPESZ - pp->count;
@@ -1991,7 +2041,7 @@ pipe_wake_writer(struct pipe *pp, int epipe)
 	pp->wpos = (pp->wpos + n) % PIPESZ;
 	pp->count += n;
 	p->uk_regs.eax = n;
-	p->uk_state = P_RUN;
+	proc_wake(p);
 }
 
 /* 中文：关闭文件描述符：管道端减少读/写者计数并按需唤醒对端，释放 vnode 引用，最后标记 fd 空闲 */
@@ -2345,20 +2395,22 @@ proc_sched(void)
 			struct sysregs *regs;
 			int main_thread;
 
+			/* KLT runnable decision: per-TCB state, plus a single-
+			 * threaded process may be blocked as a whole (classic
+			 * wait/pipe semantics).  A multi-threaded process stays
+			 * P_RUN while one TCB blocks, so siblings keep running. */
 			if (!t->t_used || t->t_proc == 0 || t == mt)
 				continue;
+			if (t->t_state != KT_RUN)
+				continue;
 			p = t->t_proc;
+			if (p->uk_state == P_FREE || p->uk_state == P_ZOMBIE)
+				continue;
 			main_thread = (t->t_tid == p->uk_pid);
-			if (main_thread) {
-				if (p->uk_state != P_RUN)
-					continue;
-				regs = &p->uk_regs;
-			} else {
-				if (p->uk_state == P_ZOMBIE ||
-				    t->t_state != KT_RUN)
-					continue;
-				regs = &t->t_regs;
-			}
+			/* a whole-process block (single thread) stops the main TCB */
+			if (p->uk_state == P_BLOCKED && p->uk_p_nthreads <= 1)
+				continue;
+			regs = main_thread ? &p->uk_regs : &t->t_regs;
 			cur = p;
 			cur_thread = t;
 			/* KLT: pass 0 to resume_user when staying in the same
@@ -2367,18 +2419,16 @@ proc_sched(void)
 			pd_to_load = switch_pd_for(p);
 			hal_kernel_stack_set(t->t_stack_top);
 			sig_deliver(p, regs);
-			if (main_thread ? p->uk_state == P_RUN :
-			    t->t_state == KT_RUN)
+			if (t->t_state == KT_RUN)
 				resume_user(pd_to_load, regs);
 		}
-		if (me->uk_state == P_RUN && mt != 0) {
+		if (mt != 0 && mt->t_state == KT_RUN && me->uk_state != P_ZOMBIE) {
 			cur = me;
 			cur_thread = mt;
 			pd_to_load = switch_pd_for(me);
 			hal_kernel_stack_set(mt->t_stack_top);
 			sig_deliver(me, &me->uk_regs);
-			if (me->uk_state == P_RUN)
-				resume_user(pd_to_load, &me->uk_regs);
+			resume_user(pd_to_load, &me->uk_regs);
 		}
 		/* nothing runnable: let deferred work drain, then halt */
 		kthread_run();
@@ -2439,11 +2489,13 @@ fair_pick_next(struct kthread *me)
 
 		if (!t->t_used || t->t_proc == 0 || t == me)
 			continue;
+		if (t->t_state != KT_RUN)	/* blocked TCB is never picked */
+			continue;
 		p = t->t_proc;
 		if (p->uk_state == P_FREE || p->uk_state == P_ZOMBIE)
 			continue;
-		if ((p->uk_state != P_RUN && t->t_tid != p->uk_pid) ||
-		    (t->t_tid != p->uk_pid && t->t_state != KT_RUN))
+		/* single-threaded process blocked as a whole is not runnable */
+		if (p->uk_state == P_BLOCKED && p->uk_p_nthreads <= 1)
 			continue;
 		if (bestp == 0 || p->uk_estcpu < bestp->uk_estcpu) {
 			bestp = p;
@@ -2598,7 +2650,7 @@ do_vfork(struct sysregs *r)
 
 	/* the parent blocks until the child execs or exits */
 	cur->uk_regs = *r;
-	cur->uk_state = P_BLOCKED;
+	kthread_block_tcb(0);
 	cur->uk_vfork_wait = 1;
 	proc_sched();
 	return (0);
@@ -2619,7 +2671,7 @@ proc_exit(int code)
 		if (p->uk_vfork_wait) {
 			p->uk_vfork_wait = 0;
 			p->uk_regs.eax = cur->uk_pid;
-			p->uk_state = P_RUN;
+			proc_wake(p);
 			continue;
 		}
 		if (p->uk_wait_pid != 0 && p->uk_wait_pid != cur->uk_pid)
@@ -2633,7 +2685,7 @@ proc_exit(int code)
 			hal_address_space_activate(save);
 		}
 		p->uk_regs.eax = cur->uk_pid;
-		p->uk_state = P_RUN;
+		proc_wake(p);
 		reaped = 1;		/* the parent's wait4 gets the status */
 	}
 
@@ -2766,7 +2818,7 @@ sig_send(struct proc *p, int sig)
 	p->uk_p_sig |= SIG_TO_MASK(sig);
 	/* a blocked process gets EINTR and is made runnable again */
 	if (p->uk_state == P_BLOCKED) {
-		p->uk_state = P_RUN;
+		proc_wake(p);
 		p->uk_regs.eax = (unsigned)-EINTR;
 	}
 }
@@ -2862,7 +2914,7 @@ sig_stop(struct proc *p, int sig)
 		*(int *)pp->uk_wait_status = ((sig & 0xff) << 8) | 0x7f;
 		hal_address_space_activate(cur->uk_pd);
 		pp->uk_regs.eax = p->uk_pid;
-		pp->uk_state = P_RUN;
+		proc_wake(pp);
 	}
 }
 
@@ -2970,7 +3022,7 @@ do_wait4(int want, unsigned statusp, int options, struct sysregs *r)
 	cur->uk_wait_pid = (want > 0) ? want : 0;
 	cur->uk_wait_status = statusp;
 	cur->uk_wait_options = options;
-	cur->uk_state = P_BLOCKED;
+	kthread_block_tcb(0);
 	proc_sched();
 	r->eax = 0;
 	return (0);
@@ -3336,7 +3388,7 @@ exec_image(const char *path, unsigned uargv, unsigned uenvp, struct sysregs *r)
 		if (pp != 0 && pp->uk_state == P_BLOCKED && pp->uk_vfork_wait) {
 			pp->uk_vfork_wait = 0;
 			pp->uk_regs.eax = cur->uk_pid;
-			pp->uk_state = P_RUN;
+			proc_wake(pp);
 			cur->uk_regs = *r;
 			cur->uk_state = P_RUN;
 			cur = pp;
@@ -3529,7 +3581,7 @@ thread_exit_current(int code)
 		/* main thread exits, other threads keep the process alive */
 		t->t_exitcode = code;
 		t->t_state = KT_ZOMBIE;
-		cur->uk_state = P_BLOCKED;
+		kthread_block_tcb(0);
 		proc_sched();
 		return;
 	}
@@ -3544,7 +3596,7 @@ thread_exit_current(int code)
 		j->t_join_tid = 0;
 		if (j->t_tid == j->t_proc->uk_pid) {
 			j->t_proc->uk_regs.eax = code;
-			j->t_proc->uk_state = P_RUN;
+			proc_wake(j->t_proc);
 		} else {
 			j->t_regs.eax = code;
 			j->t_state = KT_RUN;
@@ -3595,7 +3647,7 @@ thread_join(int tid, struct sysregs *r)
 	jt->t_join_tid = tid;
 	if (jt->t_tid == cur->uk_pid) {
 		cur->uk_regs = *r;
-		cur->uk_state = P_BLOCKED;
+		kthread_block_tcb(0);
 	} else {
 		jt->t_regs = *r;
 		jt->t_state = KT_BLOCK;
@@ -3733,7 +3785,7 @@ bsd45_syscall(struct sysregs *r)
 			space = PIPESZ - pp->count;
 			if (space == 0) {
 				cur->uk_regs = *r;
-				cur->uk_state = P_BLOCKED;
+				kthread_block_tcb(0);
 				cur->uk_pipeidx = pp - pipes;
 				cur->uk_piperw = 2;
 				cur->uk_pipeat = buf;
@@ -3916,7 +3968,7 @@ bsd45_syscall(struct sysregs *r)
 					break;
 				}
 				cur->uk_regs = *r;
-				cur->uk_state = P_BLOCKED;
+				kthread_block_tcb(0);
 				cur->uk_pipeidx = pp - pipes;
 				cur->uk_piperw = 1;
 				cur->uk_pipeat = buf;
@@ -4842,7 +4894,7 @@ bsd45_syscall(struct sysregs *r)
 		t->t_sig |= SIG_TO_MASK(sig);
 		if (t->t_state == KT_BLOCK)
 			t->t_state = KT_RUN;
-		t->t_proc->uk_state = P_RUN;
+		proc_wake(t->t_proc);
 		r->eax = 0;
 		break;
 	}
