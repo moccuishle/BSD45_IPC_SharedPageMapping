@@ -96,6 +96,8 @@ struct	tp_pcb *tp_ftimeolist = (struct tp_pcb *)&tp_ftimeolist;
  * FUNCTION and ARGUMENTS:
  *  initialize data structures for the timers
  */
+/* 中文：初始化定时器数据结构：分配并清零 tp_ref 表，设置 RTT 换算的除数与加数 */
+/* EN: Initialize timer data structures: allocate and zero the tp_ref table and set the RTT conversion divisor and addend */
 void
 tp_timerinit()
 {
@@ -123,6 +125,8 @@ tp_timerinit()
  * FUNCTION and ARGUMENTS:
  * Set an E type timer.
  */
+/* 中文：设置一个 E 型定时器：若原值未设或更长则把 fun 对应的计时器设为 ticks（至少 1） */
+/* EN: Set an E-type timer: set the fun timer to ticks (at least 1) if it was unset or larger */
 void
 tp_etimeout(tpcb, fun, ticks)
 	register struct tp_pcb	*tpcb;
@@ -154,6 +158,8 @@ tp_etimeout(tpcb, fun, ticks)
  * FUNCTION and ARGUMENTS:
  *  Cancel all occurrences of E-timer function (fun) for reference (refp)
  */
+/* 中文：取消 tpcb 上 fun 对应的 E 型定时器（置 0） */
+/* EN: Cancel the E-type timer fun on a tpcb by clearing it to zero */
 void
 tp_euntimeout(tpcb, fun)
 	register struct tp_pcb	*tpcb;
@@ -183,6 +189,8 @@ tp_euntimeout(tpcb, fun)
  *  If they exist, call the appropriate timer routines to update
  *  the timers and possibly generate events.
  */
+/* 中文：每 500ms 由时钟调用：遍历打开的引用，递减各定时器，到期则经 tp_driver 产生事件并清理已关闭连接 */
+/* EN: Called every 500ms by the clock: walk open references, decrement timers, fire events via tp_driver on expiry and clean up closed connections */
 ProtoHook
 tp_slowtimo()
 {
@@ -230,6 +238,8 @@ tp_slowtimo()
 /*
  * Called From: tp.trans from tp_slowtimo() -- retransmission timer went off.
  */
+/* 中文：重传定时器到期处理：回退发送序号、按退避重设 RTO 与拥塞窗口、清除 RTT 估计并重新发送 */
+/* EN: Handle retransmission timer expiry: rewind the send sequence, back off the RTO and congestion window, clear the RTT estimate and resend */
 tp_data_retrans(tpcb)
 register struct tp_pcb *tpcb;
 {
@@ -272,6 +282,8 @@ register struct tp_pcb *tpcb;
 	tp_send(tpcb);
 }
 
+/* 中文：快速定时器处理：遍历延迟确认链表，对带 TPF_DELACK 的连接经 tp_driver 发出确认并摘链 */
+/* EN: Fast timer processing: walk the delayed-ACK list, fire the ACK via tp_driver for connections with TPF_DELACK and unlink them */
 int
 tp_fasttimo()
 {
@@ -305,6 +317,8 @@ tp_fasttimo()
  * FUNCTION and ARGUMENTS:
  * 	Set a C type timer of type (which) to go off after (ticks) time.
  */
+/* 中文：设置一个 C 型定时器（which）为 ticks（至少 1），覆盖原值 */
+/* EN: Set a C-type timer (which) to ticks (at least 1), overwriting any previous value */
 void
 tp_ctimeout(tpcb, which, ticks)
 	register struct tp_pcb	*tpcb;
@@ -330,6 +344,8 @@ tp_ctimeout(tpcb, which, ticks)
  * 	Version of tp_ctimeout that resets the C-type time if the 
  * 	parameter (ticks) is > the current value of the timer.
  */
+/* 中文：设置 C 型定时器但取新值与当前值的较小者（若已激活），避免缩短现有超时 */
+/* EN: Set a C-type timer to the smaller of the new ticks and the current value when already active, avoiding shortening an existing timeout */
 void
 tp_ctimeout_MIN(tpcb, which, ticks)
 	register struct tp_pcb	*tpcb;
@@ -353,6 +369,8 @@ tp_ctimeout_MIN(tpcb, which, ticks)
  * FUNCTION and ARGUMENTS:
  *  Cancel the (which) timer in the ref structure indicated by (refp).
  */
+/* 中文：取消指定引用上的 C 型定时器（which），并统计此前是否处于激活状态 */
+/* EN: Cancel the C-type timer (which) on a reference, accounting for whether it was previously active */
 void
 tp_cuntimeout(tpcb, which)
 	register struct tp_pcb	*tpcb;

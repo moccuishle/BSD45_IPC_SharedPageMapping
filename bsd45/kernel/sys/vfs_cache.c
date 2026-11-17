@@ -118,6 +118,8 @@ int doingcache = 1;			/* 1 => enable the cache */
  * fails, a status of zero is returned.
  */
 
+/* 中文：在名字缓存中查找目录项，命中返回 -1，负缓存返回 ENOENT，未命中返回 0 */
+/* EN: Look up a name in the cache: -1 on a positive hit, ENOENT for a negative hit, 0 on miss */
 int
 cache_lookup(dvp, vpp, cnp)
 	struct vnode *dvp;
@@ -195,6 +197,8 @@ cache_lookup(dvp, vpp, cnp)
 /*
  * Add an entry to the cache.
  */
+/* 中文：把一个名字（可为负缓存项）加入缓存的哈希表和 LRU 链表 */
+/* EN: Add a name (possibly a negative entry) to the cache hash table and LRU list */
 void
 cache_enter(dvp, vp, cnp)
 	struct vnode *dvp;
@@ -260,6 +264,8 @@ cache_enter(dvp, vp, cnp)
 /*
  * Name cache initialization, from vfs_init() when we are booting
  */
+/* 中文：初始化名字缓存的 LRU 链表与哈希表（系统启动时由 vfs_init 调用） */
+/* EN: Initialize the name cache's LRU list and hash table (called from vfs_init at boot) */
 void
 nchinit()
 {
@@ -276,6 +282,8 @@ nchinit()
  * need to ditch the entire cache, to avoid confusion. No valid vnode will
  * ever have (v_id == 0).
  */
+/* 中文：通过递增 v_id 使某 vnode 的所有缓存项失效，v_id 回绕时清空整个缓存 */
+/* EN: Invalidate all cache entries for a vnode by bumping v_id; flushes the whole cache on wraparound */
 void
 cache_purge(vp)
 	struct vnode *vp;
@@ -299,6 +307,8 @@ cache_purge(vp)
  * Since we need to check it anyway, we will flush all the invalid
  * entriess at the same time.
  */
+/* 中文：清除引用指定文件系统（mount）的所有缓存项，并顺带清除失效项 */
+/* EN: Purge all cache entries referencing a given filesystem (mount), along with stale entries */
 void
 cache_purgevfs(mp)
 	struct mount *mp;

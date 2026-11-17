@@ -68,6 +68,8 @@ int nfiles;			/* actual number of open files */
  * System calls on descriptors.
  */
 /* ARGSUSED */
+/* 中文：实现 getdtablesize 系统调用：返回进程可打开文件描述符数量（取资源限制与 maxfiles 的较小值） */
+/* EN: Implement the getdtablesize system call: return the number of file descriptors the process may open (the smaller of the rlimit and maxfiles) */
 int
 getdtablesize(p, uap, retval)
 	struct proc *p;
@@ -83,6 +85,8 @@ getdtablesize(p, uap, retval)
  * Duplicate a file descriptor.
  */
 /* ARGSUSED */
+/* 中文：实现 dup 系统调用：把一个文件描述符复制到一个空闲描述符上并返回新描述符 */
+/* EN: Implement the dup system call: duplicate a file descriptor onto the lowest available one and return it */
 int
 dup(p, uap, retval)
 	struct proc *p;
@@ -116,6 +120,8 @@ dup(p, uap, retval)
  * Duplicate a file descriptor to a particular value.
  */
 /* ARGSUSED */
+/* 中文：实现 dup2 系统调用：把文件描述符 from 复制到指定的 to 描述符上，必要时先关闭 to */
+/* EN: Implement the dup2 system call: duplicate file descriptor from onto the specified to descriptor, closing to first if needed */
 int
 dup2(p, uap, retval)
 	struct proc *p;
@@ -158,6 +164,8 @@ dup2(p, uap, retval)
  * The file control system call.
  */
 /* ARGSUSED */
+/* 中文：实现 fcntl 系统调用：对文件描述符执行复制、设置/获取标志、记录锁等控制操作 */
+/* EN: Implement the fcntl system call: perform control operations on a file descriptor such as duplication, flag manipulation and record locking */
 int
 fcntl(p, uap, retval)
 	struct proc *p;
@@ -309,6 +317,8 @@ fcntl(p, uap, retval)
 /*
  * Common code for dup, dup2, and fcntl(F_DUPFD).
  */
+/* 中文：dup、dup2 和 fcntl(F_DUPFD) 共用的复制逻辑：把旧描述符的文件引用安装到新描述符并增加引用计数 */
+/* EN: Common duplication logic for dup, dup2 and fcntl(F_DUPFD): install the old descriptor's file reference into the new slot and bump the refcount */
 int
 finishdup(fdp, old, new, retval)
 	register struct filedesc *fdp;
@@ -331,6 +341,8 @@ finishdup(fdp, old, new, retval)
  * Close a file descriptor.
  */
 /* ARGSUSED */
+/* 中文：实现 close 系统调用：校验描述符，解除映射标志并减少文件引用计数，必要时真正关闭文件 */
+/* EN: Implement the close system call: validate the descriptor, clear mapping flags and decrement the file reference count, closing the file when needed */
 int
 close(p, uap, retval)
 	struct proc *p;
@@ -364,6 +376,8 @@ close(p, uap, retval)
  * Return status information about a file descriptor.
  */
 /* ARGSUSED */
+/* 中文：兼容 4.3BSD 的 fstat 系统调用：把新 stat 结构转换为旧 ostat 结构返回 */
+/* EN: Compatibility 4.3BSD fstat system call: convert the new stat structure into the old ostat form before returning */
 int
 compat_43_fstat(p, uap, retval)
 	struct proc *p;
@@ -409,6 +423,8 @@ compat_43_fstat(p, uap, retval)
  * Return status information about a file descriptor.
  */
 /* ARGSUSED */
+/* 中文：实现 fstat 系统调用：获取指定文件描述符对应文件的状态信息并返回给用户 */
+/* EN: Implement the fstat system call: retrieve status information of the file behind a descriptor and return it to userland */
 int
 fstat(p, uap, retval)
 	struct proc *p;
@@ -451,6 +467,8 @@ fstat(p, uap, retval)
  * Return pathconf information about a file descriptor.
  */
 /* ARGSUSED */
+/* 中文：实现 fpathconf 系统调用：按文件名返回与描述符关联的 pathconf 可配置限制值 */
+/* EN: Implement the fpathconf system call: return pathconf limit values for the descriptor's file */
 int
 fpathconf(p, uap, retval)
 	struct proc *p;
@@ -491,6 +509,8 @@ fpathconf(p, uap, retval)
  */
 int fdexpand;
 
+/* 中文：为进程分配一个新的文件描述符：从 want 或 fd_freefile 起查找空位，必要时扩展描述符数组 */
+/* EN: Allocate a new file descriptor for a process: search for a free slot from want or fd_freefile, expanding the descriptor array if needed */
 int
 fdalloc(p, want, result)
 	struct proc *p;
@@ -560,6 +580,8 @@ fdalloc(p, want, result)
  * Check to see whether n user file descriptors
  * are available to the process p.
  */
+/* 中文：检查进程是否还有 n 个可用的文件描述符 */
+/* EN: Check whether a process has n file descriptors available */
 int
 fdavail(p, n)
 	struct proc *p;
@@ -583,6 +605,8 @@ fdavail(p, n)
  * Create a new open file structure and allocate
  * a file decriptor for the process that refers to it.
  */
+/* 中文：创建一个新的打开文件结构并为其分配文件描述符，返回结果结构与描述符号 */
+/* EN: Create a new open file structure and allocate a descriptor for it, returning both the structure and the descriptor number */
 int
 falloc(p, resultfp, resultfd)
 	register struct proc *p;
@@ -626,6 +650,8 @@ falloc(p, resultfp, resultfd)
 /*
  * Free a file descriptor.
  */
+/* 中文：释放一个 file 结构：从链表移除、释放凭据并归还空间 */
+/* EN: Free a file structure: remove it from the list, drop its credential and release the memory */
 void
 ffree(fp)
 	register struct file *fp;
@@ -644,6 +670,8 @@ ffree(fp)
 /*
  * Copy a filedesc structure.
  */
+/* 中文：复制进程的 filedesc 结构（fork 时使用）：为新结构增加 vnode 引用并复制描述符表 */
+/* EN: Copy a process's filedesc structure (used by fork): take vnode references and copy the descriptor table into the new structure */
 struct filedesc *
 fdcopy(p)
 	struct proc *p;
@@ -697,6 +725,8 @@ fdcopy(p)
 /*
  * Release a filedesc structure.
  */
+/* 中文：释放 filedesc 结构：引用计数归零时关闭所有打开文件并释放相关资源 */
+/* EN: Release a filedesc structure: when the refcount reaches zero, close all open files and free related resources */
 void
 fdfree(p)
 	struct proc *p;
@@ -725,6 +755,8 @@ fdfree(p)
  * Note: p may be NULL when closing a file
  * that was being passed in a message.
  */
+/* 中文：close 的内部实现：减少文件引用计数，并在归零时执行 POSIX 记录锁释放和真正的关闭 */
+/* EN: Internal form of close: decrement the file reference count and, when zero, release POSIX record locks and actually close the file */
 int
 closef(fp, p)
 	register struct file *fp;
@@ -779,6 +811,8 @@ closef(fp, p)
  * the entire file (l_whence = SEEK_SET, l_start = 0, l_len = 0).
  */
 /* ARGSUSED */
+/* 中文：实现 flock 系统调用：对整个文件（偏移 0、长度 0）施加指定类型的建议性记录锁 */
+/* EN: Implement the flock system call: apply an advisory record lock of the requested type to the whole file */
 int
 flock(p, uap, retval)
 	struct proc *p;
@@ -830,6 +864,8 @@ flock(p, uap, retval)
  * references to this file will be direct to the other driver.
  */
 /* ARGSUSED */
+/* 中文：/dev/fd 伪设备驱动的 open 例程：记录要复制的描述符号（p_dupfd）并返回 ENODEV 交给 dupfdopen 处理 */
+/* EN: Open routine for the /dev/fd pseudo-device: record the descriptor to duplicate in p_dupfd and return ENODEV for dupfdopen to handle */
 int
 fdopen(dev, mode, type, p)
 	dev_t dev;
@@ -852,6 +888,8 @@ fdopen(dev, mode, type, p)
 /*
  * Duplicate the specified descriptor to a free descriptor.
  */
+/* 中文：把 /dev/fd/n 打开时指定的描述符 n 复制到一个空闲描述符上 */
+/* EN: Duplicate the descriptor n, recorded during /dev/fd/n open, onto a free descriptor */
 int
 dupfdopen(fdp, indx, dfd, mode, error)
 	register struct filedesc *fdp;

@@ -81,6 +81,8 @@ int needbuffer;
 #define	binsheadfree(bp, dp)	TAILQ_INSERT_HEAD(dp, bp, b_freelist)
 #define	binstailfree(bp, dp)	TAILQ_INSERT_TAIL(dp, bp, b_freelist)
 
+/* 中文：从缓冲区空闲队列中移除指定的 buf，在移除最后一个元素时重算队列尾指针 */
+/* EN: Remove a buf from a free-buffer queue, recomputing the tail pointer when removing the last element */
 void
 bremfree(bp)
 	struct buf *bp;
@@ -107,6 +109,8 @@ bremfree(bp)
 /*
  * Initialize buffers and hash links for buffers.
  */
+/* 中文：初始化缓冲区缓存：初始化各缓冲队列、哈希表与 buf 数组，为每个 buf 设置初值 */
+/* EN: Initialize the buffer cache: set up the buffer queues, hash table and buf array with initial values */
 void
 bufinit()
 {
@@ -139,6 +143,8 @@ bufinit()
 	}
 }
 
+/* 中文：读取指定 vnode 的磁盘块到缓冲区（该函数体已删除，始终返回 EIO） */
+/* EN: Read a disk block of a vnode into a buffer (body deleted; always returns EIO) */
 bread(a1, a2, a3, a4, a5)
 	struct vnode *a1;
 	daddr_t a2;
@@ -153,6 +159,8 @@ bread(a1, a2, a3, a4, a5)
 	return (EIO);
 }
 
+/* 中文：带预读的磁盘块读取（该函数体已删除，始终返回 EIO） */
+/* EN: Read a disk block with read-ahead (body deleted; always returns EIO) */
 breadn(a1, a2, a3, a4, a5, a6, a7, a8)
 	struct vnode *a1;
 	daddr_t a2; int a3;
@@ -168,6 +176,8 @@ breadn(a1, a2, a3, a4, a5, a6, a7, a8)
 	return (EIO);
 }
 
+/* 中文：把缓冲区同步写回磁盘（该函数体已删除，始终返回 EIO） */
+/* EN: Write a buffer synchronously to disk (body deleted; always returns EIO) */
 bwrite(a1)
 	struct buf *a1;
 {
@@ -178,6 +188,8 @@ bwrite(a1)
 	return (EIO);
 }
 
+/* 中文：VOP_BWRITE 的实现：对给定 buf 调用 bwrite 完成写操作 */
+/* EN: VOP_BWRITE implementation: call bwrite on the given buf to perform the write */
 int
 vn_bwrite(ap)
 	struct vop_bwrite_args *ap;
@@ -185,6 +197,8 @@ vn_bwrite(ap)
 	return (bwrite(ap->a_bp));
 }
 
+/* 中文：延迟写缓冲区（该函数体已删除，空实现） */
+/* EN: Schedule a delayed write of a buffer (body deleted; empty stub) */
 bdwrite(a1)
 	struct buf *a1;
 {
@@ -195,6 +209,8 @@ bdwrite(a1)
 	return;
 }
 
+/* 中文：异步写缓冲区（该函数体已删除，空实现） */
+/* EN: Write a buffer asynchronously (body deleted; empty stub) */
 bawrite(a1)
 	struct buf *a1;
 {
@@ -205,6 +221,8 @@ bawrite(a1)
 	return;
 }
 
+/* 中文：释放对缓冲区的引用（该函数体已删除，空实现） */
+/* EN: Release a reference to a buffer (body deleted; empty stub) */
 brelse(a1)
 	struct buf *a1;
 {
@@ -215,6 +233,8 @@ brelse(a1)
 	return;
 }
 
+/* 中文：查询指定 vnode 和块号的缓冲区是否已在缓存中（该函数体已删除，始终返回 0） */
+/* EN: Check whether a buffer for the given vnode and block is already cached (body deleted; always returns 0) */
 struct buf *
 incore(a1, a2)
 	struct vnode *a1;
@@ -227,6 +247,8 @@ incore(a1, a2)
 	return (0);
 }
 
+/* 中文：获取指定 vnode 和块的缓冲区（该函数体已删除，始终返回 NULL） */
+/* EN: Get a buffer for a given vnode and block (body deleted; always returns NULL) */
 struct buf *
 getblk(a1, a2, a3, a4, a5)
 	struct vnode *a1;
@@ -240,6 +262,8 @@ getblk(a1, a2, a3, a4, a5)
 	return ((struct buf *)0);
 }
 
+/* 中文：获取一个空闲缓冲区（该函数体已删除，始终返回 NULL） */
+/* EN: Get an empty buffer (body deleted; always returns NULL) */
 struct buf *
 geteblk(a1)
 	int a1;
@@ -251,6 +275,8 @@ geteblk(a1)
 	return ((struct buf *)0);
 }
 
+/* 中文：为缓冲区分配指定大小的数据空间（该函数体已删除，返回 0） */
+/* EN: Allocate data space of the given size for a buffer (body deleted; returns 0) */
 allocbuf(a1, a2)
 	struct buf *a1;
 	int a2;
@@ -262,6 +288,8 @@ allocbuf(a1, a2)
 	return (0);
 }
 
+/* 中文：分配并初始化一个新的缓冲区（该函数体已删除，始终返回 NULL） */
+/* EN: Allocate and initialize a new buffer (body deleted; always returns NULL) */
 struct buf *
 getnewbuf(a1, a2)
 	int a1, a2;
@@ -273,6 +301,8 @@ getnewbuf(a1, a2)
 	return ((struct buf *)0);
 }
 
+/* 中文：等待指定缓冲区上的 I/O 完成（该函数体已删除，返回 EIO） */
+/* EN: Wait for I/O on a buffer to complete (body deleted; returns EIO) */
 biowait(a1)
 	struct buf *a1;
 {
@@ -283,6 +313,8 @@ biowait(a1)
 	return (EIO);
 }
 
+/* 中文：标记指定缓冲区的 I/O 已完成并唤醒等待者（该函数体已删除，空实现） */
+/* EN: Mark a buffer's I/O as done and wake waiters (body deleted; empty stub) */
 void
 biodone(a1)
 	struct buf *a1;
@@ -294,6 +326,8 @@ biodone(a1)
 	return;
 }
 
+/* 中文：统计被锁定的缓冲区队列长度（该函数体已删除，始终返回 0） */
+/* EN: Count the length of the locked-buffer queue (body deleted; always returns 0) */
 int
 count_lock_queue()
 {
@@ -310,6 +344,8 @@ count_lock_queue()
  * Can be enabled to print out on every ``sync'' by setting "syncprt"
  * in vfs_syscalls.c using sysctl.
  */
+/* 中文：打印缓冲池当前分配统计：各队列（LOCKED、LRU、AGE、EMPTY）中按大小分组的缓冲区数量 */
+/* EN: Print statistics on current buffer-pool allocation: counts by size in each queue (LOCKED, LRU, AGE, EMPTY) */
 void
 vfs_bufstats()
 {

@@ -759,6 +759,8 @@ update_led()
 	outb(0x60,scroll | 2*num | 4*caps);
 }
 
+/* 中文：通过向键盘控制器发送 0xFE 命令重启 CPU（随后无限循环等待复位）。 */
+/* EN: Reboot the CPU by sending command 0xFE to the keyboard controller (then spins forever awaiting reset). */
 reset_cpu() {
 	while(1) {
 		while (inb(0x64)&2);	/* wait input ready */

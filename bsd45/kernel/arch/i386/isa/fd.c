@@ -127,6 +127,8 @@ struct isa_device *dev;
 	return 1;
 }
 
+/* 中文：软驱 ISA 设备挂接：记录 FDC 的 I/O 基址，把传输速率设为 500kbps，并关闭所有驱动器马达 */
+/* EN: Attach the floppy ISA device: record the FDC I/O base, set transfer rate to 500 kbps and turn off all drive motors */
 fdattach(dev)
 struct isa_device *dev;
 {	int	s;
@@ -704,6 +706,10 @@ printf("off|");
 	}
 }
 
+/* 中文：空实现的设备 ioctl 入口，本驱动不支持任何 ioctl 命令 */
+/* EN: Empty device ioctl entry point; this driver supports no ioctl commands */
 Fdioctl() {}
+/* 中文：空实现的设备转储入口，本驱动不支持内存转储 */
+/* EN: Empty device dump entry point; this driver does not support dumping */
 Fddump() {}
 #endif

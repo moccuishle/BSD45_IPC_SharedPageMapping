@@ -52,6 +52,8 @@ extern void	bcopy(const void *, void *, unsigned);
  * 游程编码：每对 (1..255 的计数, 字节)。全零页用槽位 0 表示、不占负载；
  * 结果超过 2 KB 视为不可压缩，调用方保持原页。
  */
+/* 中文：用游程编码把一页压缩成 (计数, 字节) 序列写入 dst，超过槽位容量返回 -1，全零页压缩为零长度 */
+/* EN: Run-length encode a page into (count, byte) pairs into dst, returning -1 if it exceeds the slot size; an all-zero page encodes to zero length */
 static int
 zcomp_rle(const unsigned char *src, unsigned char *dst, unsigned *lenp)
 {
@@ -74,6 +76,8 @@ zcomp_rle(const unsigned char *src, unsigned char *dst, unsigned *lenp)
 	return (0);
 }
 
+/* 中文：将游程编码数据解压还原为一整页，数据非法或解压长度不足一页时返回 -1 */
+/* EN: Decode run-length encoded data back into a full page, returning -1 on malformed data or when the output is not a full page */
 static int
 zcomp_unrle(const unsigned char *src, unsigned len, unsigned char *dst)
 {
@@ -94,6 +98,8 @@ zcomp_unrle(const unsigned char *src, unsigned len, unsigned char *dst)
 	return (0);
 }
 
+/* 中文：初始化压缩页池，分配物理页映射到固定虚拟地址并划分槽位，清空统计后置就绪标志 */
+/* EN: Initialize the compressed page pool, allocating and mapping pool pages at a fixed virtual address, splitting them into slots, clearing stats and marking ready */
 int
 zcomp_init(void)
 {
@@ -120,6 +126,8 @@ zcomp_init(void)
 	return (0);
 }
 
+/* 中文：压缩一页并存入空闲槽位，全零页用零槽表示，返回槽号与长度；不可压缩或池满则返回 -1 并更新统计 */
+/* EN: Compress a page into a free slot, using the zero slot for all-zero pages and returning slot and length; returns -1 and updates stats if incompressible or full */
 int
 zcomp_store(const unsigned char *src, unsigned *slotp, unsigned *lenp)
 {
@@ -160,6 +168,8 @@ zcomp_store(const unsigned char *src, unsigned *slotp, unsigned *lenp)
 	return (0);
 }
 
+/* 中文：把槽位中压缩的数据解压还原到 dst，零槽填全零，解压后释放该槽位并更新统计 */
+/* EN: Decompress a slot's data into dst, filling zeros for the zero slot, then freeing the slot and updating stats */
 int
 zcomp_load(unsigned slot, unsigned char *dst)
 {
@@ -184,6 +194,8 @@ zcomp_load(unsigned slot, unsigned char *dst)
 	return (0);
 }
 
+/* 中文：释放指定的压缩槽位（零槽除外），标记为未使用 */
+/* EN: Free a compressed slot (other than the zero slot), marking it unused */
 void
 zcomp_free_slot(unsigned slot)
 {
@@ -192,6 +204,8 @@ zcomp_free_slot(unsigned slot)
 		zslots[slot].z_used = 0;
 }
 
+/* 中文：输出压缩池的各项统计值（压缩/解压次数、节省字节、拒绝次数、池满次数） */
+/* EN: Report the compressed pool's statistics (compress/decompress counts, bytes saved, rejections and full events) */
 void
 zcomp_stats(unsigned *compressed, unsigned *decompressed, unsigned *saved,
     unsigned *rejected, unsigned *full)
@@ -204,6 +218,8 @@ zcomp_stats(unsigned *compressed, unsigned *decompressed, unsigned *saved,
 	*full = z_full;
 }
 
+/* 中文：打印压缩池的统计信息与当前槽位使用情况 */
+/* EN: Print the compressed pool's statistics and current slot usage */
 void
 zcomp_print(void)
 {
@@ -218,6 +234,8 @@ zcomp_print(void)
 	    used, ZCOMP_SLOT_COUNT - 1, z_rejected, z_full);
 }
 
+/* 中文：压缩子系统自检，测试全零页与 RLE 往返压缩解压能否正确还原数据 */
+/* EN: Self-test for the compression subsystem, verifying zero-page and RLE compress/decompress round-trip data integrity */
 int
 zcomp_selftest(void)
 {

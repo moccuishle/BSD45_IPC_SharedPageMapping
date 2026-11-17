@@ -618,6 +618,8 @@ microtime(tvp)
 	splx(s);
 }
 
+/* 中文：物理 I/O 策略例程：vmapbuf 映射缓冲区后调用下层 strat，脏页推送不等待，否则在 splbio 下睡眠等待 B_DONE，最后还原映射与地址 */
+/* EN: Physical I/O strategy: maps the buffer with vmapbuf and calls strat; returns immediately for dirty-page pushes, otherwise sleeps at splbio until B_DONE, then unmaps and restores the address */
 physstrat(bp, strat, prio)
 	struct buf *bp;
 	int (*strat)(), prio;
@@ -863,6 +865,8 @@ struct region_descriptor r_idt = {
 	sizeof(idt)-1,(char *)idt
 };
 
+/* 中文：在 IDT 的 idx 号表项中填入中断/陷阱门：设置处理函数偏移、内核代码选择子、类型 typ、权限 dpl 并置存在位 */
+/* EN: Fill IDT entry idx with an interrupt/trap gate: set the handler offset, kernel code selector, type typ, privilege dpl and present bit */
 setidt(idx, func, typ, dpl) char *func; {
 	struct gate_descriptor *ip = idt + idx;
 
@@ -889,6 +893,8 @@ extern	IDTVEC(div), IDTVEC(dbg), IDTVEC(nmi), IDTVEC(bpt), IDTVEC(ofl),
 int lcr0(), lcr3(), rcr0(), rcr2();
 int _udatasel, _ucodesel, _gsel_tss;
 
+/* 中文：初始化 386 保护模式运行环境：初始化控制台、构造 GDT/LDT 段与 IDT 异常门、加载表寄存器、读取 BIOS 内存大小、引导 pmap 并切换到用户态 */
+/* EN: Initialize the 386 protected-mode environment: set up console, build GDT/LDT segments and IDT exception gates, load table registers, read BIOS memory size, bootstrap pmap and prepare user-mode entry */
 init386(first) { extern ssdtosd(), lgdt(), lidt(), lldt(), etext; 
 	MTRACE('1');
 	int x, *pi;
@@ -1020,6 +1026,8 @@ extern caddr_t		CADDR1, CADDR2;
  * zero out physical memory
  * specified in relocation units (NBPG bytes)
  */
+/* 中文：通过 CMAP2 映射指定物理页并清零一页，用于清零以 NBPG 为单位给出的物理内存段 */
+/* EN: Map a physical page through CMAP2 and zero one page, used to clear a physical memory segment given in NBPG relocation units */
 clearseg(n) {
 
 	*(int *)CMAP2 = PG_V | PG_KW | ctob(n);
@@ -1032,6 +1040,8 @@ clearseg(n) {
  * copy a page of physical memory
  * specified in relocation units (NBPG bytes)
  */
+/* 中文：通过 CMAP2 映射目标物理页，把以 NBPG 为单位给出的源物理页内容复制一页过去 */
+/* EN: Map the destination physical page through CMAP2 and copy one page from the source physical page given in NBPG relocation units */
 copyseg(frm, n) {
 
 	*(int *)CMAP2 = PG_V | PG_KW | ctob(n);
@@ -1043,6 +1053,8 @@ copyseg(frm, n) {
  * copy a page of physical memory
  * specified in relocation units (NBPG bytes)
  */
+/* 中文：通过 CMAP1 与 CMAP2 分别映射源、目的物理页，把一页物理内存从 frm 复制到 to */
+/* EN: Map source and destination physical pages through CMAP1 and CMAP2 respectively and copy one page of physical memory from frm to to */
 physcopyseg(frm, to) {
 
 	*(int *)CMAP1 = PG_V | PG_KW | ctob(frm);
@@ -1055,6 +1067,8 @@ physcopyseg(frm, to) {
 	schednetisr(NETISR_AST);
 }*/
 
+/* 中文：调度软件时钟中断，向 netisr 提交 NETISR_SCLK */
+/* EN: Schedule the software clock interrupt by posting NETISR_SCLK to the netisr queue */
 setsoftclock() {
 	schednetisr(NETISR_SCLK);
 }
@@ -1088,11 +1102,15 @@ _remque(element)
 	element->ph_rlink = (struct proc *)0;
 }
 
+/* 中文：释放虚拟内存访问的空实现占位函数，本移植版中无需实际操作 */
+/* EN: No-op placeholder for releasing virtual memory access; requires no real work in this port */
 vmunaccess() {}
 
 /*
  * Below written in C to allow access to debugging code
  */
+/* 中文：以 fubyte 从用户态逐字节复制 NUL 结尾字符串到内核，最多 maxlength 字节，成功返回 0，出错返回 EFAULT/ENAMETOOLONG 并可选回写复制字节数 */
+/* EN: Copy a NUL-terminated string from user space to the kernel byte by byte via fubyte, up to maxlength bytes; returns 0 on success or EFAULT/ENAMETOOLONG, optionally writing back the copied count */
 copyinstr(fromaddr, toaddr, maxlength, lencopied) u_int *lencopied, maxlength;
 	void *toaddr, *fromaddr; {
 	int c,tally;
@@ -1115,6 +1133,8 @@ copyinstr(fromaddr, toaddr, maxlength, lencopied) u_int *lencopied, maxlength;
 	return(ENAMETOOLONG);
 }
 
+/* 中文：以 subyte 从内核逐字节复制 NUL 结尾字符串到用户态，最多 maxlength 字节，成功返回 0，出错返回 EFAULT/ENAMETOOLONG 并可选回写复制字节数 */
+/* EN: Copy a NUL-terminated string from the kernel to user space byte by byte via subyte, up to maxlength bytes; returns 0 on success or EFAULT/ENAMETOOLONG, optionally writing back the copied count */
 copyoutstr(fromaddr, toaddr, maxlength, lencopied) u_int *lencopied, maxlength;
 	void *fromaddr, *toaddr; {
 	int c;
@@ -1134,6 +1154,8 @@ copyoutstr(fromaddr, toaddr, maxlength, lencopied) u_int *lencopied, maxlength;
 	return(ENAMETOOLONG);
 }
 
+/* 中文：在内核地址空间之间以 C 实现复制 NUL 结尾字符串，最多 maxlength 字节，成功返回 0，超长返回 ENAMETOOLONG 并可选回写复制字节数 */
+/* EN: Copy a NUL-terminated string between kernel addresses in C, up to maxlength bytes; returns 0 on success or ENAMETOOLONG on overflow, optionally writing back the copied count */
 copystr(fromaddr, toaddr, maxlength, lencopied) u_int *lencopied, maxlength;
 	void *fromaddr, *toaddr; {
 	u_int tally;

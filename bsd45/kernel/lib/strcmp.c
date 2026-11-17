@@ -44,6 +44,8 @@ static char sccsid[] = "@(#)strcmp.c	8.1 (Berkeley) 6/4/93";
 /*
  * Compare strings.
  */
+/* 中文：比较两个以 NUL 结尾的字符串，返回负数、0 或正数分别表示小于、相等或大于。 */
+/* EN: Compare two NUL-terminated strings, returning a negative, zero or positive value for less, equal or greater. */
 int
 strcmp(s1, s2)
 	register const char *s1, *s2;

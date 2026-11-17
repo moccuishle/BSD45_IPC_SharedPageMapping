@@ -66,6 +66,8 @@
 #define ovbcopy bcopy
 #endif
 
+/* 中文：初始化 PPP 滑动窗口压缩器：清空压缩结构，建立 MAX_STATES 个压缩状态的循环链表，并设置最近使用状态、收发序号初值与丢弃标志 */
+/* EN: Initialize the PPP sliding-window compressor: zero the structure, build a circular list of MAX_STATES compression states, and set initial last-used state, sequence numbers and the TOSS flag */
 void
 sl_compress_init(comp)
 	struct slcompress *comp;
@@ -139,6 +141,8 @@ sl_compress_init(comp)
 	} \
 }
 
+/* 中文：用 Van Jacobson 算法压缩一个 TCP/IP 报文：若首部无需压缩则直接返回带 TYPE_UNCOMPRESSED_TCP 标记的数据，否则根据与上次状态的差异生成压缩 TCP 首部 */
+/* EN: Compress a TCP/IP packet using the Van Jacobson algorithm: return it flagged TYPE_UNCOMPRESSED_TCP when compression is not possible, otherwise build a compressed TCP header from the delta against the previous state */
 u_int
 sl_compress_tcp(m, ip, comp, compress_cid)
 	struct mbuf *m;
@@ -391,6 +395,8 @@ uncompressed:
 }
 
 
+/* 中文：解压一个 van Jacobson 压缩的 TCP 报文：按 UNCOMPRESSED/COMPRESSED 类型分派，从压缩编码重建 IP 与 TCP 首部并返回原始报文 */
+/* EN: Uncompress a Van Jacobson compressed TCP packet: dispatch on the UNCOMPRESSED/COMPRESSED type, reconstruct the IP and TCP headers from the compressed encoding and return the original packet */
 int
 sl_uncompress_tcp(bufp, len, type, comp)
 	u_char **bufp;

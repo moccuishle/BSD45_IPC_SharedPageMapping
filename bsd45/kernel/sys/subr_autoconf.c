@@ -74,6 +74,8 @@ struct matchinfo {
  * Apply the matching function and choose the best.  This is used
  * a few times and we want to keep the code small.
  */
+/* 中文：对给定配置数据 cf 执行匹配函数，若得到的优先级高于当前记录则更新最佳匹配 */
+/* EN: Apply the match function to a configuration entry cf, updating the best match when its priority exceeds the current one */
 static void
 mapply(m, cf)
 	register struct matchinfo *m;
@@ -102,6 +104,8 @@ mapply(m, cf)
  * an arbitrary function to all potential children (its return value
  * can be ignored).
  */
+/* 中文：遍历某设备的所有潜在子设备配置，调用匹配函数（默认为子设备匹配函数）并返回优先级最高者 */
+/* EN: Iterate over all potential children of a device, applying a match function (defaulting to the child's) and returning the highest-priority match */
 struct cfdata *
 config_search(fn, parent, aux)
 	cfmatch_t fn;
@@ -135,6 +139,8 @@ config_search(fn, parent, aux)
  * Find the given root device.
  * This is much like config_search, but there is no parent.
  */
+/* 中文：按名字在根设备配置表中查找并返回匹配的最佳根设备配置 */
+/* EN: Search the root device configuration entries by name and return the best matching one */
 struct cfdata *
 config_rootsearch(fn, rootname, aux)
 	register cfmatch_t fn;
@@ -172,6 +178,8 @@ static char *msgs[3] = { "", " not configured\n", " unsupported\n" };
  * driver function) and attach it, and return true.  If the device was
  * not configured, call the given `print' function and return 0.
  */
+/* 中文：为在父设备上发现的设备查找配置并挂接，成功返回 1，未配置则调用 print 报告并返回 0 */
+/* EN: Find configuration for a device found on a parent and attach it, returning 1 on success or calling print and returning 0 if unconfigured */
 int
 config_found(parent, aux, print)
 	struct device *parent;
@@ -191,6 +199,8 @@ config_found(parent, aux, print)
 /*
  * As above, but for root devices.
  */
+/* 中文：为给定名字的根设备查找配置并挂接，成功返回 1，否则报告未配置并返回 0 */
+/* EN: Find configuration for a root device by name and attach it, returning 1 on success or reporting and returning 0 if unconfigured */
 int
 config_rootfound(rootname, aux)
 	char *rootname;
@@ -207,6 +217,8 @@ config_rootfound(rootname, aux)
 }
 
 /* just like sprintf(buf, "%d") except that it works from the end */
+/* 中文：把整数 n 的十进制表示从 ep 往前写入缓冲区（类似从尾部工作的 sprintf("%d")），返回起点 */
+/* EN: Write the decimal representation of integer n backward from ep into a buffer (like a sprintf("%d") working from the end), returning the start */
 static char *
 number(ep, n)
 	register char *ep;
@@ -225,6 +237,8 @@ number(ep, n)
 /*
  * Attach a found device.  Allocates memory for device variables.
  */
+/* 中文：挂接一个已发现的设备，为其分配内存、设置名字与单元号、登记到设备数组并调用驱动挂接函数 */
+/* EN: Attach a found device, allocating memory, setting its name and unit, registering it in the device array and invoking the driver's attach function */
 void
 config_attach(parent, cf, aux, print)
 	register struct device *parent;
@@ -324,6 +338,8 @@ config_attach(parent, cf, aux, print)
  * commented-out assignments below), but that occurs naturally for
  * device instance variables.
  */
+/* 中文：把一个事件计数器挂接到设备，设置名字并链入全局 allevents 链表 */
+/* EN: Attach an event counter to a device, setting its name and linking it into the global allevents list */
 void
 evcnt_attach(dev, name, ev)
 	struct device *dev;

@@ -108,6 +108,8 @@ int lock_wait_time = 100;
 /*
  * Initialize a lock; required before use.
  */
+/* 中文：初始化一个锁，设置优先级、等待消息、超时和标志（使用前必须调用） */
+/* EN: Initialize a lock with priority, wait message, timeout and flags; must be called before use */
 void
 lockinit(lkp, prio, wmesg, timo, flags)
 	struct lock *lkp;
@@ -129,6 +131,8 @@ lockinit(lkp, prio, wmesg, timo, flags)
 /*
  * Determine the status of a lock.
  */
+/* 中文：查询锁的当前状态，返回 LK_EXCLUSIVE、LK_SHARED 或 0 */
+/* EN: Determine a lock's current state, returning LK_EXCLUSIVE, LK_SHARED or 0 */
 int
 lockstatus(lkp)
 	struct lock *lkp;
@@ -151,6 +155,8 @@ lockstatus(lkp)
  * LK_WANT_EXCL flag (preventing further shared locks), and wait for already
  * accepted shared locks and shared-to-exclusive upgrades to go away.
  */
+/* 中文：通用锁管理器，按 flags 获取/释放/升级/降级/排空共享或互斥锁 */
+/* EN: Generic lock manager that acquires/releases/upgrades/downgrades/drains shared or exclusive locks per flags */
 int
 lockmgr(lkp, flags, interlkp, p)
 	__volatile struct lock *lkp;
@@ -425,6 +431,8 @@ lockmgr(lkp, flags, interlkp, p)
  * Print out information about state of a lock. Used by VOP_PRINT
  * routines to display ststus about contained locks.
  */
+/* 中文：打印锁的状态信息，供 VOP_PRINT 显示所含锁的状态 */
+/* EN: Print information about a lock's state, used by VOP_PRINT routines */
 lockmgr_printinfo(lkp)
 	struct lock *lkp;
 {
@@ -450,6 +458,8 @@ int simplelockrecurse;
  * Simple lock functions so that the debugger can see from whence
  * they are being called.
  */
+/* 中文：初始化简单锁（调试版，便于调试器查看调用来源） */
+/* EN: Initialize a simple lock (debug version, so the debugger can see callers) */
 void
 simple_lock_init(alp)
 	struct simplelock *alp;
@@ -458,6 +468,8 @@ simple_lock_init(alp)
 	alp->lock_data = 0;
 }
 
+/* 中文：获取简单锁（调试版），检测重复加锁并按需报告或 panic */
+/* EN: Acquire a simple lock (debug version), detecting recursive locking and reporting or panicking */
 void
 _simple_lock(alp, id, l)
 	__volatile struct simplelock *alp;
@@ -485,6 +497,8 @@ _simple_lock(alp, id, l)
 		curproc->p_simple_locks++;
 }
 
+/* 中文：尝试非阻塞获取简单锁（调试版），成功返回 1，锁被占用返回 0 */
+/* EN: Try to acquire a simple lock without blocking (debug version); returns 1 on success, 0 if held */
 int
 _simple_lock_try(alp, id, l)
 	__volatile struct simplelock *alp;
@@ -502,6 +516,8 @@ _simple_lock_try(alp, id, l)
 	return (1);
 }
 
+/* 中文：释放简单锁（调试版），检测未持锁释放并按需报告或 panic */
+/* EN: Release a simple lock (debug version), detecting unlocking an unheld lock and reporting or panicking */
 void
 _simple_unlock(alp, id, l)
 	__volatile struct simplelock *alp;

@@ -45,6 +45,8 @@ static char sccsid[] = "@(#)subdi3.c	8.1 (Berkeley) 6/4/93";
  * Subtract two quad values.  This is trivial since a one-bit carry
  * from a single u_long difference x-y occurs if and only if (x-y) > x.
  */
+/* 中文：计算两个 64 位整数的差：低位字相减后若结果大于被减数则说明产生借位，并在高位字相减时扣除该借位。 */
+/* EN: Subtract two quad values: subtract the low words, detect the borrow when the difference exceeds the minuend, and subtract that borrow from the high words. */
 quad_t
 __subdi3(a, b)
 	quad_t a, b;

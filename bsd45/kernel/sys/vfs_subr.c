@@ -90,6 +90,8 @@ static struct simplelock spechash_slock;
 /*
  * Initialize the vnode management data structures.
  */
+/* 中文：初始化 vnode 管理数据结构：各简单锁、空闲 vnode 链表和挂载点链表 */
+/* EN: Initialize vnode management data structures: the simple locks, free vnode list and mount-point list */
 void
 vntblinit()
 {
@@ -106,6 +108,8 @@ vntblinit()
  * Mark a mount point as busy. Used to synchronize access and to delay
  * unmounting. Interlock is not released on failure.
  */
+/* 中文：把文件系统标记为忙以防止卸载：加共享锁，若已在卸载则按 LK_NOWAIT 返回或睡眠等待 */
+/* EN: Mark a filesystem busy to delay unmounting: take a shared lock, or under LK_NOWAIT return, or sleep if already being unmounted */
 int
 vfs_busy(mp, flags, interlkp, p)
 	struct mount *mp;
@@ -143,6 +147,8 @@ vfs_busy(mp, flags, interlkp, p)
 /*
  * Free a busy filesystem.
  */
+/* 中文：释放由 vfs_busy 获取的文件系统忙锁 */
+/* EN: Release the busy lock on a filesystem previously acquired by vfs_busy */
 void
 vfs_unbusy(mp, p)
 	struct mount *mp;
@@ -158,6 +164,8 @@ vfs_unbusy(mp, p)
  *
  * Devname is usually updated by mount(8) after booting.
  */
+/* 中文：按文件系统类型名查找 vfsconf 并分配、初始化一个 mount 结构 */
+/* EN: Look up a vfsconf by filesystem type name and allocate and initialize a mount structure */
 int
 vfs_rootmountalloc(fstypename, devname, mpp)
 	char *fstypename;
@@ -198,6 +206,8 @@ vfs_rootmountalloc(fstypename, devname, mpp)
  * trying those that have mountroot routines, and try them until one
  * works or we have tried them all.
  */
+/* 中文：挂载根文件系统：优先用预设的 mountroot，否则遍历已知文件系统依次尝试其 mountroot 例程 */
+/* EN: Mount the root filesystem: use a preset mountroot if available, else try each known filesystem's mountroot routine */
 int
 vfs_mountroot()
 {
@@ -220,6 +230,8 @@ vfs_mountroot()
 /*
  * Lookup a mount point by filesystem identifier.
  */
+/* 中文：按文件系统标识符 fsid 在挂载链表中查找对应的 mount */
+/* EN: Look up a mount by filesystem identifier fsid in the mount list */
 struct mount *
 vfs_getvfs(fsid)
 	fsid_t *fsid;
@@ -242,6 +254,8 @@ vfs_getvfs(fsid)
 /*
  * Get a new unique fsid
  */
+/* 中文：为文件系统分配一个新的唯一 fsid，确保不与现有挂载点冲突 */
+/* EN: Assign a new unique filesystem id (fsid) that does not collide with existing mounts */
 void
 vfs_getnewfsid(mp)
 	struct mount *mp;
@@ -272,6 +286,8 @@ static u_short xxxfs_mntid;
 /*
  * Set vnode attributes to VNOVAL
  */
+/* 中文：把 vattr 结构中的所有属性字段设为 VNOVAL（未指定值） */
+/* EN: Set all attributes in a vattr structure to VNOVAL (unspecified) */
 void
 vattr_null(vap)
 	register struct vattr *vap;
@@ -301,6 +317,8 @@ extern struct vattr va_null;
 /*
  * Return the next vnode from the free list.
  */
+/* 中文：从空闲链表取一个或新分配一个 vnode，初始化后挂入指定挂载点并返回 */
+/* EN: Get a vnode from the free list or allocate a new one, initialize it and place it on the given mount */
 int
 getnewvnode(tag, mp, vops, vpp)
 	enum vtagtype tag;
@@ -383,6 +401,8 @@ top:
 /*
  * Move a vnode from one mount queue to another.
  */
+/* 中文：把一个 vnode 从原挂载队列移到新挂载点的 vnode 队列 */
+/* EN: Move a vnode from its old mount queue to another mount point's vnode queue */
 void
 insmntque(vp, mp)
 	struct vnode *vp;
@@ -406,6 +426,8 @@ insmntque(vp, mp)
 /*
  * Update outstanding I/O count and do wakeup if requested.
  */
+/* 中文：减少 vnode 的未完成写 I/O 计数，降为 0 时清 VBWAIT 并唤醒等待者 */
+/* EN: Decrement a vnode's outstanding output count and wake waiters clearing VBWAIT when it reaches zero */
 void
 vwakeup(bp)
 	register struct buf *bp;
@@ -429,6 +451,8 @@ vwakeup(bp)
  * Flush out and invalidate all buffers associated with a vnode.
  * Called with the underlying object locked.
  */
+/* 中文：冲刷并作废与某 vnode 关联的所有缓冲区，V_SAVE 时先 fsync 保存脏数据 */
+/* EN: Flush and invalidate all buffers associated with a vnode, fsyncing dirty data first when V_SAVE is set */
 int
 vinvalbuf(vp, flags, cred, p, slpflag, slptimeo)
 	register struct vnode *vp;
@@ -498,6 +522,8 @@ vinvalbuf(vp, flags, cred, p, slpflag, slptimeo)
 /*
  * Associate a buffer with a vnode.
  */
+/* 中文：把一个缓冲区关联到 vnode：记录 b_vp 并加入该 vnode 的缓冲区链表 */
+/* EN: Associate a buffer with a vnode: record b_vp and add it to the vnode's buffer list */
 void
 bgetvp(vp, bp)
 	register struct vnode *vp;
@@ -521,6 +547,8 @@ bgetvp(vp, bp)
 /*
  * Disassociate a buffer from a vnode.
  */
+/* 中文：解除缓冲区与 vnode 的关联：从链表移除并释放 vnode 引用 */
+/* EN: Disassociate a buffer from its vnode: remove it from the list and release the vnode reference */
 void
 brelvp(bp)
 	register struct buf *bp;
@@ -544,6 +572,8 @@ brelvp(bp)
  * Used to assign file specific control information
  * (indirect blocks) to the vnode to which they belong.
  */
+/* 中文：把缓冲区重新归属到另一个 vnode，按脏/净状态挂入相应链表 */
+/* EN: Reassign a buffer to a different vnode, placing it on the dirty or clean list accordingly */
 void
 reassignbuf(bp, newvp)
 	register struct buf *bp;
@@ -576,6 +606,8 @@ reassignbuf(bp, newvp)
  * Used for root filesystem, argdev, and swap areas.
  * Also used for memory file system special devices.
  */
+/* 中文：为块设备创建一个 vnode（用于根文件系统、argdev 和交换区） */
+/* EN: Create a vnode for a block device (used for root filesystem, argdev and swap areas) */
 int
 bdevvp(dev, vpp)
 	dev_t dev;
@@ -612,6 +644,8 @@ bdevvp(dev, vpp)
  * the existing contents and return the aliased vnode. The
  * caller is responsible for filling it with its new contents.
  */
+/* 中文：检查新 vnode 是否表示已有 vnode 的特殊设备别名，若是则回收旧内容并返回别名 vnode */
+/* EN: Check whether a new vnode aliases an existing special-device vnode, reclaiming the old contents and returning the alias if so */
 struct vnode *
 checkalias(nvp, nvp_rdev, mp)
 	register struct vnode *nvp;
@@ -681,6 +715,8 @@ loop:
  * indicate that the vnode is no longer usable (possibly having
  * been changed to a new file system type).
  */
+/* 中文：从空闲链表获取指定 vnode 并加锁，若该 vnode 正被清理则等待并返回 ENOENT */
+/* EN: Grab a vnode, increment its use count and lock it; if being vgone'd, wait then return ENOENT */
 int
 vget(vp, flags, p)
 	struct vnode *vp;
@@ -724,6 +760,8 @@ vget(vp, flags, p)
  * is not revoked while an operation is in progress. So, an active shared
  * count is maintained in an auxillary vnode lock structure.
  */
+/* 中文：无底层锁时的 VOP_LOCK 桩函数，仅清除 interlock 并返回成功 */
+/* EN: VOP_LOCK stub for objects with no backing lock, clearing the interlock and returning success */
 int
 vop_nolock(ap)
 	struct vop_lock_args /* {
@@ -790,6 +828,8 @@ vop_nolock(ap)
 /*
  * Decrement the active use count.
  */
+/* 中文：无底层锁时的 VOP_UNLOCK 桩函数，释放辅助 vnode 锁并返回结果 */
+/* EN: VOP_UNLOCK stub for objects with no backing lock, releasing the auxiliary vnode lock */
 int
 vop_nounlock(ap)
 	struct vop_unlock_args /* {
@@ -808,6 +848,8 @@ vop_nounlock(ap)
 /*
  * Return whether or not the node is in use.
  */
+/* 中文：VOP_ISLOCKED 桩函数，返回辅助 vnode 锁是否被持有 */
+/* EN: VOP_ISLOCKED stub that returns whether the auxiliary vnode lock is held */
 int
 vop_noislocked(ap)
 	struct vop_islocked_args /* {
@@ -824,6 +866,8 @@ vop_noislocked(ap)
 /*
  * Vnode reference.
  */
+/* 中文：增加 vnode 的引用计数 */
+/* EN: Increment the reference count of a vnode */
 void
 vref(vp)
 	struct vnode *vp;
@@ -839,6 +883,8 @@ vref(vp)
 /*
  * vput(), just unlock and vrele()
  */
+/* 中文：释放对 vnode 的引用并解锁，引用数归零时调用 VOP_INACTIVE 并放入空闲链表 */
+/* EN: Unlock and release a vnode reference, calling VOP_INACTIVE and freeing it when the count reaches zero */
 void
 vput(vp)
 	struct vnode *vp;
@@ -876,6 +922,8 @@ vput(vp)
  * Vnode release.
  * If count drops to zero, call inactive routine and return to freelist.
  */
+/* 中文：释放对 vnode 的引用，引用数归零时调用 VOP_INACTIVE 并放入空闲链表 */
+/* EN: Release a vnode reference, calling VOP_INACTIVE and placing it on the free list when the count reaches zero */
 void
 vrele(vp)
 	struct vnode *vp;
@@ -912,6 +960,8 @@ vrele(vp)
 /*
  * Page or buffer structure gets a reference.
  */
+/* 中文：为页或缓冲区结构增加一个 hold 引用计数（DIAGNOSTIC 下启用） */
+/* EN: Add a hold reference to a page or buffer structure (enabled under DIAGNOSTIC) */
 void
 vhold(vp)
 	register struct vnode *vp;
@@ -925,6 +975,8 @@ vhold(vp)
 /*
  * Page or buffer structure frees a reference.
  */
+/* 中文：释放页或缓冲区结构的一个 hold 引用计数（DIAGNOSTIC 下启用） */
+/* EN: Release a hold reference on a page or buffer structure (enabled under DIAGNOSTIC) */
 void
 holdrele(vp)
 	register struct vnode *vp;
@@ -951,6 +1003,8 @@ int busyprt = 0;	/* print out busy vnodes */
 struct ctldebug debug1 = { "busyprt", &busyprt };
 #endif
 
+/* 中文：清除挂载点上属于它的所有 vnode，按标志可跳过系统 vnode 或强制关闭活动 vnode，忙则返回 EBUSY */
+/* EN: Flush all vnodes belonging to a mount, skipping system vnodes or force-closing active ones per flags; returns EBUSY if any are busy */
 int
 vflush(mp, skipvp, flags)
 	struct mount *mp;
@@ -1034,6 +1088,8 @@ loop:
  * Disassociate the underlying file system from a vnode.
  * The vnode interlock is held on entry.
  */
+/* 中文：解除 vnode 与底层文件系统的关联：冲刷缓冲、关闭、回收并清空特定数据 */
+/* EN: Disassociate a vnode from its underlying filesystem: flush buffers, close, reclaim and clear filesystem-specific data */
 static void
 vclean(vp, flags, p)
 	struct vnode *vp;
@@ -1117,6 +1173,8 @@ vclean(vp, flags, p)
  * Eliminate all activity associated with  the requested vnode
  * and with all vnodes aliased to the requested vnode.
  */
+/* 中文：撤销 vnode 及其所有别名 vnode 上的一切活动，供 revoke 使用 */
+/* EN: Eliminate all activity on a vnode and all its aliased vnodes, used by revoke */
 int
 vop_revoke(ap)
 	struct vop_revoke_args /* {
@@ -1181,6 +1239,8 @@ vop_revoke(ap)
  * Recycle an unused vnode to the front of the free list.
  * Release the passed interlock if the vnode will be recycled.
  */
+/* 中文：若 vnode 引用数为 0 则销毁它并移到空闲链表头，供回收使用 */
+/* EN: Recycle an unused vnode to the head of the free list if its use count is zero */
 int
 vrecycle(vp, inter_lkp, p)
 	struct vnode *vp;
@@ -1203,6 +1263,8 @@ vrecycle(vp, inter_lkp, p)
  * Eliminate all activity associated with a vnode
  * in preparation for reuse.
  */
+/* 中文：消除 vnode 上的所有活动以准备复用（加 interlock 后调用 vgonel） */
+/* EN: Eliminate all activity on a vnode in preparation for reuse (takes interlock then calls vgonel) */
 void
 vgone(vp)
 	struct vnode *vp;
@@ -1216,6 +1278,8 @@ vgone(vp)
 /*
  * vgone, with the vp interlock held.
  */
+/* 中文：在持有 vnode interlock 的前提下消除其所有活动并准备复用 */
+/* EN: Eliminate all activity on a vnode and prepare it for reuse, with the vnode interlock held */
 void
 vgonel(vp, p)
 	struct vnode *vp;
@@ -1309,6 +1373,8 @@ vgonel(vp, p)
 /*
  * Lookup a vnode by device number.
  */
+/* 中文：按设备号和类型在特殊设备哈希链中查找对应的 vnode */
+/* EN: Look up a vnode by device number and type in the special-device hash chains */
 int
 vfinddev(dev, type, vpp)
 	dev_t dev;
@@ -1333,6 +1399,8 @@ vfinddev(dev, type, vpp)
 /*
  * Calculate the total number of references to a special device.
  */
+/* 中文：统计某个特殊设备（含别名）所有 vnode 的引用计数总和 */
+/* EN: Count the total references across all vnodes (including aliases) for a special device */
 int
 vcount(vp)
 	struct vnode *vp;
@@ -1368,6 +1436,8 @@ loop:
 static char *typename[] =
    { "VNON", "VREG", "VDIR", "VBLK", "VCHR", "VLNK", "VSOCK", "VFIFO", "VBAD" };
 
+/* 中文：打印某个 vnode 的描述信息（类型、引用计数、标志等）供调试 */
+/* EN: Print a description of a vnode (type, reference counts, flags, etc.) for debugging */
 void
 vprint(label, vp)
 	char *label;
@@ -1410,6 +1480,8 @@ vprint(label, vp)
  * List all of the locked vnodes in the system.
  * Called when debugging the kernel.
  */
+/* 中文：列出系统中所有被锁定的 vnode（DEBUG 下供内核调试使用） */
+/* EN: List all locked vnodes in the system (used for kernel debugging under DEBUG) */
 void
 printlockedvnodes()
 {
@@ -1441,6 +1513,8 @@ printlockedvnodes()
 /*
  * Top level filesystem related information gathering.
  */
+/* 中文：VFS 通用 sysctl：返回最大类型号、文件系统配置，并把 FS 特有请求转发给对应文件系统的 sysctl */
+/* EN: Generic VFS sysctl: return the max type number and filesystem config, forwarding FS-specific requests to the filesystem's sysctl */
 int
 vfs_sysctl(name, namelen, oldp, oldlenp, newp, newlen, p)
 	int *name;
@@ -1491,6 +1565,8 @@ int kinfo_vgetfailed;
  * Copyout address of vnode followed by vnode.
  */
 /* ARGSUSED */
+/* 中文：通过 sysctl 导出所有 vnode 的指针和结构体副本；where 为 NULL 时只回填所需缓冲区大小 */
+/* EN: Export all vnodes' pointers and struct copies via sysctl; when where is NULL, only return the required buffer size */
 int
 sysctl_vnode(where, sizep, p)
 	char *where;
@@ -1562,6 +1638,8 @@ again:
 /*
  * Check to see if a filesystem is mounted on a block device.
  */
+/* 中文：检查某块设备 vnode 是否被挂载（自身或其别名设置了 SI_MOUNTEDON），忙则返回 EBUSY */
+/* EN: Check whether a block-device vnode is mounted on (itself or an alias has SI_MOUNTEDON), returning EBUSY if so */
 int
 vfs_mountedon(vp)
 	struct vnode *vp;
@@ -1591,6 +1669,8 @@ vfs_mountedon(vp)
  * Unmount all filesystems. The list is traversed in reverse order
  * of mounting to avoid dependencies.
  */
+/* 中文：卸载所有文件系统，按挂载的逆序遍历以避免依赖冲突 */
+/* EN: Unmount all filesystems, traversing in reverse mount order to avoid dependency conflicts */
 void
 vfs_unmountall()
 {
@@ -1610,6 +1690,8 @@ vfs_unmountall()
  * Build hash lists of net addresses and hang them off the mount point.
  * Called by ufs_mount() to set up the lists of export addresses.
  */
+/* 中文：根据 export_args 建立网络地址的哈希链表并挂到挂载点上，无地址时设置默认导出 */
+/* EN: Build hash lists of export addresses from export_args and hang them off the mount, setting default export when no address is given */
 static int
 vfs_hang_addrlist(mp, nep, argp)
 	struct mount *mp;
@@ -1694,6 +1776,8 @@ out:
 	return (error);
 }
 
+/* 中文：从 radix 树中删除一个网络凭证节点并释放其内存（walktree 回调） */
+/* EN: Delete one network-credential node from the radix tree and free it (walktree callback) */
 /* ARGSUSED */
 static int
 vfs_free_netcred(rn, w)
@@ -1710,6 +1794,8 @@ vfs_free_netcred(rn, w)
 /*
  * Free the net address hash lists that are hanging off the mount points.
  */
+/* 中文：释放挂在挂载点上的所有网络地址哈希链表 */
+/* EN: Free all network-address hash lists hanging off a mount point */
 static void
 vfs_free_addrlist(nep)
 	struct netexport *nep;
@@ -1726,6 +1812,8 @@ vfs_free_addrlist(nep)
 		}
 }
 
+/* 中文：根据标志设置或删除文件系统的 NFS 导出属性，更新导出地址链表 */
+/* EN: Set or clear a filesystem's NFS export attributes per flags, updating the export address lists */
 int
 vfs_export(mp, nep, argp)
 	struct mount *mp;
@@ -1746,6 +1834,8 @@ vfs_export(mp, nep, argp)
 	return (0);
 }
 
+/* 中文：在导出列表中查找与请求地址匹配的网络凭证，未匹配时使用默认导出 */
+/* EN: Look up a network credential matching the request address in the export list, falling back to the default export */
 struct netcred *
 vfs_export_lookup(mp, nep, nam)
 	register struct mount *mp;

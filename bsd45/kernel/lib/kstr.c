@@ -21,6 +21,8 @@ extern unsigned strlen(const char *);
 
 /* ------------------------------------------------------------- UTF-16LE */
 
+/* 中文：（UTF-16 构建）初始化 kstr：绑定缓冲区、清零长度并写入结尾 NUL */
+/* EN: (UTF-16 build) Initialize a kstr by binding a buffer, zeroing its length and writing the terminating NUL */
 void
 kstr_init(struct kstr *s, void *buf, unsigned maxbytes)
 {
@@ -32,6 +34,8 @@ kstr_init(struct kstr *s, void *buf, unsigned maxbytes)
 		s->buf[0] = 0;
 }
 
+/* 中文：（UTF-16 构建）清空 kstr：长度置零并写入结尾 NUL */
+/* EN: (UTF-16 build) Clear a kstr by zeroing its length and writing the terminating NUL */
 void
 kstr_clear(struct kstr *s)
 {
@@ -41,6 +45,8 @@ kstr_clear(struct kstr *s)
 		s->buf[0] = 0;
 }
 
+/* 中文：（UTF-16 构建）在 kstr 末尾追加一个 UTF-16 单元，检查剩余空间并维持结尾 NUL */
+/* EN: (UTF-16 build) Append one UTF-16 unit to a kstr, checking remaining space and keeping the terminating NUL */
 static int
 kstr_put(struct kstr *s, unsigned short c)
 {
@@ -53,6 +59,8 @@ kstr_put(struct kstr *s, unsigned short c)
 	return (0);
 }
 
+/* 中文：（UTF-16 构建）把 UTF-8 字符串解码成 UTF-16 存入 kstr（含代理对），非法序列或空间不足返回 -1 */
+/* EN: (UTF-16 build) Decode a UTF-8 string into UTF-16 in the kstr (including surrogate pairs), rejecting invalid sequences or insufficient space */
 int
 kstr_set_a(struct kstr *s, const char *utf8)
 {
@@ -102,6 +110,8 @@ kstr_set_a(struct kstr *s, const char *utf8)
 	return (0);
 }
 
+/* 中文：（UTF-16 构建）把一个 Unicode 码点按 UTF-8 编码写入输出缓冲区 */
+/* EN: (UTF-16 build) Encode one Unicode code point as UTF-8 into the output buffer */
 static int
 kstr_utf8_put(char *out, unsigned outlen, unsigned n, unsigned cp)
 {
@@ -126,6 +136,8 @@ kstr_utf8_put(char *out, unsigned outlen, unsigned n, unsigned cp)
 	return ((int)n);
 }
 
+/* 中文：（UTF-16 构建）把 kstr 中的 UTF-16 内容（含代理对）转码成 UTF-8 字符串 */
+/* EN: (UTF-16 build) Transcode the UTF-16 content of a kstr (including surrogate pairs) into a UTF-8 string */
 int
 kstr_to_a(const struct kstr *s, char *out, unsigned outlen)
 {
@@ -157,6 +169,8 @@ kstr_to_a(const struct kstr *s, char *out, unsigned outlen)
  * W API: native UTF-16 units, only compiled in the Unicode build.  This is
  * what internal callers use when they already hold UTF-16 (no conversion).
  */
+/* 中文：（UTF-16 构建）直接复制原生 UTF-16 单元到 kstr，不做转换 */
+/* EN: (UTF-16 build) Set a kstr by copying native UTF-16 units directly without conversion */
 int
 kstr_set_w(struct kstr *s, const unsigned short *units, unsigned nbytes)
 {
@@ -173,6 +187,8 @@ kstr_set_w(struct kstr *s, const unsigned short *units, unsigned nbytes)
 	return (0);
 }
 
+/* 中文：（UTF-16 构建）把 kstr 的 UTF-16 内容复制到输出数组并补上结尾 NUL */
+/* EN: (UTF-16 build) Copy the UTF-16 content of a kstr into an output array with a terminating NUL */
 int
 kstr_to_w(const struct kstr *s, unsigned short *out, unsigned maxbytes)
 {
@@ -184,6 +200,8 @@ kstr_to_w(const struct kstr *s, unsigned short *out, unsigned maxbytes)
 	return ((int)s->len);
 }
 
+/* 中文：（UTF-16 构建）按 UTF-16 单元逐个比较两个 kstr */
+/* EN: (UTF-16 build) Compare two kstrs unit by unit as UTF-16 values */
 int
 kstr_cmp(const struct kstr *a, const struct kstr *b)
 {
@@ -196,6 +214,8 @@ kstr_cmp(const struct kstr *a, const struct kstr *b)
 	return ((int)a->len - (int)b->len);
 }
 
+/* 中文：（UTF-16 构建）把大写 ASCII 字符折叠为小写（作用于一个 UTF-16 单元） */
+/* EN: (UTF-16 build) Fold an uppercase ASCII character to lowercase within one UTF-16 unit */
 static unsigned short
 kstr_fold(unsigned short c)
 {
@@ -205,6 +225,8 @@ kstr_fold(unsigned short c)
 	return (c);
 }
 
+/* 中文：（UTF-16 构建）忽略 ASCII 大小写比较两个 kstr */
+/* EN: (UTF-16 build) Compare two kstrs case-insensitively for ASCII characters */
 int
 kstr_icmp(const struct kstr *a, const struct kstr *b)
 {
@@ -221,6 +243,8 @@ kstr_icmp(const struct kstr *a, const struct kstr *b)
 	return ((int)a->len - (int)b->len);
 }
 
+/* 中文：（UTF-16 构建）对折叠后的 UTF-16 单元计算 kstr 的 FNV 哈希 */
+/* EN: (UTF-16 build) Compute the FNV hash of a kstr over its folded UTF-16 units */
 unsigned
 kstr_hash(const struct kstr *s)
 {
@@ -233,6 +257,8 @@ kstr_hash(const struct kstr *s)
 	return (h);
 }
 
+/* 中文：（UTF-16 构建）判断 kstr 内容是否与给定 ASCII 字符串相等 */
+/* EN: (UTF-16 build) Test whether a kstr's content equals a given ASCII string */
 int
 kstr_eq_ascii(const struct kstr *s, const char *ascii)
 {
@@ -246,6 +272,8 @@ kstr_eq_ascii(const struct kstr *s, const char *ascii)
 	return (1);
 }
 
+/* 中文：（UTF-16 构建）把一个 kstr 复制到另一个，先检查目标容量是否够 */
+/* EN: (UTF-16 build) Copy one kstr into another after checking that the destination has enough capacity */
 int
 kstr_copy(struct kstr *dst, const struct kstr *src)
 {
@@ -258,6 +286,8 @@ kstr_copy(struct kstr *dst, const struct kstr *src)
 	return (0);
 }
 
+/* 中文：（UTF-16 构建）把源 kstr 追加到目标 kstr 的末尾 */
+/* EN: (UTF-16 build) Append a source kstr to the end of a destination kstr */
 int
 kstr_append(struct kstr *dst, const struct kstr *src)
 {
@@ -272,6 +302,8 @@ kstr_append(struct kstr *dst, const struct kstr *src)
 	return (0);
 }
 
+/* 中文：（UTF-16 构建）把 ASCII 字符串追加到 kstr 的末尾 */
+/* EN: (UTF-16 build) Append an ASCII string to the end of a kstr */
 int
 kstr_append_ascii(struct kstr *dst, const char *ascii)
 {
@@ -286,6 +318,8 @@ kstr_append_ascii(struct kstr *dst, const char *ascii)
 	return (0);
 }
 
+/* 中文：（UTF-16 构建）判断一个 kstr 是否是另一个的前缀（忽略 ASCII 大小写） */
+/* EN: (UTF-16 build) Test whether one kstr is a prefix of another, ignoring ASCII case */
 int
 kstr_prefix(const struct kstr *prefix, const struct kstr *path)
 {
@@ -297,6 +331,8 @@ kstr_prefix(const struct kstr *prefix, const struct kstr *path)
 	return (kstr_icmp(prefix, path) == 0);
 }
 
+/* 中文：（UTF-16 构建）返回 kstr 中的 UTF-16 单元个数 */
+/* EN: (UTF-16 build) Return the number of UTF-16 units in a kstr */
 unsigned
 kstr_units(const struct kstr *s)
 {
@@ -304,6 +340,8 @@ kstr_units(const struct kstr *s)
 	return ((unsigned)s->len / 2);
 }
 
+/* 中文：（UTF-16 构建）返回指定下标的 UTF-16 单元，下标越界时返回 0 */
+/* EN: (UTF-16 build) Return the UTF-16 unit at a given index, or 0 when out of range */
 unsigned
 kstr_unit(const struct kstr *s, unsigned i)
 {
@@ -313,6 +351,8 @@ kstr_unit(const struct kstr *s, unsigned i)
 	return (s->buf[i]);
 }
 
+/* 中文：（UTF-16 构建）把一个 UTF-16 单元追加到 kstr 的末尾 */
+/* EN: (UTF-16 build) Push one UTF-16 unit onto the end of a kstr */
 int
 kstr_push_unit(struct kstr *s, unsigned c)
 {
@@ -324,6 +364,8 @@ kstr_push_unit(struct kstr *s, unsigned c)
 
 /* ---------------------------------------------------------------- ASCII */
 
+/* 中文：（ASCII 构建）初始化 kstr：绑定字节缓冲区、清零长度并写入结尾 NUL */
+/* EN: (ASCII build) Initialize a kstr by binding a byte buffer, zeroing its length and writing the terminating NUL */
 void
 kstr_init(struct kstr *s, void *buf, unsigned maxbytes)
 {
@@ -335,6 +377,8 @@ kstr_init(struct kstr *s, void *buf, unsigned maxbytes)
 		s->buf[0] = 0;
 }
 
+/* 中文：（ASCII 构建）清空 kstr：长度置零并写入结尾 NUL */
+/* EN: (ASCII build) Clear a kstr by zeroing its length and writing the terminating NUL */
 void
 kstr_clear(struct kstr *s)
 {
@@ -344,6 +388,8 @@ kstr_clear(struct kstr *s)
 		s->buf[0] = 0;
 }
 
+/* 中文：（ASCII 构建）用 ASCII 字符串设置 kstr，遇到非 ASCII 字节则返回 -1 */
+/* EN: (ASCII build) Set a kstr from an ASCII string, returning -1 on any non-ASCII byte */
 int
 kstr_set_a(struct kstr *s, const char *utf8)
 {
@@ -365,6 +411,8 @@ kstr_set_a(struct kstr *s, const char *utf8)
 	return (0);
 }
 
+/* 中文：（ASCII 构建）把 kstr 的 ASCII 内容复制到输出缓冲区并补上结尾 NUL */
+/* EN: (ASCII build) Copy the ASCII content of a kstr into an output buffer with a terminating NUL */
 int
 kstr_to_a(const struct kstr *s, char *out, unsigned outlen)
 {
@@ -376,6 +424,8 @@ kstr_to_a(const struct kstr *s, char *out, unsigned outlen)
 	return ((int)s->len);
 }
 
+/* 中文：（ASCII 构建）按字节比较两个 ASCII kstr */
+/* EN: (ASCII build) Compare two ASCII kstrs byte by byte */
 int
 kstr_cmp(const struct kstr *a, const struct kstr *b)
 {
@@ -389,6 +439,8 @@ kstr_cmp(const struct kstr *a, const struct kstr *b)
 	return ((int)a->len - (int)b->len);
 }
 
+/* 中文：（ASCII 构建）把大写 ASCII 字符折叠为小写 */
+/* EN: (ASCII build) Fold an uppercase ASCII character to lowercase */
 static char
 kstr_foldc(char c)
 {
@@ -398,6 +450,8 @@ kstr_foldc(char c)
 	return (c);
 }
 
+/* 中文：（ASCII 构建）忽略大小写比较两个 ASCII kstr */
+/* EN: (ASCII build) Compare two ASCII kstrs case-insensitively */
 int
 kstr_icmp(const struct kstr *a, const struct kstr *b)
 {
@@ -415,6 +469,8 @@ kstr_icmp(const struct kstr *a, const struct kstr *b)
 	return ((int)a->len - (int)b->len);
 }
 
+/* 中文：（ASCII 构建）对折叠为小写的字符计算 kstr 的 FNV 哈希 */
+/* EN: (ASCII build) Compute the FNV hash of a kstr over characters folded to lowercase */
 unsigned
 kstr_hash(const struct kstr *s)
 {
@@ -427,6 +483,8 @@ kstr_hash(const struct kstr *s)
 	return (h);
 }
 
+/* 中文：（ASCII 构建）判断 kstr 是否与给定 ASCII 字符串相等 */
+/* EN: (ASCII build) Test whether a kstr equals a given ASCII string */
 int
 kstr_eq_ascii(const struct kstr *s, const char *ascii)
 {
@@ -440,6 +498,8 @@ kstr_eq_ascii(const struct kstr *s, const char *ascii)
 	return (1);
 }
 
+/* 中文：（ASCII 构建）复制 ASCII kstr，先检查目标容量是否够 */
+/* EN: (ASCII build) Copy an ASCII kstr after checking that the destination has enough capacity */
 int
 kstr_copy(struct kstr *dst, const struct kstr *src)
 {
@@ -452,6 +512,8 @@ kstr_copy(struct kstr *dst, const struct kstr *src)
 	return (0);
 }
 
+/* 中文：（ASCII 构建）把源 ASCII kstr 追加到目标的末尾 */
+/* EN: (ASCII build) Append a source ASCII kstr to the end of a destination */
 int
 kstr_append(struct kstr *dst, const struct kstr *src)
 {
@@ -464,6 +526,8 @@ kstr_append(struct kstr *dst, const struct kstr *src)
 	return (0);
 }
 
+/* 中文：（ASCII 构建）把 ASCII 字符串追加到 kstr 的末尾 */
+/* EN: (ASCII build) Append an ASCII string to the end of a kstr */
 int
 kstr_append_ascii(struct kstr *dst, const char *ascii)
 {
@@ -477,6 +541,8 @@ kstr_append_ascii(struct kstr *dst, const char *ascii)
 	return (0);
 }
 
+/* 中文：（ASCII 构建）判断一个 kstr 是否是另一个的前缀（忽略大小写） */
+/* EN: (ASCII build) Test whether one kstr is a prefix of another, ignoring case */
 int
 kstr_prefix(const struct kstr *prefix, const struct kstr *path)
 {
@@ -488,6 +554,8 @@ kstr_prefix(const struct kstr *prefix, const struct kstr *path)
 	return (kstr_icmp(prefix, path) == 0);
 }
 
+/* 中文：（ASCII 构建）返回 ASCII kstr 的字符个数 */
+/* EN: (ASCII build) Return the character count of an ASCII kstr */
 unsigned
 kstr_units(const struct kstr *s)
 {
@@ -495,6 +563,8 @@ kstr_units(const struct kstr *s)
 	return (s->len);
 }
 
+/* 中文：（ASCII 构建）返回指定下标的字节，下标越界时返回 0 */
+/* EN: (ASCII build) Return the byte at a given index, or 0 when out of range */
 unsigned
 kstr_unit(const struct kstr *s, unsigned i)
 {
@@ -504,6 +574,8 @@ kstr_unit(const struct kstr *s, unsigned i)
 	return ((unsigned char)s->buf[i]);
 }
 
+/* 中文：（ASCII 构建）把一个字节（取低 8 位）追加到 kstr 的末尾 */
+/* EN: (ASCII build) Push one byte (low 8 bits) onto the end of a kstr */
 int
 kstr_push_unit(struct kstr *s, unsigned c)
 {

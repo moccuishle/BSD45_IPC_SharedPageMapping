@@ -55,6 +55,8 @@ struct gmonparam _gmonparam = { GMON_PROF_OFF };
 
 extern char etext[];
 
+/* 中文：启动内核性能剖析：计算代码段直方图大小，分配并清零 gmon 缓冲区，设置采样与调用图参数 */
+/* EN: Start kernel profiling: compute the text-segment histogram size, allocate and zero the gmon buffers, and set up sampling and call-graph parameters */
 void
 kmstartup()
 {
@@ -95,6 +97,8 @@ kmstartup()
 /*
  * Return kernel profiling information.
  */
+/* 中文：读取或设置内核性能剖析的 sysctl 参数：开关状态、直方图、froms、tos 以及 gmonparam 结构 */
+/* EN: Get or set kernel profiling sysctl parameters: on/off state, histogram, froms, tos and the gmonparam structure */
 int
 sysctl_doprof(name, namelen, oldp, oldlenp, newp, newlen, p)
 	int *name;
@@ -145,6 +149,8 @@ sysctl_doprof(name, namelen, oldp, oldlenp, newp, newlen, p)
  * The scale factor is a fixed point number with 16 bits of fraction, so that
  * 1.0 is represented as 0x10000.  A scale factor of 0 turns off profiling.
  */
+/* 中文：profil 系统调用：按给定缩放因子、偏移和样本缓冲区启动用户态性能剖析，scale 为 0 时关闭剖析 */
+/* EN: The profil system call: start user-level profiling with the given scale, offset and sample buffer, or turn profiling off when scale is 0 */
 /* ARGSUSED */
 int
 profil(p, uap, retval)
@@ -202,6 +208,8 @@ profil(p, uap, retval)
  * case the system is overloaded and the profile is probably already
  * inaccurate.
  */
+/* 中文：在剖析时钟中断上下文中更新用户态采样计数，若 fuswintr/suswintr 失败则记录 pc 并请求 AST 延后处理 */
+/* EN: Update the user-level profile sample count in a profiling clock interrupt; if fuswintr/suswintr fail, record the pc and request an AST for later handling */
 void
 addupc_intr(p, pc, ticks)
 	register struct proc *p;
@@ -232,6 +240,8 @@ addupc_intr(p, pc, ticks)
  * Much like before, but we can afford to take faults here.  If the
  * update fails, we simply turn off profiling.
  */
+/* 中文：在允许睡眠的上下文中用 copyin/copyout 更新用户态采样计数，更新失败则关闭该进程的性能剖析 */
+/* EN: Update the user-level profile sample count via copyin/copyout in a fault-capable context, turning off profiling for the process if the update fails */
 void
 addupc_task(p, pc, ticks)
 	register struct proc *p;

@@ -74,6 +74,8 @@ struct proclist zombproc;
 /*
  * Initialize global process hashing structures.
  */
+/* 中文：初始化全局进程哈希结构：进程表、僵尸表及 pid/进程组/uid 哈希表 */
+/* EN: Initialize global process hashing structures: process lists and pid/pgrp/uid hash tables */
 void
 procinit()
 {
@@ -89,6 +91,8 @@ procinit()
  * Change the count associated with number of processes
  * a given user is using.
  */
+/* 中文：按 diff 增减某用户正在使用的进程数，计数归零时释放对应的 uidinfo */
+/* EN: Adjust a user's process count by diff, freeing the uidinfo entry when the count reaches zero */
 int
 chgproccnt(uid, diff)
 	uid_t	uid;
@@ -126,6 +130,8 @@ chgproccnt(uid, diff)
 /*
  * Is p an inferior of the current process?
  */
+/* 中文：判断进程 p 是否为当前进程的后代（沿父进程链向上查找） */
+/* EN: Determine whether process p is an inferior (descendant) of the current process */
 inferior(p)
 	register struct proc *p;
 {
@@ -139,6 +145,8 @@ inferior(p)
 /*
  * Locate a process by number
  */
+/* 中文：按进程号 pid 在哈希表中查找并返回对应进程，未找到返回 NULL */
+/* EN: Locate a process by pid in the hash table; returns NULL if not found */
 struct proc *
 pfind(pid)
 	register pid_t pid;
@@ -154,6 +162,8 @@ pfind(pid)
 /*
  * Locate a process group by number
  */
+/* 中文：按进程组号 pgid 在哈希表中查找并返回对应进程组，未找到返回 NULL */
+/* EN: Locate a process group by pgid in the hash table; returns NULL if not found */
 struct pgrp *
 pgfind(pgid)
 	register pid_t pgid;
@@ -170,6 +180,8 @@ pgfind(pgid)
 /*
  * Move p to a new or existing process group (and session)
  */
+/* 中文：把进程 p 移入新的或已有的进程组（mksess 时新建会话），并调整作业控制资格 */
+/* EN: Move process p into a new or existing process group (creating a session if mksess) and fix job-control eligibility */
 int
 enterpgrp(p, pgid, mksess)
 	register struct proc *p;
@@ -248,6 +260,8 @@ enterpgrp(p, pgid, mksess)
 /*
  * remove process from process group
  */
+/* 中文：把进程从其进程组中移除，组空时删除该进程组 */
+/* EN: Remove a process from its process group, deleting the group when it becomes empty */
 int
 leavepgrp(p)
 	register struct proc *p;
@@ -263,6 +277,8 @@ leavepgrp(p)
 /*
  * delete a process group
  */
+/* 中文：删除进程组，解除与控制终端的关联并递减会话引用计数 */
+/* EN: Delete a process group, detaching its controlling terminal and decrementing the session refcount */
 void
 pgdelete(pgrp)
 	register struct pgrp *pgrp;
@@ -289,6 +305,8 @@ static void orphanpg();
  * entering == 0 => p is leaving specified group.
  * entering == 1 => p is entering specified group.
  */
+/* 中文：进程进出进程组时调整相关进程组的作业控制计数，计数归零则标记该组为孤儿组 */
+/* EN: Adjust job-control counters when a process enters/leaves a group, orphaning groups whose count hits zero */
 void
 fixjobc(p, pgrp, entering)
 	register struct proc *p;
@@ -329,6 +347,8 @@ fixjobc(p, pgrp, entering)
  * if there are any stopped processes in the group,
  * hang-up all process in that group.
  */
+/* 中文：处理变成孤儿的进程组：若有停止的进程则向全组发送 SIGHUP 与 SIGCONT */
+/* EN: Handle an orphaned process group: if any member is stopped, send SIGHUP and SIGCONT to all members */
 static void
 orphanpg(pg)
 	struct pgrp *pg;
@@ -348,6 +368,8 @@ orphanpg(pg)
 }
 
 #ifdef DEBUG
+/* 中文：调试用，打印所有进程组及其成员进程的信息 */
+/* EN: Debug helper that prints all process groups and their member processes */
 pgrpdump()
 {
 	register struct pgrp *pgrp;

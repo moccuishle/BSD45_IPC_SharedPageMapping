@@ -83,6 +83,8 @@
 	} \
 }
 
+/* 中文：从 mbuf 链的字节偏移 k 处提取一个 32 位字，可跨两个 mbuf，失败时经 err 返回错误 */
+/* EN: Extract a 32-bit word at byte offset k in an mbuf chain, possibly spanning two mbufs, reporting failure through err */
 static int
 m_xword(m, k, err)
 	register struct mbuf *m;
@@ -128,6 +130,8 @@ m_xword(m, k, err)
 	return 0;
 }
 
+/* 中文：从 mbuf 链的字节偏移 k 处提取一个 16 位半字，可跨两个 mbuf，失败时经 err 返回错误 */
+/* EN: Extract a 16-bit halfword at byte offset k in an mbuf chain, possibly spanning two mbufs, reporting failure through err */
 static int
 m_xhalf(m, k, err)
 	register struct mbuf *m;
@@ -167,6 +171,8 @@ m_xhalf(m, k, err)
  * wirelen is the length of the original packet
  * buflen is the amount of data present
  */
+/* 中文：在数据包上执行 BPF 过滤程序：逐条解释加载/算术/跳转/返回指令，返回匹配长度（接受）或 0（丢弃） */
+/* EN: Execute a BPF filter program on a packet: interpret load/ALU/jump/return instructions and return the match length (accept) or 0 (reject) */
 u_int
 bpf_filter(pc, p, wirelen, buflen)
 	register struct bpf_insn *pc;
@@ -505,6 +511,8 @@ bpf_filter(pc, p, wirelen, buflen)
  * The kernel needs to be able to verify an application's filter code.
  * Otherwise, a bogus program could easily crash the system.
  */
+/* 中文：校验 BPF 过滤程序是否合法：检查跳转只向前且落在有效指令、内存访问地址合法、无常量除零、并以 RET 结束 */
+/* EN: Validate a BPF filter program: ensure jumps are forward to valid instructions, memory accesses are in range, no division by a constant zero, and it ends with RET */
 int
 bpf_validate(f, len)
 	struct bpf_insn *f;

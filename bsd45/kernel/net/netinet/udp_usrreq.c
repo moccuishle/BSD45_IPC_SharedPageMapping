@@ -71,12 +71,16 @@ static	void udp_detach __P((struct inpcb *));
 static	void udp_notify __P((struct inpcb *, int));
 static	struct mbuf *udp_saveopt __P((caddr_t, int, int));
 
+/* 中文：初始化 UDP：把全局 pcb 链表头 udb 设为自环的空双向链表 */
+/* EN: Initialize UDP by making the global pcb list head udb an empty circular doubly-linked list */
 void
 udp_init()
 {
 	udb.inp_next = udb.inp_prev = &udb;
 }
 
+/* 中文：处理收到的 UDP 数据报：去 IP 选项、校验长度与校验和、按目的地址查找 PCB，并把数据投递给匹配的 socket */
+/* EN: Process an incoming UDP datagram: strip IP options, verify length and checksum, find the PCB by destination and deliver the data to the matching socket */
 void
 udp_input(m, iphlen)
 	register struct mbuf *m;
@@ -317,6 +321,8 @@ bad:
  * Create a "control" mbuf containing the specified data
  * with the specified type for presentation with a datagram.
  */
+/* 中文：构造一个含指定数据的控制 mbuf 并标注 cmsg 类型，以便随数据报一起呈现给用户 */
+/* EN: Build a control mbuf containing the given data with a cmsg type, to be presented to the user along with a datagram */
 struct mbuf *
 udp_saveopt(p, size, type)
 	caddr_t p;
@@ -342,6 +348,8 @@ udp_saveopt(p, size, type)
  * Notify a udp user of an asynchronous error;
  * just wake up so that he can collect error status.
  */
+/* 中文：向 UDP 用户通知异步错误：设置 socket 的 so_error 并唤醒读写等待者 */
+/* EN: Notify a UDP user of an asynchronous error by setting the socket's so_error and waking read/write waiters */
 static void
 udp_notify(inp, errno)
 	register struct inpcb *inp;
@@ -352,6 +360,8 @@ udp_notify(inp, errno)
 	sowwakeup(inp->inp_socket);
 }
 
+/* 中文：处理底层 ICMP 控制输入，取出 UDP 端口后用 in_pcbnotify 通知相关 PCB */
+/* EN: Handle ICMP control input from the network layer, extract the UDP ports and notify affected PCBs via in_pcbnotify */
 void
 udp_ctlinput(cmd, sa, ip)
 	int cmd;
@@ -373,6 +383,8 @@ udp_ctlinput(cmd, sa, ip)
 		in_pcbnotify(&udb, sa, 0, zeroin_addr, 0, cmd, udp_notify);
 }
 
+/* 中文：构造并发送 UDP 数据报：填写 UDP/IP 头、计算校验和并通过 ip_output 发出，临时连接时发送后断开 */
+/* EN: Build and send a UDP datagram: fill in UDP/IP headers, compute the checksum and hand it to ip_output, disconnecting afterwards for temporary connections */
 int
 udp_output(inp, m, addr, control)
 	register struct inpcb *inp;
@@ -466,6 +478,8 @@ u_long	udp_recvspace = 40 * (1024 + sizeof(struct sockaddr_in));
 					/* 40 1K datagrams */
 
 /*ARGSUSED*/
+/* 中文：UDP 协议的用户请求入口：把 PRU_ATTACH/BIND/CONNECT/SEND 等操作分派到相应处理 */
+/* EN: UDP user-request entry point: dispatch PRU_ATTACH/BIND/CONNECT/SEND and other operations to their handlers */
 int
 udp_usrreq(so, req, m, addr, control)
 	struct socket *so;
@@ -603,6 +617,8 @@ release:
 	return (error);
 }
 
+/* 中文：分离一个 UDP PCB：更新缓存指针并调用 in_pcbdetach 释放 */
+/* EN: Detach a UDP PCB: update the cache pointer and release it via in_pcbdetach */
 static void
 udp_detach(inp)
 	struct inpcb *inp;
@@ -618,6 +634,8 @@ udp_detach(inp)
 /*
  * Sysctl for udp variables.
  */
+/* 中文：UDP 变量的 sysctl 处理入口，当前仅支持读/写 UDPCTL_CHECKSUM */
+/* EN: Sysctl handler for UDP variables, currently supporting only read/write of UDPCTL_CHECKSUM */
 udp_sysctl(name, namelen, oldp, oldlenp, newp, newlen)
 	int *name;
 	u_int namelen;

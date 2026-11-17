@@ -32,6 +32,8 @@ static unsigned	lat_last, lat_min = ~0u, lat_max, lat_sum, lat_n;
  * 相邻时钟节拍的 TSC 抖动。它不是硬件中断延迟探针，但能暴露高 IPL 屏蔽
  * PIT 以及长内核区间带来的代价；调用者打印最小/最大/平均周期数。
  */
+/* 中文：打印相邻时钟节拍的 TSC 抖动统计（最小/最大/平均周期数）；这不是硬件中断延迟探针，但能反映高 IPL 屏蔽 PIT 与长内核区间带来的代价。 */
+/* EN: Print TSC jitter statistics between consecutive clock ticks (min/max/avg cycles); not a hardware IRQ latency probe, but it exposes the cost of masking the PIT at high IPLs and of long kernel sections. */
 void
 clock_lat_print(void)
 {

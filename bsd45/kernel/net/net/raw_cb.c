@@ -63,6 +63,8 @@ u_long	raw_recvspace = RAWRCVQ;
  * Allocate a control block and a nominal amount
  * of buffer space for the socket.
  */
+/* 中文：为 socket 分配裸协议控制块，预留收发缓冲空间，初始化协议族字段并挂入 rawcb 全局链表 */
+/* EN: Allocate a raw protocol control block for a socket, reserve send/receive buffers, init protocol fields and enqueue it on the rawcb list */
 int
 raw_attach(so, proto)
 	register struct socket *so;
@@ -91,6 +93,8 @@ raw_attach(so, proto)
  * Detach the raw connection block and discard
  * socket resources.
  */
+/* 中文：分离裸协议控制块：释放关联的 socket，从 rawcb 链表摘除并释放控制块内存 */
+/* EN: Detach a raw control block: free the associated socket, remove it from the rawcb list and free the control block */
 void
 raw_detach(rp)
 	register struct rawcb *rp;
@@ -111,6 +115,8 @@ raw_detach(rp)
 /*
  * Disconnect and possibly release resources.
  */
+/* 中文：断开裸协议连接，若 socket 已无文件描述符引用则进一步调用 raw_detach 释放控制块 */
+/* EN: Disconnect a raw protocol, calling raw_detach to release the control block if the socket has no file-descriptor references */
 void
 raw_disconnect(rp)
 	struct rawcb *rp;
@@ -126,6 +132,8 @@ raw_disconnect(rp)
 }
 
 #ifdef notdef
+/* 中文：为裸协议 socket 绑定本地地址，复制地址 mbuf 并保存到控制块的 rcb_laddr 字段 */
+/* EN: Bind a local address to a raw socket by copying the address mbuf and storing it in the control block's rcb_laddr */
 int
 raw_bind(so, nam)
 	register struct socket *so;

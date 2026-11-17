@@ -56,6 +56,8 @@
 /*
  * Configure all ISA devices
  */
+/* 中文：配置全部 ISA 设备：在 splhigh 下逐类探测 bio/tty/net/null 设备表，整合中断屏蔽位，处理 netmask 为 0 的特例后恢复中断级 */
+/* EN: Configure all ISA devices: under splhigh probe the bio/tty/net/null device tables, merge interrupt masks, handle the netmask==0 special case and restore the interrupt level */
 isa_configure() {
 	struct isa_device *dvp;
 	struct isa_driver *dp;
@@ -138,6 +140,8 @@ extern	IDTVEC(intr0), IDTVEC(intr1), IDTVEC(intr2), IDTVEC(intr3),
  * Fill in default interrupt table (in case of spuruious interrupt
  * during configuration of kernel, setup interrupt control unit
  */
+/* 中文：填充默认中断向量表，为两级 8259 的 16 个 IRQ 安装 IDT 中断门并初始化两片 8259 控制器 */
+/* EN: Fill the default interrupt vector table by installing IDT gates for both 8259's 16 IRQs and initializing the two 8259 controllers */
 isa_defaultirq() {
 
 /* first icu */
@@ -244,6 +248,8 @@ int nbytes;
  * Handle a NMI, possibly a machine check.
  * return true to panic system, false to ignore.
  */
+/* 中文：处理 NMI（可能是机器校验）：以 LOG_CRIT 记录 0x61 与 0x70 端口值，返回 0 表示忽略而不触发 panic */
+/* EN: Handle an NMI (possibly a machine check): log port 0x61 and 0x70 at LOG_CRIT and return 0 to ignore it rather than panic */
 isa_nmi(cd) {
 
 	log(LOG_CRIT, "\nNMI port 61 %x, port 70 %x\n", inb(0x61), inb(0x70));
@@ -253,6 +259,8 @@ isa_nmi(cd) {
 /*
  * Caught a stray interrupt, notify
  */
+/* 中文：处理意外（杂散）中断：以 LOG_ERR 记录由 d 解码出的中断号 */
+/* EN: Handle a stray interrupt: log at LOG_ERR the interrupt number decoded from d via ffs */
 isa_strayintr(d) {
 
 	/* for some reason, we get bursts of intr #7, even if not enabled! */

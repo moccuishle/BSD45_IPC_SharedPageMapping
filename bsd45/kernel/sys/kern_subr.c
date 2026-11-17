@@ -44,6 +44,8 @@
 #include <sys/malloc.h>
 #include <sys/queue.h>
 
+/* 中文：在内核缓冲区 cp 与 uio 描述的iovec 之间传输 n 字节，按用户/内核地址空间执行 copyin/copyout 或 bcopy 并更新 uio 状态 */
+/* EN: Move n bytes between a kernel buffer cp and the iovecs described by uio, using copyin/copyout or bcopy per address space and updating uio state */
 int
 uiomove(cp, n, uio)
 	register caddr_t cp;
@@ -102,6 +104,8 @@ uiomove(cp, n, uio)
 /*
  * Give next character to user as result of read.
  */
+/* 中文：把单个字符 c 作为读结果写入 uio 指向的用户/内核缓冲区， advancing uio 状态，返回 0 或 EFAULT */
+/* EN: Write a single character c as a read result into uio's user/kernel buffer, advancing uio state and returning 0 or EFAULT */
 int
 ureadc(c, uio)
 	register int c;
@@ -147,6 +151,8 @@ again:
 /*
  * Get next character written in by user from uio.
  */
+/* 中文：从 uio 指向的用户/内核缓冲区读取单个字符作为写入内容，推进 uio 状态，返回该字符或 -1（仅 vax） */
+/* EN: Read a single character from uio's user/kernel buffer as written input, advancing uio state and returning the character or -1 (vax only) */
 int
 uwritec(uio)
 	struct uio *uio;
@@ -193,6 +199,8 @@ again:
 /*
  * General routine to allocate a hash table.
  */
+/* 中文：为预期 elements 个元素分配并初始化一个哈希表，表大小为大于等于 elements 的最小 2 的幂，返回掩码写入 *hashmask */
+/* EN: Allocate and initialize a hash table sized to the smallest power of two >= elements, returning the table and writing its mask to *hashmask */
 void *
 hashinit(elements, type, hashmask)
 	int elements, type;

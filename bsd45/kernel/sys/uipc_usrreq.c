@@ -61,6 +61,8 @@ struct	sockaddr sun_noname = { sizeof(sun_noname), AF_UNIX };
 ino_t	unp_ino;			/* prototype for fake inode numbers */
 
 /*ARGSUSED*/
+/* 中文：Unix 域套接字协议的用户请求入口，按 req 分发 attach/bind/connect/send 等操作到对应 unp_* 函数 */
+/* EN: Unix-domain socket usrreq entry point that dispatches attach/bind/connect/send requests to the corresponding unp_* routines */
 int
 uipc_usrreq(so, req, m, nam, control)
 	struct socket *so;
@@ -314,6 +316,8 @@ u_long	unpdg_recvspace = 4*1024;
 
 int	unp_rights;			/* file descriptors in flight */
 
+/* 中文：为套接字保留收发缓冲空间并分配初始化一个 unpcb 控制块 */
+/* EN: Reserve socket buffer space and allocate/initialize a unpcb for the socket */
 int
 unp_attach(so)
 	struct socket *so;
@@ -348,6 +352,8 @@ unp_attach(so)
 	return (0);
 }
 
+/* 中文：分离并释放 unpcb：断开连接、丢弃引用、释放地址并回收控制块 */
+/* EN: Detach and release a unpcb: disconnect, drop refs, free address and reclaim the control block */
 void
 unp_detach(unp)
 	register struct unpcb *unp;
@@ -379,6 +385,8 @@ unp_detach(unp)
 	}
 }
 
+/* 中文：把 Unix 域套接字绑定到一个文件系统路径名（创建 VSOCK vnode） */
+/* EN: Bind a Unix-domain socket to a filesystem pathname, creating a VSOCK vnode */
 int
 unp_bind(unp, nam, p)
 	struct unpcb *unp;
@@ -427,6 +435,8 @@ unp_bind(unp, nam, p)
 	return (0);
 }
 
+/* 中文：按路径名查找到对端套接字，校验类型并与之建立连接 */
+/* EN: Look up the peer socket by pathname, validate types and establish a connection */
 int
 unp_connect(so, nam, p)
 	struct socket *so;
@@ -483,6 +493,8 @@ bad:
 	return (error);
 }
 
+/* 中文：在两个已存在的 Unix 域套接字之间建立连接，按流/数据报分别维护连接关系 */
+/* EN: Connect two existing Unix-domain sockets, maintaining linkage per SOCK_STREAM/SOCK_DGRAM semantics */
 int
 unp_connect2(so, so2)
 	register struct socket *so;
@@ -515,6 +527,8 @@ unp_connect2(so, so2)
 	return (0);
 }
 
+/* 中文：断开 unpcb 与其对端的连接，并清理相关引用与状态 */
+/* EN: Disconnect a unpcb from its peer and clean up the associated references and state */
 void
 unp_disconnect(unp)
 	struct unpcb *unp;
@@ -553,6 +567,8 @@ unp_disconnect(unp)
 }
 
 #ifdef notdef
+/* 中文：未启用代码：中止连接，分离并释放 unpcb */
+/* EN: Disabled code: abort a connection by detaching and releasing the unpcb */
 void
 unp_abort(unp)
 	struct unpcb *unp;
@@ -562,6 +578,8 @@ unp_abort(unp)
 }
 #endif
 
+/* 中文：关闭流套接字时通知对端不再接收数据 */
+/* EN: On stream-socket shutdown, notify the peer that it can no longer receive data */
 void
 unp_shutdown(unp)
 	struct unpcb *unp;
@@ -573,6 +591,8 @@ unp_shutdown(unp)
 		socantrcvmore(so);
 }
 
+/* 中文：把 unpcb 的连接置为错误 errno，断开连接并按需释放控制块与套接字 */
+/* EN: Drop a unpcb with error errno: disconnect and, if it is a listening child, free the pcb and socket */
 void
 unp_drop(unp, errno)
 	struct unpcb *unp;
@@ -591,12 +611,16 @@ unp_drop(unp, errno)
 }
 
 #ifdef notdef
+/* 中文：未启用代码：Unix 域套接字内存不足时的回收回调（空实现） */
+/* EN: Disabled code: out-of-memory drain callback for Unix-domain sockets (empty stub) */
 unp_drain()
 {
 
 }
 #endif
 
+/* 中文：接收时把控制消息中的文件描述符安装到接收进程，失败则丢弃这些描述符 */
+/* EN: On receive, install descriptors carried in a control message into the receiving process, discarding them on failure */
 int
 unp_externalize(rights)
 	struct mbuf *rights;
@@ -629,6 +653,8 @@ unp_externalize(rights)
 	return (0);
 }
 
+/* 中文：发送时把控制消息中的整数 fd 转换为内核 file 结构指针并增加引用计数 */
+/* EN: On send, translate integer fds in a control message into kernel file pointers and bump their refcounts */
 int
 unp_internalize(control, p)
 	struct mbuf *control;
@@ -666,6 +692,8 @@ unp_internalize(control, p)
 int	unp_defer, unp_gcing;
 extern	struct domain unixdomain;
 
+/* 中文：Unix 域套接字垃圾回收：扫描消息中传递的文件描述符，释放不可达的文件引用 */
+/* EN: Unix-domain socket garbage collector: scan descriptors in flight and release unreachable file references */
 void
 unp_gc()
 {
@@ -778,6 +806,8 @@ unp_gc()
 	unp_gcing = 0;
 }
 
+/* 中文：释放 mbuf 中携带的描述符权限，对其扫描并执行 unp_discard */
+/* EN: Dispose of descriptor rights carried in an mbuf by scanning and applying unp_discard */
 void
 unp_dispose(m)
 	struct mbuf *m;
@@ -787,6 +817,8 @@ unp_dispose(m)
 		unp_scan(m, unp_discard);
 }
 
+/* 中文：扫描 mbuf 链中的 SCM_RIGHTS 控制消息，对每个携带的 file 执行 op 操作 */
+/* EN: Scan an mbuf chain for SCM_RIGHTS control messages and apply op to each carried file */
 void
 unp_scan(m0, op)
 	register struct mbuf *m0;
@@ -817,6 +849,8 @@ unp_scan(m0, op)
 	}
 }
 
+/* 中文：垃圾回收时标记一个 file 并延迟计数 */
+/* EN: Mark a file during garbage collection and increment the deferred count */
 void
 unp_mark(fp)
 	struct file *fp;
@@ -828,6 +862,8 @@ unp_mark(fp)
 	fp->f_flag |= (FMARK|FDEFER);
 }
 
+/* 中文：丢弃一个在传递中的 file 引用：递减消息计数并关闭 */
+/* EN: Discard an in-flight file reference: decrement the message count and close the file */
 void
 unp_discard(fp)
 	struct file *fp;

@@ -162,6 +162,8 @@ char tp_delay = 0x00; /* delay to keep token ring from blowing it */
  *  completeness, just like we did with ack subsequencing.
  */
 
+/* 中文：按连接状态（tpcb）生成并发送一个指定类型（dutype）的 TPDU，携带序号、结束标志与数据；成功返回 0，失败返回 ENOBUFS 或网络层错误。 */
+/* EN: Emit one TPDU of the given type appropriate to the connection (tpcb) with sequence number, end-of-TSDU flag and data; returns 0 on success or ENOBUFS/network-layer errors. */
 int
 tp_emit(dutype,	tpcb, seq, eot, data)
 	int dutype;
@@ -773,6 +775,8 @@ done:
  * NOTES:			
  */
 
+/* 中文：当输入出错需回应 DR 或 ER 时构造并发送错误 TPDU，填入错误类型、源/目的引用与地址，并附上出错的报文数据。 */
+/* EN: Build and send an error TPDU (DR or ER) in response to an input error, filling in the error type, source/destination references, addresses and the offending data. */
 int
 tp_error_emit(error, sref, faddr, laddr, erdata, erlen, tpcb, cons_channel,
 	dgout_routine)

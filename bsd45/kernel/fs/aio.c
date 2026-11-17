@@ -22,6 +22,8 @@ static struct kiocb	*aio_head, *aio_tail;
 static struct kthread	*aio_worker_thread;
 static unsigned		aio_queued, aio_done, aio_pending;
 
+/* 中文：异步 I/O 工作线程主循环：从队列取出 kiocb，用同步后端执行读或写并在完成后调用其完成回调 */
+/* EN: Async I/O worker thread main loop: dequeue a kiocb, run the synchronous read/write backend and invoke its completion callback when done */
 static void
 aio_worker(void *arg)
 {
@@ -59,6 +61,8 @@ aio_worker(void *arg)
 	}
 }
 
+/* 中文：把一个 kiocb 提交到异步 I/O 队列并唤醒 worker，返回 EIOCBQUEUED 表示请求已入队 */
+/* EN: Submit a kiocb to the async I/O queue and wake the worker, returning EIOCBQUEUED to indicate the request was queued */
 int
 vfs_submit_async(struct kiocb *ki)
 {
@@ -79,6 +83,8 @@ vfs_submit_async(struct kiocb *ki)
 	return (EIOCBQUEUED);
 }
 
+/* 中文：初始化异步 I/O 队列计数并创建 aio worker 内核线程 */
+/* EN: Initialize the async I/O queue counters and spawn the aio worker kernel thread */
 void
 vfs_aio_init(void)
 {
@@ -90,6 +96,8 @@ vfs_aio_init(void)
 		printf("aio: no worker thread\n");
 }
 
+/* 中文：返回异步 I/O 的已排队、已完成与待处理请求计数 */
+/* EN: Return the async I/O queued, completed and pending request counters */
 void
 vfs_aio_stats(unsigned *queued, unsigned *done, unsigned *pending)
 {
@@ -102,6 +110,8 @@ vfs_aio_stats(unsigned *queued, unsigned *done, unsigned *pending)
 static volatile int aio_test_done;
 static volatile int aio_test_result;
 
+/* 中文：异步自检用的完成回调，记录操作结果并设置完成标志 */
+/* EN: Completion callback for the async self-test that records the operation result and sets the done flag */
 static void
 aio_test_complete(struct kiocb *ki, int r)
 {
@@ -111,6 +121,8 @@ aio_test_complete(struct kiocb *ki, int r)
 	aio_test_done = 1;
 }
 
+/* 中文：自检：对 /readme.txt 分别做同步与异步读，校验异步请求已入队且两次读出的数据一致 */
+/* EN: Self-test that reads /readme.txt both synchronously and asynchronously, verifying the async request queued and both buffers match */
 int
 vfs_aio_selftest(void)
 {

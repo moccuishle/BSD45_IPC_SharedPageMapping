@@ -31,6 +31,8 @@ static unsigned	sched_esp;
 struct kthread	*curk;
 unsigned	kthread_switches;
 
+/* 中文：内核线程入口跳板，调用线程的实际入口函数并在返回后退出线程 */
+/* EN: Kernel thread trampoline that calls the thread's real entry function and exits on return */
 static void
 kthread_trampoline(void)
 {
@@ -41,6 +43,8 @@ kthread_trampoline(void)
 	kthread_exit();
 }
 
+/* 中文：为第 i 个内核线程分配内核栈，逐页分配物理页并建立读写映射 */
+/* EN: Allocate a kernel stack for thread slot i, allocating pages and mapping them read/write */
 static int
 kstack_alloc(int i)
 {
@@ -57,6 +61,8 @@ kstack_alloc(int i)
 	return (0);
 }
 
+/* 中文：初始化内核线程池，清空所有线程槽位为 FREE 状态 */
+/* EN: Initialize the kernel thread pool, marking all thread slots FREE */
 void
 kthread_init(void)
 {
@@ -74,6 +80,8 @@ kthread_init(void)
 	printf("kthread: %d thread slots at %x\n", NKTHREAD, KSTACK_VA);
 }
 
+/* 中文：创建一个内核线程，分配槽位、设置入口和栈并初始化切换上下文 */
+/* EN: Spawn a kernel thread: grab a free slot, set its entry/stack and initialize the switch context */
 struct kthread *
 kthread_spawn(const char *name, void (*entry)(void *), void *arg)
 {
@@ -115,6 +123,8 @@ kthread_spawn(const char *name, void (*entry)(void *), void *arg)
 	return (t);
 }
 
+/* 中文：为一个用户进程创建用户线程槽位，分配独立内核栈并绑定进程与 tid */
+/* EN: Create a user-thread slot for a process, allocating a private kernel stack and binding proc/tid */
 struct kthread *
 kthread_user_spawn(struct uproc *p, int tid)
 {
@@ -151,6 +161,8 @@ kthread_user_spawn(struct uproc *p, int tid)
 	return (t);
 }
 
+/* 中文：按 tid 查找属于用户进程的用户线程 */
+/* EN: Find a user thread belonging to a process by its tid */
 struct kthread *
 kthread_user_find(int tid)
 {
@@ -163,6 +175,8 @@ kthread_user_find(int tid)
 	return (0);
 }
 
+/* 中文：释放一个用户线程槽位，标记为空闲并解除进程绑定 */
+/* EN: Free a user-thread slot, marking it FREE and detaching its process */
 void
 kthread_user_free(struct kthread *t)
 {
@@ -174,6 +188,8 @@ kthread_user_free(struct kthread *t)
 	t->t_used = 0;
 }
 
+/* 中文：阻塞当前内核线程，置为 KT_BLOCK 并切换回调度栈 */
+/* EN: Block the current kernel thread, marking it KT_BLOCK and switching back to the scheduler stack */
 void
 kthread_block(void)
 {
@@ -185,6 +201,8 @@ kthread_block(void)
 	hal_switch_stack(&t->t_ksp, sched_esp);
 }
 
+/* 中文：唤醒处于阻塞状态的线程，将其状态改回 KT_RUN */
+/* EN: Wake a blocked thread, setting its state back to KT_RUN */
 void
 kthread_wake(struct kthread *t)
 {
@@ -193,6 +211,8 @@ kthread_wake(struct kthread *t)
 		t->t_state = KT_RUN;
 }
 
+/* 中文：终止当前内核线程，释放槽位并切换回调度栈（不再返回） */
+/* EN: Terminate the current kernel thread, freeing its slot and switching to the scheduler stack (never returns) */
 void
 kthread_exit(void)
 {
@@ -207,6 +227,8 @@ kthread_exit(void)
 		;
 }
 
+/* 中文：检查是否存在可运行的内核线程（已使用、非用户线程且状态为 KT_RUN） */
+/* EN: Check whether any kernel thread (used, non-user, KT_RUN) is runnable */
 int
 kthread_runnable(void)
 {
@@ -219,6 +241,8 @@ kthread_runnable(void)
 	return (0);
 }
 
+/* 中文：选择一个可运行的内核线程并切换栈去运行它 */
+/* EN: Pick a runnable kernel thread and switch stacks to run it */
 void
 kthread_poll(void)
 {
@@ -239,6 +263,8 @@ kthread_poll(void)
 	curk = 0;
 }
 
+/* 中文：运行所有可运行的内核线程，直到没有可运行者为止 */
+/* EN: Run all runnable kernel threads until none remain runnable */
 void
 kthread_run(void)
 {
@@ -247,6 +273,8 @@ kthread_run(void)
 		kthread_poll();
 }
 
+/* 中文：调试输出，打印切换次数及所有已用线程的 tid、类型、名称、状态等信息 */
+/* EN: Debug output of the switch count and each used thread's tid, type, name and state */
 void
 kthread_print(void)
 {
@@ -264,6 +292,8 @@ kthread_print(void)
 	}
 }
 
+/* 中文：统计当前已使用的线程槽位数量 */
+/* EN: Count the number of currently used thread slots */
 int
 kthread_count(void)
 {
@@ -280,6 +310,8 @@ kthread_count(void)
 unsigned	ipl_boosts;
 unsigned	ipl_donations;
 
+/* 中文：设置线程的基准 IPL（限制在 0..15）与可抢占标志，未被提升时同步更新有效 IPL */
+/* EN: Set a thread's base IPL (clamped 0..15) and preemptable flag, updating effective IPL when not boosted */
 void
 thread_ipl_set(struct kthread *t, int base_ipl, int preemptable)
 {
@@ -296,6 +328,8 @@ thread_ipl_set(struct kthread *t, int base_ipl, int preemptable)
 	t->t_preemptable = preemptable ? 1 : 0;
 }
 
+/* 中文：返回线程的有效 IPL，线程为空时返回 0 */
+/* EN: Return the thread's effective IPL, or 0 when the thread is NULL */
 int
 thread_ipl_effective(struct kthread *t)
 {
@@ -309,6 +343,8 @@ thread_ipl_effective(struct kthread *t)
  * This is the os.md rule for non-preemptable threads (preemptable ones can
  * be suspended instead; this port records that policy in t_preemptable).
  */
+/* 中文：优先级继承：把线程有效 IPL 提升到 ipl（仅升不降），并标记已提升、计数 */
+/* EN: Priority inheritance: raise a thread's effective IPL to ipl (never lower), mark boosted and count it */
 int
 thread_ipl_boost(struct kthread *t, int ipl)
 {
@@ -321,6 +357,8 @@ thread_ipl_boost(struct kthread *t, int ipl)
 	return (t->t_eff_ipl);
 }
 
+/* 中文：取消线程的 IPL 提升，把有效 IPL 恢复为基准 IPL */
+/* EN: Remove a thread's IPL boost, restoring its effective IPL to the base IPL */
 void
 thread_ipl_unboost(struct kthread *t)
 {
@@ -331,6 +369,8 @@ thread_ipl_unboost(struct kthread *t)
 	t->t_eff_ipl = t->t_base_ipl;
 }
 
+/* 中文：按 tid 在线程池中查找任意（内核或用户）线程 */
+/* EN: Find any thread (kernel or user) in the pool by its tid */
 struct kthread *
 kthread_find(int tid)
 {
@@ -342,6 +382,8 @@ kthread_find(int tid)
 	return (0);
 }
 
+/* 中文：自检线程的 IPL 设置与优先级继承：验证设置、提升、不可降级和取消提升 */
+/* EN: Self-test thread IPL setting and priority inheritance: verify set, boost, no-downgrade and unboost */
 int
 kthread_ipl_selftest(void)
 {
@@ -372,6 +414,8 @@ kthread_ipl_selftest(void)
 
 static int ktest_counter;
 
+/* 中文：自测用的线程入口，循环三次递增计数器并主动阻塞让出 */
+/* EN: Test thread entry that increments a counter three times and blocks to yield */
 static void
 ktest_entry(void *arg)
 {
@@ -384,6 +428,8 @@ ktest_entry(void *arg)
 	}
 }
 
+/* 中文：自检线程池：派生测试线程、反复唤醒并调度直至其结束，返回计数值 */
+/* EN: Self-test of the thread pool: spawn a test thread, repeatedly wake and schedule it, returning its count */
 unsigned
 kthread_selftest(void)
 {

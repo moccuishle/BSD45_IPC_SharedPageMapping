@@ -81,6 +81,8 @@
 #define XTALSPEED 1193182
 #endif
 
+/* 中文：启动实时时钟：先测量 CPU 速度，再初始化 8253 定时器和电池供电的 CMOS 实时时钟 */
+/* EN: Start the real-time clock: measure CPU speed, then initialize the 8253 timer and the battery-backed CMOS real-time clock */
 startrtclock() {
 	int s;
 
@@ -147,6 +149,8 @@ int i;
 /* EN: Returns the seconds from 1970 up to the start of year y, adding 366 days for years divisible by 4 and 365 days for all others. */
 /* 中文：返回 1970 年至 y 年年初的秒数：能被 4 整除的年份累加 366 天，其余年份累加 365 天。 */
 unsigned long
+/* 中文：把公历年号转换为从 1970 年到该年 1 月 1 日所经过的秒数 */
+/* EN: Convert a calendar year into the number of seconds elapsed from 1970 to January 1 of that year */
 ytos(y)
 int y;
 {
@@ -165,6 +169,8 @@ int y;
 /* EN: Returns the seconds from January 1 to the start of month m, summing 31- and 30-day months and 29 or 28 days for February according to leap. */
 /* 中文：返回从 1 月 1 日到 m 月月初的秒数：累加 31 天和 30 天的月份，2 月按 leap 取 29 天或 28 天。 */
 unsigned long
+/* 中文：把月份（结合闰年标志）转换为从 1 月 1 日到该月月初所经过的秒数 */
+/* EN: Convert a month number (with leap-year flag) into the seconds elapsed from January 1 to the start of that month */
 mtos(m,leap)
 int m,leap;
 {
@@ -273,6 +279,8 @@ resettodr()
  */
 #define V(s)	__CONCAT(V, s)
 extern V(clk)();
+/* 中文：使能实时时钟中断：打开 IRQ0，安装时钟中断处理例程并开放中断 */
+/* EN: Enable the real-time clock interrupt: unmask IRQ0, install the clock interrupt handler and enable interrupts */
 enablertclock() {
 	INTREN(IRQ0);
 	setidt(ICU_OFFSET+0, &V(clk), SDT_SYS386IGT, SEL_KPL);

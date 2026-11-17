@@ -114,6 +114,8 @@ int	x25esis_input();
  *
  * NOTES:			
  */
+/* 中文：初始化 CLNP：填写 CLNP/CLNL 协议交换表并设置 CLNP 输入队列长度 */
+/* EN: Initialize CLNP: fill in the CLNP/CLNL protocol switch tables and set the CLNP input queue length */
 clnp_init()
 {
 	register struct protosw *pr;
@@ -150,6 +152,8 @@ clnp_init()
  *
  * NOTES:			
  */
+/* 中文：处理 clnl 输入队列上的报文：剥离链路层头、校验长度，并按协议号分派给相应的输入例程 */
+/* EN: Process packets on the clnl input queue: strip the link-layer header, validate lengths and dispatch by protocol to the proper input routine */
 clnlintr()
 {
 	register struct mbuf		*m;		/* ptr to first mbuf of pkt */
@@ -279,6 +283,8 @@ next:
  *	TODO: I would like to make seg_part a pointer into the mbuf, but 
  *	will it be correctly aligned?
  */
+/* 中文：处理收到的 CLNP 报文：校验校验和与版本、提取源/目的地址与选项、重组分片，最后按 PDU 类型交给上层协议 */
+/* EN: Process an incoming CLNP packet: verify checksum and version, extract source/destination addresses and options, reassemble fragments, then dispatch by PDU type to the upper layer */
 clnp_input(m, shp)
 struct mbuf		*m;		/* ptr to first mbuf of pkt */
 struct snpa_hdr	*shp;	/* subnetwork header */

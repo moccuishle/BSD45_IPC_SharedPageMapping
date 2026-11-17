@@ -45,6 +45,8 @@
 /*
  * Unsupported device function (e.g. writing to read-only device).
  */
+/* 中文：不支持的设备操作桩函数，返回 ENODEV（无此设备）错误 */
+/* EN: Stub for unsupported device operations, returning ENODEV (no such device) */
 int
 enodev()
 {
@@ -55,6 +57,8 @@ enodev()
 /*
  * Unconfigured device function; driver not configured.
  */
+/* 中文：未配置设备桩函数，返回 ENXIO（设备未配置）错误 */
+/* EN: Stub for an unconfigured device, returning ENXIO (device not configured) */
 int
 enxio()
 {
@@ -65,6 +69,8 @@ enxio()
 /*
  * Unsupported ioctl function.
  */
+/* 中文：不支持的 ioctl 桩函数，返回 ENOTTY（不适用的 ioctl）错误 */
+/* EN: Stub for unsupported ioctl, returning ENOTTY (inappropriate ioctl) */
 int
 enoioctl()
 {
@@ -77,6 +83,8 @@ enoioctl()
  * This is used for an otherwise-reasonable operation
  * that is not supported by the current system binary.
  */
+/* 中文：不支持的系统调用桩函数，返回 ENOSYS（功能未实现）错误 */
+/* EN: Stub for an unsupported system function, returning ENOSYS (function not implemented) */
 int
 enosys()
 {
@@ -88,6 +96,8 @@ enosys()
  * Return error for operation not supported
  * on a specific object or file type.
  */
+/* 中文：对特定对象或文件类型不支持的操作，返回 EOPNOTSUPP 错误 */
+/* EN: Stub for an operation not supported on a given object/file type, returning EOPNOTSUPP */
 int
 eopnotsupp()
 {
@@ -99,6 +109,8 @@ eopnotsupp()
  * Return error for an inval operation
  * on a specific object or file type.
  */
+/* 中文：对特定对象或文件类型的无效操作，返回 EINVAL（无效参数）错误 */
+/* EN: Stub for an invalid operation on a given object/file type, returning EINVAL (invalid argument) */
 int
 einval()
 {
@@ -109,6 +121,8 @@ einval()
 /*
  * Generic null operation, always returns success.
  */
+/* 中文：通用空操作，总是返回成功（0） */
+/* EN: Generic null operation that always returns success (0) */
 int
 nullop()
 {

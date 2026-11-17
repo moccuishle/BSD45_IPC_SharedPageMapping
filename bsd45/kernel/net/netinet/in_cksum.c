@@ -46,6 +46,8 @@
 #define ADDCARRY(x)  (x > 65535 ? x -= 65535 : x)
 #define REDUCE {l_util.l = sum; sum = l_util.s[0] + l_util.s[1]; ADDCARRY(sum);}
 
+/* 中文：计算 Internet 校验和：对 mbuf 链中指定长度的数据按 16 位反码累加求和，并处理首尾未对齐字节 */
+/* EN: Compute the Internet checksum: accumulate a 16-bit one's-complement sum over len bytes of an mbuf chain, handling unaligned head and tail bytes */
 int
 in_cksum(m, len)
 	register struct mbuf *m;

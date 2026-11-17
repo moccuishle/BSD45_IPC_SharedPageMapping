@@ -106,6 +106,8 @@ struct	iso_addr zeroiso_addr = {
  *
  * RETURNS:			0 if OK, ENOBUFS if can't alloc the necessary mbuf
  */
+/* 中文：为套接字在 mbuf 中创建一个 isopcb 结构，初始化后挂入以 head 为头的队列 */
+/* EN: Create an isopcb in an mbuf for a socket, initialize it and enqueue it on the list headed by head */
 int
 iso_pcballoc(so, head)
 	struct socket *so;
@@ -146,6 +148,8 @@ iso_pcballoc(so, head)
  * NOTES:			
  */
 #define	satosiso(sa)	((struct sockaddr_iso *)(sa))
+/* 中文：把给定地址绑定到 isopcb 对应的套接字，校验地址与接口，未指定地址时自动分配传输选择符 TSEL */
+/* EN: Bind the given address to the socket of an isopcb, validating the address and interface and auto-assigning a TSEL when none is given */
 int
 iso_pcbbind(isop, nam)
 	register struct isopcb *isop;
@@ -267,6 +271,8 @@ noname:
  *
  * NOTES:			
  */
+/* 中文：给 isopcb 设置对端地址使其看似已连接，检查地址组合唯一性，必要时查找路由并绑定本地地址 */
+/* EN: Give an isopcb a peer address so it appears connected, checking address-pair uniqueness and looking up a route and binding a local address if needed */
 int
 iso_pcbconnect(isop, nam)
 	register struct isopcb *isop;
@@ -408,6 +414,8 @@ iso_pcbconnect(isop, nam)
  *
  * NOTES:			
  */
+/* 中文：清除 isopcb 的对端地址信息使其看似已断开，保留绑定信息，无文件描述符时分离控制块 */
+/* EN: Clear the peer address of an isopcb so it appears disconnected, preserving the binding and detaching the pcb if there is no file descriptor */
 void
 iso_pcbdisconnect(isop)
 	struct isopcb *isop;
@@ -446,6 +454,8 @@ iso_pcbdisconnect(isop)
  *
  * NOTES:			
  */
+/* 中文：把 isopcb 与其套接字分离并从队列摘除，释放路由、缓存、选项、地址等相关资源与控制块本身 */
+/* EN: Detach an isopcb from its socket and dequeue it, freeing the route, caches, options, addresses and the pcb itself */
 void
 iso_pcbdetach(isop)
 	struct isopcb *isop;
@@ -527,6 +537,8 @@ iso_pcbdetach(isop)
  *
  * NOTES:			(notify) is called at splimp!
  */
+/* 中文：在 splimp 下遍历协议队列，对所有对端地址匹配 dst 的连接设置错误码并调用 notify 回调通知问题 */
+/* EN: Under splimp, walk the protocol queue and, for every connection whose peer address matches dst, set the error and invoke the notify callback */
 void
 iso_pcbnotify(head, siso, errno, notify)
 	struct isopcb *head;
@@ -576,6 +588,8 @@ iso_pcbnotify(head, siso, errno, notify)
  *
  * NOTES:			
  */
+/* 中文：在队列中查找与给定本地/对端地址与端口组合匹配的 isopcb，找到返回其指针否则返回 0 */
+/* EN: Look up an isopcb in the queue matching the given local/peer address and port combination, returning its pointer or 0 */
 struct isopcb *
 iso_pcblookup(head, fportlen, fport, laddr)
 	struct isopcb *head;

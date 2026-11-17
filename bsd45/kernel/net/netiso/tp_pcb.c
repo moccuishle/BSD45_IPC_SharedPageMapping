@@ -369,6 +369,8 @@ u_long tp_recvspace = 1024 * 4;
  * 
  * NOTES:
  */
+/* 中文：只初始化一次 TP 子系统：初始化 inpcb/isopcb 链表、窗口参数、定时器并清零统计 */
+/* EN: One-time initialization of the TP subsystem: init inpcb/isopcb lists, window params, timers and clear stats */
 int
 tp_init()
 {
@@ -411,6 +413,8 @@ tp_init()
  *  a SIGPIPE to be delivered in sosend() and we don't like that.
  *  If anyone else is sleeping on this socket, wake 'em up.
  */
+/* 中文：把套接字标记为正在断开，但不置 SS_CANTSENDMORE 以避免 SIGPIPE，并记录性能数据 */
+/* EN: Mark a socket as disconnecting without setting SS_CANTSENDMORE (avoiding SIGPIPE), recording perf data */
 void
 tp_soisdisconnecting(so)
 	register struct socket *so;
@@ -453,6 +457,8 @@ tp_soisdisconnecting(so)
  *  a SIGPIPE to be delivered in sosend() and we don't like that.
  *  If anyone else is sleeping on this socket, wake 'em up.
  */
+/* 中文：把 tpcb 对应的套接字标记为已断开，冻结引用、回收后缀并启动引用定时器 */
+/* EN: Mark a tpcb's socket as disconnected: freeze the reference, recycle the suffix and start the ref timer */
 void
 tp_soisdisconnected(tpcb)
 	register struct tp_pcb	*tpcb;
@@ -497,6 +503,8 @@ tp_soisdisconnected(tpcb)
  *
  * NOTES:	better be called at clock priority !!!!!
  */
+/* 中文：释放引用号 n 供复用，清空 tpcb 关联并更新最大开启引用计数 */
+/* EN: Free reference number n for reuse, clearing its tpcb and updating max-open bookkeeping */
 void
 tp_freeref(n)
 RefNum n;
@@ -550,6 +558,8 @@ RefNum n;
  *
  * NOTES:
  */
+/* 中文：为 tpcb 获取一个空闲引用号，必要时扩展引用表，返回引用号或 TP_ENOREF */
+/* EN: Obtain a free reference number for a tpcb, growing the table if needed; returns the refnum or TP_ENOREF */
 u_long
 tp_getref(tpcb) 
 	register struct tp_pcb *tpcb;
@@ -597,6 +607,8 @@ got_one:
  *  given a tpcb, allocate an appropriate lower-lever npcb, freeing
  *  any old ones that might need re-assigning.
  */
+/* 中文：为 tpcb 分配并绑定下层网络层控制块，释放旧控制块并设置 nlproto */
+/* EN: Allocate and bind a lower-layer network pcb for a tpcb, freeing any old one and setting nlproto */
 tp_set_npcb(tpcb)
 register struct tp_pcb *tpcb;
 {
@@ -641,6 +653,8 @@ register struct tp_pcb *tpcb;
  *
  * NOTES:
  */
+/* 中文：为套接字分配并初始化 tpcb 及引用结构，配置网络服务与连接参数并挂接网络层 pcb */
+/* EN: Allocate and initialize a tpcb and reference for a socket, configuring service/params and attaching the network pcb */
 tp_attach(so, protocol)
 	struct socket 			*so;
 	int 					protocol;
@@ -776,6 +790,8 @@ bad2:
  * NOTES:
  *  tp_soisdisconnected() was already when this is called
  */
+/* 中文：分离 tpcb：清理未发送数据、重组队列与监听链表，分离下层 pcb 并按需释放引用 */
+/* EN: Detach a tpcb: flush unsent data, reassembly and listener lists, detach the lower pcb and free the ref if needed */
 void
 tp_detach(tpcb)
 	register struct tp_pcb 	*tpcb;
@@ -889,6 +905,8 @@ struct que {
 
 u_short tp_unique;
 
+/* 中文：检查给定的 TSEL 后缀是否已被其它已绑定或监听的 tpcb 占用 */
+/* EN: Check whether a given TSEL suffix is already in use by another bound or listening tpcb */
 tp_tselinuse(tlen, tsel, siso, reuseaddr)
 caddr_t tsel;
 register struct sockaddr_iso *siso;
@@ -920,6 +938,8 @@ register struct sockaddr_iso *siso;
 }
 
 
+/* 中文：把 tpcb 绑定到本地地址：分配传输后缀、检查冲突并调用网络层 pcbbind */
+/* EN: Bind a tpcb to a local address: allocate a transport suffix, check conflicts and call the network-layer pcbbind */
 tp_pcbbind(tpcb, nam)
 register struct tp_pcb *tpcb;
 register struct mbuf *nam;

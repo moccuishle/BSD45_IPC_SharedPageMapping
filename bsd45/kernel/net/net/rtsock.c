@@ -71,6 +71,8 @@ static void	rt_xaddrs __P((caddr_t, caddr_t, struct rt_addrinfo *));
 #define brdaddr	info.rti_info[RTAX_BRD]
 
 /*ARGSUSED*/
+/* 中文：处理路由套接口的用户请求（PRU_* 操作，如连接、发送与接收路由消息）。 */
+/* EN: Handle routing socket user requests (PRU_* operations such as connect, send and receive of routing messages). */
 int
 route_usrreq(so, req, m, nam, control)
 	register struct socket *so;
@@ -123,6 +125,8 @@ route_usrreq(so, req, m, nam, control)
 }
 
 /*ARGSUSED*/
+/* 中文：处理路由套接口的输出：解析用户写入的路由消息并分发给内核或广播给监听者。 */
+/* EN: Handle routing socket output: parse routing messages written by the user and dispatch them to the kernel or broadcast to listeners. */
 int
 route_output(m, so)
 	register struct mbuf *m;
@@ -331,6 +335,8 @@ flush:
 	return (error);
 }
 
+/* 中文：根据消息中的度量信息设置路由表项的度量值（权重、跳数、MTU 等）。 */
+/* EN: Set the metrics (weight, hop count, MTU, etc.) of a routing table entry from a message. */
 void
 rt_setmetrics(which, in, out)
 	u_long which;
@@ -352,6 +358,8 @@ rt_setmetrics(which, in, out)
 	((a) > 0 ? (1 + (((a) - 1) | (sizeof(long) - 1))) : sizeof(long))
 #define ADVANCE(x, n) (x += ROUNDUP((n)->sa_len))
 
+/* 中文：从路由消息中提取各个 sockaddr 地址并填充到返回的指针数组中。 */
+/* EN: Extract the sockaddrs from a routing message into an array of pointers. */
 static void
 rt_xaddrs(cp, cplim, rtinfo)
 	register caddr_t cp, cplim;
@@ -374,6 +382,8 @@ rt_xaddrs(cp, cplim, rtinfo)
  * starting "off" bytes from the beginning, extending the mbuf
  * chain if necessary.
  */
+/* 中文：从缓冲区拷贝数据回填到指定的 mbuf 链中，从起始处偏移 off 字节开始，必要时扩展 mbuf 链。 */
+/* EN: Copy data from a buffer back into the given mbuf chain starting off bytes from the beginning, extending the chain if necessary. */
 void
 m_copyback(m0, off, len, cp)
 	struct	mbuf *m0;
@@ -422,6 +432,8 @@ out:	if (((m = m0)->m_flags & M_PKTHDR) && (m->m_pkthdr.len < totlen))
 		m->m_pkthdr.len = totlen;
 }
 
+/* 中文：构造一个只包含一个 sockaddr 地址的路由消息（RTM_*）。 */
+/* EN: Create a routing message (RTM_*) containing a single sockaddr. */
 static struct mbuf *
 rt_msg1(type, rtinfo)
 	int type;
@@ -474,6 +486,8 @@ rt_msg1(type, rtinfo)
 	return (m);
 }
 
+/* 中文：构造包含多个 sockaddr（如目的、网关、掩码）的路由消息，可按路由表项生成。 */
+/* EN: Create a routing message containing multiple sockaddrs (destination, gateway, mask), optionally from a route entry. */
 static int
 rt_msg2(type, rtinfo, cp, w)
 	int type;
@@ -552,6 +566,8 @@ again:
  * has failed, or that a protocol has detected timeouts to a particular
  * destination.
  */
+/* 中文：生成路由套接口消息，通知重定向发生、路由查找失败或协议检测到对某目的地的超时。 */
+/* EN: Generate a routing socket message indicating a redirect, a failed route lookup, or protocol-detected timeouts to a destination. */
 void
 rt_missmsg(type, rtinfo, flags, error)
 	int type, flags, error;
@@ -578,6 +594,8 @@ rt_missmsg(type, rtinfo, flags, error)
  * This routine is called to generate a message from the routing
  * socket indicating that the status of a network interface has changed.
  */
+/* 中文：生成路由套接口消息，通知网络接口状态发生变化。 */
+/* EN: Generate a routing socket message indicating that a network interface's status changed. */
 void
 rt_ifmsg(ifp)
 	register struct ifnet *ifp;
@@ -609,6 +627,8 @@ rt_ifmsg(ifp)
  * be unnecessary as the routing socket will automatically generate
  * copies of it.
  */
+/* 中文：生成路由套接口消息，通知网络接口新增或删除了地址。 */
+/* EN: Generate a routing socket message indicating that addresses were added to or removed from an interface. */
 void
 rt_newaddrmsg(cmd, ifa, error, rt)
 	int cmd, error;
@@ -667,6 +687,8 @@ rt_newaddrmsg(cmd, ifa, error, rt)
 /*
  * This is used in dumping the kernel table via sysctl().
  */
+/* 中文：通过 sysctl() 转储内核路由表时，格式化并输出单条路由表项。 */
+/* EN: Format and output a single routing table entry when dumping the kernel routing table via sysctl(). */
 int
 sysctl_dumpentry(rn, w)
 	struct radix_node *rn;
@@ -707,6 +729,8 @@ sysctl_dumpentry(rn, w)
 	return (error);
 }
 
+/* 中文：通过 sysctl() 转储网络接口及其地址列表信息。 */
+/* EN: Dump the list of network interfaces and their addresses via sysctl(). */
 int
 sysctl_iflist(af, w)
 	int	af;
@@ -762,6 +786,8 @@ sysctl_iflist(af, w)
 	return (0);
 }
 
+/* 中文：处理路由表的 sysctl 请求，作为转储路由表与接口列表的入口。 */
+/* EN: Handle sysctl requests for the routing table, serving as the entry point for dumping routes and interface lists. */
 int
 sysctl_rtable(name, namelen, where, given, new, newlen)
 	int	*name;

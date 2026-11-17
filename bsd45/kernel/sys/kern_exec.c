@@ -51,6 +51,8 @@ struct execve_args {
 	char	**envp;
 };
 /* ARGSUSED */
+/* 中文：execve 系统调用入口：函数体已删除，直接返回 ENOSYS 表示不支持 */
+/* EN: The execve system-call entry point: its body has been removed, so it simply returns ENOSYS to report it unsupported */
 execve(a1, a2, a3)
 	struct proc *a1;
 	struct execve_args *a2;

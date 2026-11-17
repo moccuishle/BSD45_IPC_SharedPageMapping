@@ -42,6 +42,8 @@
 #include <sys/map.h>
 #include <sys/proc.h>
 
+/* 中文：初始化资源映射表（该版本中函数体已删除，仅保留空实现） */
+/* EN: Initialize a resource map (body deleted in this version; empty stub only) */
 void
 rminit(a1, a2, a3, a4, a5)
 	struct map *a1;
@@ -56,6 +58,8 @@ rminit(a1, a2, a3, a4, a5)
 	return;
 }
 
+/* 中文：从资源映射表中分配指定大小的资源（该版本中函数体已删除，始终返回 0） */
+/* EN: Allocate a region of the given size from a resource map (body deleted in this version; always returns 0) */
 long
 rmalloc(a1, a2)
 	struct map *a1;
@@ -68,6 +72,8 @@ rmalloc(a1, a2)
 	return (0);
 }
 
+/* 中文：把一段资源释放回资源映射表（该版本中函数体已删除，仅保留空实现） */
+/* EN: Free a region back to a resource map (body deleted in this version; empty stub only) */
 void
 rmfree(a1, a2, a3)
 	struct map *a1;

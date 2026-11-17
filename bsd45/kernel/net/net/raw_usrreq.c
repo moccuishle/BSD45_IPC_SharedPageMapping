@@ -49,6 +49,8 @@
 /*
  * Initialize raw connection block q.
  */
+/* 中文：初始化原始协议的 PCB 队列。 */
+/* EN: Initialize the raw protocol's PCB queue. */
 void
 raw_init()
 {
@@ -65,6 +67,8 @@ raw_init()
 /*
  * Raw protocol interface.
  */
+/* 中文：原始协议的通用输入接口：把收到的报文分发给所有匹配的原始套接口。 */
+/* EN: Generic raw protocol input interface: dispatch received packets to all matching raw sockets. */
 void
 raw_input(m0, proto, src, dst)
 	struct mbuf *m0;
@@ -125,6 +129,8 @@ raw_input(m0, proto, src, dst)
 }
 
 /*ARGSUSED*/
+/* 中文：原始协议的控制输入处理，转发来自网络层的错误与状态控制消息。 */
+/* EN: Handle raw protocol control input, forwarding network-layer error and status messages. */
 void
 raw_ctlinput(cmd, arg)
 	int cmd;
@@ -137,6 +143,8 @@ raw_ctlinput(cmd, arg)
 }
 
 /*ARGSUSED*/
+/* 中文：处理原始套接口的用户请求（PRU_* 操作，如附着、绑定、断开与控制）。 */
+/* EN: Handle raw socket user requests (PRU_* operations such as attach, bind, disconnect and control). */
 int
 raw_usrreq(so, req, m, nam, control)
 	struct socket *so;

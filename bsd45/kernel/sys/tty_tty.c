@@ -48,6 +48,8 @@
 #define cttyvp(p) ((p)->p_flag & P_CONTROLT ? (p)->p_session->s_ttyvp : NULL)
 
 /*ARGSUSED*/
+/* 中文：打开进程的控制终端：取得会话的 tty vnode 并调用 VOP_OPEN，无控制终端时返回 ENXIO */
+/* EN: Open the process's controlling terminal by fetching the session's tty vnode and calling VOP_OPEN; ENXIO when there is none */
 cttyopen(dev, flag, mode, p)
 	dev_t dev;
 	int flag, mode;
@@ -78,6 +80,8 @@ cttyopen(dev, flag, mode, p)
 }
 
 /*ARGSUSED*/
+/* 中文：从进程的控制终端读入数据：锁定 tty vnode 后调用 VOP_READ */
+/* EN: Read data from the process's controlling terminal via VOP_READ on the locked tty vnode */
 cttyread(dev, uio, flag)
 	dev_t dev;
 	struct uio *uio;
@@ -96,6 +100,8 @@ cttyread(dev, uio, flag)
 }
 
 /*ARGSUSED*/
+/* 中文：向进程的控制终端写出数据：锁定 tty vnode 后调用 VOP_WRITE */
+/* EN: Write data to the process's controlling terminal via VOP_WRITE on the locked tty vnode */
 cttywrite(dev, uio, flag)
 	dev_t dev;
 	struct uio *uio;
@@ -114,6 +120,8 @@ cttywrite(dev, uio, flag)
 }
 
 /*ARGSUSED*/
+/* 中文：对控制终端执行 ioctl：处理 TIOCNOTTY 放弃控制终端，其余经 VOP_IOCTL 转发 */
+/* EN: Perform an ioctl on the controlling terminal: handle TIOCNOTTY to relinquish it and forward others via VOP_IOCTL */
 cttyioctl(dev, cmd, addr, flag, p)
 	dev_t dev;
 	u_long cmd;
@@ -136,6 +144,8 @@ cttyioctl(dev, cmd, addr, flag, p)
 }
 
 /*ARGSUSED*/
+/* 中文：对控制终端做 select：无控制终端时返回 1 以触发 EOF/失败，否则经 VOP_SELECT 检查可读性 */
+/* EN: Select on the controlling terminal: return 1 when there is none to force EOF/failure, otherwise check via VOP_SELECT */
 cttyselect(dev, flag, p)
 	dev_t dev;
 	int flag;

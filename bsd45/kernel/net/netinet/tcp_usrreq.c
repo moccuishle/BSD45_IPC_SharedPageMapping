@@ -70,6 +70,8 @@ extern	char *tcpstates[];
  * (called from the software clock routine), then timertype tells which timer.
  */
 /*ARGSUSED*/
+/* 中文：TCP 协议的用户请求入口，按 PRU_* 操作码分派处理套接口的连接、发送、接收与关闭请求。 */
+/* EN: Main TCP user-request entry point, dispatching PRU_* operations for socket connect, send, receive and close. */
 int
 tcp_usrreq(so, req, m, nam, control)
 	struct socket *so;
@@ -345,6 +347,8 @@ tcp_usrreq(so, req, m, nam, control)
 	return (error);
 }
 
+/* 中文：处理 TCP 套接口选项（setsockopt/getsockopt），如 TCP_NODELAY 与 keepalive。 */
+/* EN: Handle TCP socket options (setsockopt/getsockopt), such as TCP_NODELAY and keepalive. */
 int
 tcp_ctloutput(op, so, level, optname, mp)
 	int op;
@@ -432,6 +436,8 @@ u_long	tcp_recvspace = 1024*8;
  * internet protocol control block, tcp control block,
  * bufer space, and entering LISTEN state if to accept connections.
  */
+/* 中文：将 TCP 协议附着到套接口：分配 Internet PCB、TCP 控制块与缓冲区，若为监听套接口则进入 LISTEN 状态。 */
+/* EN: Attach TCP to a socket: allocate the Internet PCB, TCP control block and buffers, entering LISTEN state if it is an accepting socket. */
 int
 tcp_attach(so)
 	struct socket *so;
@@ -470,6 +476,8 @@ tcp_attach(so)
  * current input data; switch states based on user close, and
  * send segment to peer (with FIN).
  */
+/* 中文：发起或继续断开连接：根据状态和 linger 选项选择发 RST、直接丢弃或发送 FIN 进入关闭流程。 */
+/* EN: Initiate or continue a disconnect: based on state and linger options, send RST, drop outright, or send FIN to enter the close sequence. */
 struct tcpcb *
 tcp_disconnect(tp)
 	register struct tcpcb *tp;
@@ -500,6 +508,8 @@ tcp_disconnect(tp)
  * for peer to send FIN or not respond to keep-alives, etc.
  * We can let the user exit from the close as soon as the FIN is acked.
  */
+/* 中文：处理用户关闭套接口后的状态迁移：按是否已收到 SYN/FIN 决定转入 FIN_WAIT_1、LAST_ACK 等关闭状态。 */
+/* EN: Handle state transitions after user close: move to FIN_WAIT_1, LAST_ACK, etc. depending on whether SYN/FIN were exchanged. */
 struct tcpcb *
 tcp_usrclosed(tp)
 	register struct tcpcb *tp;

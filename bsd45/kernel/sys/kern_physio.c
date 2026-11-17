@@ -44,6 +44,8 @@
 #include <sys/conf.h>
 #include <sys/proc.h>
 
+/* 中文：物理 I/O 的桩函数，函数体已删除，始终返回 EIO */
+/* EN: Physical I/O stub whose body has been removed; always returns EIO */
 physio(a1, a2, a3, a4, a5, a6)
 	int (*a1)(); 
 	struct buf *a2;
@@ -59,6 +61,8 @@ physio(a1, a2, a3, a4, a5, a6)
 	return (EIO);
 }
 
+/* 中文：返回物理 I/O 单次传输允许的最大字节数，桩函数返回 0 */
+/* EN: Return the maximum byte count allowed for one physical I/O transfer; stub returning 0 */
 u_int
 minphys(a1)
 	struct buf *a1;
@@ -73,6 +77,8 @@ minphys(a1)
 /*
  * Do a read on a device for a user process.
  */
+/* 中文：对字符设备执行一次用户态读，通过 physio 提交带 B_READ 标志的物理 I/O 请求 */
+/* EN: Perform a user read on a character device by calling physio with a B_READ request */
 rawread(dev, uio)
 	dev_t dev;
 	struct uio *uio;
@@ -84,6 +90,8 @@ rawread(dev, uio)
 /*
  * Do a write on a device for a user process.
  */
+/* 中文：对字符设备执行一次用户态写，通过 physio 提交带 B_WRITE 标志的物理 I/O 请求 */
+/* EN: Perform a user write on a character device by calling physio with a B_WRITE request */
 rawwrite(dev, uio)
 	dev_t dev;
 	struct uio *uio;

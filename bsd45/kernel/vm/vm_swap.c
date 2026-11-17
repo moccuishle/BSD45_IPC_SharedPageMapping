@@ -63,6 +63,8 @@ int	niswap;			/* size of interleaved swap area */
  * to buffers, but rather to pages that
  * are being swapped in and out.
  */
+/* 中文：初始化交换系统：统计各交换设备的可用空间并建立空闲交换缓冲头链表 */
+/* EN: Initialize the swap system: count available space across swap devices and build the free list of swap buffer headers */
 void
 swapinit()
 {
@@ -154,6 +156,8 @@ swapinit()
 	sp->b_actf = NULL;
 }
 
+/* 中文：交换设备的策略例程：把逻辑交换块号映射到具体设备与偏移后调用对应 vnode 的 strategy */
+/* EN: Swap device strategy routine: map a logical swap block number to a specific device and offset, then call that vnode's strategy */
 void
 swstrategy(bp)
 	register struct buf *bp;
@@ -266,6 +270,8 @@ swstrategy(bp)
 struct swapon_args {
 	char	*name;
 };
+/* 中文：swapon 系统调用：在指定块设备上启用交换，校验后调用 swfree 初始化该设备的交换映射 */
+/* EN: The swapon system call: enable swapping on the named block device, validating it and calling swfree to initialize its swap map */
 /* ARGSUSED */
 int
 swapon(p, uap, retval)
@@ -328,6 +334,8 @@ swapon(p, uap, retval)
  * space, which is laid out with blocks of dmmax pages circularly
  * among the devices.
  */
+/* 中文：初始化或释放交换映射中第 index 个设备所对应的部分，把可用块区间加入 swapmap */
+/* EN: Initialize or free the index-th device's portion of the swap map, adding its available block ranges into swapmap */
 int
 swfree(p, index)
 	struct proc *p;

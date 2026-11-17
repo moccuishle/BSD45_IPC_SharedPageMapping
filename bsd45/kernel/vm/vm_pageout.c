@@ -95,6 +95,8 @@ int doclustered_pageout = 1;
 /*
  *	vm_pageout_scan does the dirty work for the pageout daemon.
  */
+/* 中文：pageout 守护进程的核心：扫描非活动队列，释放干净页、清洗脏页，并按需把活动页降为非活动 */
+/* EN: Core of the pageout daemon: scan the inactive queue, free clean pages, launder dirty ones, and deactivate active pages */
 void
 vm_pageout_scan()
 {
@@ -242,6 +244,8 @@ vm_pageout_scan()
  * If reactivate is TRUE, a pager error causes the page to be
  * put back on the active queue, ow it is left on the inactive queue.
  */
+/* 中文：把单页 m 写出到其对象的 pager，按写回结果更新页面标志（出错则重新激活） */
+/* EN: Page out a single page m to its object's pager, updating page flags per the result (reactivate on failure) */
 void
 vm_pageout_page(m, object)
 	vm_page_t m;
@@ -367,6 +371,8 @@ vm_pageout_page(m, object)
  * chunk.  Called with paging queues and object locked.  Also, object must
  * already have a pager.
  */
+/* 中文：将与 m 连续的一批脏页聚成簇，一次性交给 pager 写出，提升换出效率 */
+/* EN: Cluster contiguous dirty pages around m and hand them to the pager at once for efficient pageout */
 void
 vm_pageout_cluster(m, object)
 	vm_page_t m;
@@ -509,6 +515,8 @@ again:
  *	vm_pageout is the high level pageout daemon.
  */
 
+/* 中文：pageout 守护进程主循环：初始化分页参数，等待内存不足事件后扫描并同步 pager */
+/* EN: Main pageout daemon loop: init paging parameters, then on memory-shortage events scan and sync the pager */
 void
 vm_pageout()
 {

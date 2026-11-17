@@ -103,6 +103,8 @@ extern u_long sb_max;
 }
 #ifndef TUBA_INCLUDE
 
+/* 中文：把一个 TCP 报文段插入控制块的重组装队列，裁掉与前序/后续报文重叠的数据，并把已连续的字节提交给 socket */
+/* EN: Insert a segment into the TCP reassembly queue, trim data overlapping preceding/subsequent segments and present contiguous bytes to the socket */
 int
 tcp_reass(tp, ti, m)
 	register struct tcpcb *tp;
@@ -211,6 +213,8 @@ present:
  * TCP input routine, follows pages 65-76 of the
  * protocol specification dated September, 1981 very closely.
  */
+/* 中文：TCP 主输入例程：校验头部与校验和、查找 PCB、解析选项、头部预测并按状态机处理 ACK/FIN/RST/URG，最后按需产生输出 */
+/* EN: Main TCP input routine: validate header and checksum, look up the PCB, parse options, perform header prediction, process ACK/FIN/RST/URG per state machine and generate output as needed */
 void
 tcp_input(m, iphlen)
 	register struct mbuf *m;
@@ -1331,6 +1335,8 @@ drop:
 #ifndef TUBA_INCLUDE
 }
 
+/* 中文：解析 TCP 选项（MSS、窗口缩放、时间戳），据此更新控制块的 MSS、缩放因子和时间戳状态 */
+/* EN: Parse TCP options (MSS, window scale, timestamp) and update the control block's MSS, scale factors and timestamp state */
 void
 tcp_dooptions(tp, cp, cnt, ti, ts_present, ts_val, ts_ecr)
 	struct tcpcb *tp;
@@ -1407,6 +1413,8 @@ tcp_dooptions(tp, cp, cnt, ti, ts_present, ts_val, ts_ecr)
  * It is still reflected in the segment length for
  * sequencing purposes.
  */
+/* 中文：从报文中取出带外字节存入控制块，使其不出现在用户数据队列中，同时在序号空间仍计入该字节 */
+/* EN: Pull an out-of-band byte out of a segment into the control block so it does not appear in the user data queue, while still counting it in sequence space */
 void
 tcp_pulloutofband(so, ti, m)
 	struct socket *so;
@@ -1438,6 +1446,8 @@ tcp_pulloutofband(so, ti, m)
  * Collect new round-trip time estimate
  * and update averages and current timeout.
  */
+/* 中文：采集一次新的往返时延样本，更新平滑 RTT 及其方差，并据此设置重传定时器 */
+/* EN: Collect a new round-trip time sample, update the smoothed RTT and its variance, and set the retransmit timer accordingly */
 void
 tcp_xmit_timer(tp, rtt)
 	register struct tcpcb *tp;
@@ -1523,6 +1533,8 @@ tcp_xmit_timer(tp, rtt)
  * While looking at the routing entry, we also initialize other path-dependent
  * parameters from pre-set or cached values in the routing entry.
  */
+/* 中文：依据路由 MTU 和外出接口特性计算合适的 MSS，处理对端 offer，并用路由缓存参数初始化 RTT 与拥塞窗口 */
+/* EN: Compute a reasonable MSS from route MTU and outgoing interface properties, honor the peer's offer, and initialize RTT and congestion window from cached route parameters */
 int
 tcp_mss(tp, offer)
 	register struct tcpcb *tp;

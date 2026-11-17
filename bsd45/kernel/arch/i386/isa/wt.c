@@ -781,6 +781,8 @@ char	*errstr;
 }
 
 /* Wait until rewind finishes, and deselect drive */
+/* 中文：等待磁带倒带完成并取消选中驱动器；轮询状态寄存器，超时则报错。 */
+/* EN: Wait for the tape rewind to finish and deselect the drive; poll the status register and report errors on timeout. */
 wtdsl2() {
 	int	stat;
 
@@ -805,6 +807,8 @@ wtdsl2() {
 			}
 	}
 
+/* 中文：启动磁带倒带操作。 */
+/* EN: Start rewinding the tape. */
 wtwind() {
 #ifdef DEBUG
 	debug("WT: About to rewind\n");
@@ -812,6 +816,8 @@ wtwind() {
 	rwind();	/* actually start rewind */
 }
 
+/* 中文：磁带驱动中断处理例程：设置中断服务锁并调用 isr() 处理完成的传输。 */
+/* EN: Tape driver interrupt handler: set the ISR lock and call isr() to service completed transfers. */
 wtintr(unit) {
 	if (wtflags & (TPWO|TPRO))
 	{
@@ -821,6 +827,8 @@ wtintr(unit) {
 	}
 }
 
+/* 中文：初始化磁带驱动：校验 DMA 通道合法性并初始化汇编层变量。 */
+/* EN: Initialize the tape driver: validate the DMA channel and initialize assembly-language variables. */
 wtinit() {
 	if (wtchan < 1 || wtchan > 3)
 	{

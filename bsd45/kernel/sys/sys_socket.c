@@ -50,6 +50,8 @@
 struct	fileops socketops =
     { soo_read, soo_write, soo_ioctl, soo_select, soo_close };
 
+/* 中文：套接字文件的读操作，转调 soreceive 从套接字接收数据 */
+/* EN: Read operation for a socket file that calls soreceive to receive data from the socket */
 /* ARGSUSED */
 int
 soo_read(fp, uio, cred)
@@ -62,6 +64,8 @@ soo_read(fp, uio, cred)
 		uio, (struct mbuf **)0, (struct mbuf **)0, (int *)0));
 }
 
+/* 中文：套接字文件的写操作，转调 sosend 向套接字发送数据 */
+/* EN: Write operation for a socket file that calls sosend to send data to the socket */
 /* ARGSUSED */
 int
 soo_write(fp, uio, cred)
@@ -74,6 +78,8 @@ soo_write(fp, uio, cred)
 		uio, (struct mbuf *)0, (struct mbuf *)0, 0));
 }
 
+/* 中文：套接字 ioctl：处理 FIONBIO/FIOASYNC/FIONREAD 等命令，并把接口、路由与协议控制命令分发出去 */
+/* EN: Socket ioctl handler for FIONBIO/FIOASYNC/FIONREAD and similar commands, dispatching interface, routing and protocol control commands */
 int
 soo_ioctl(fp, cmd, data, p)
 	struct file *fp;
@@ -133,6 +139,8 @@ soo_ioctl(fp, cmd, data, p)
 	    (struct mbuf *)cmd, (struct mbuf *)data, (struct mbuf *)0));
 }
 
+/* 中文：套接字文件的 select 操作，按 FREAD/FWRITE/OOB 检查可读性可写性，未就绪时用 selrecord 登记等待者 */
+/* EN: Select operation for a socket file that checks readability/writability/OOB for FREAD/FWRITE and uses selrecord to register waiters when not ready */
 int
 soo_select(fp, which, p)
 	struct file *fp;
@@ -175,6 +183,8 @@ soo_select(fp, which, p)
 	return (0);
 }
 
+/* 中文：套接字文件的 stat 操作，填入 S_IFSOCK 文件类型并通过 PRU_SENSE 获取其余属性 */
+/* EN: Stat operation for a socket file that fills in the S_IFSOCK file type and obtains remaining attributes via PRU_SENSE */
 int
 soo_stat(so, ub)
 	register struct socket *so;
@@ -188,6 +198,8 @@ soo_stat(so, ub)
 	    (struct mbuf *)0));
 }
 
+/* 中文：套接字文件的关闭操作，若有数据则调用 soclose 关闭套接字并清空 f_data */
+/* EN: Close operation for a socket file that calls soclose if data exists and clears f_data */
 /* ARGSUSED */
 int
 soo_close(fp, p)

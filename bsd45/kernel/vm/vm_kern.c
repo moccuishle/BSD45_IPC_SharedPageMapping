@@ -80,6 +80,8 @@
  *	Allocate pageable memory to the kernel's address map.
  *	map must be "kernel_map" below.
  */
+/* 中文：从内核地址映射中分配可分页的内存区域（map 必须为 kernel_map）。 */
+/* EN: Allocate pageable memory from the kernel address map (map must be kernel_map). */
 vm_offset_t
 kmem_alloc_pageable(map, size)
 	vm_map_t		map;
@@ -109,6 +111,8 @@ kmem_alloc_pageable(map, size)
  *	Allocate wired-down memory in the kernel's address map
  *	or a submap.
  */
+/* 中文：在内核地址映射或其子图中分配锁定（不可换出）的内存区域。 */
+/* EN: Allocate wired-down memory in the kernel's address map or a submap. */
 vm_offset_t
 kmem_alloc(map, size)
 	register vm_map_t	map;
@@ -202,6 +206,8 @@ kmem_alloc(map, size)
  *	with kmem_alloc, and return the physical pages
  *	associated with that region.
  */
+/* 中文：释放由 kmem_alloc 分配的内核虚拟内存区域，并归还相关物理页。 */
+/* EN: Release a region of kernel virtual memory allocated by kmem_alloc and return its physical pages. */
 void
 kmem_free(map, addr, size)
 	vm_map_t		map;
@@ -224,6 +230,8 @@ kmem_free(map, addr, size)
  *	min, max	Returned endpoints of map
  *	pageable	Can the region be paged
  */
+/* 中文：分配一个子映射来管理内核虚地址空间的一个子区间，可指定父映射、大小、范围与是否可分页。 */
+/* EN: Allocate a submap to manage a subrange of kernel virtual address space, with given parent, size, bounds and pageable flag. */
 vm_map_t
 kmem_suballoc(parent, min, max, size, pageable)
 	register vm_map_t	parent;
@@ -269,6 +277,8 @@ kmem_suballoc(parent, min, max, size, pageable)
  * We don't worry about expanding the map (adding entries) since entries
  * for wired maps are statically allocated.
  */
+/* 中文：为内核 malloc 分配锁定内存：使用私有的 kmem_map/kmem_object，可在中断级不阻塞地分配。 */
+/* EN: Allocate wired memory for kernel malloc using a private kmem_map/kmem_object, allowing non-blocking allocation at interrupt level. */
 vm_offset_t
 kmem_malloc(map, size, canwait)
 	register vm_map_t	map;
@@ -384,6 +394,8 @@ kmem_malloc(map, size, canwait)
  *	has no room, the caller sleeps waiting for more memory in the submap.
  *
  */
+/* 中文：从内核子映射中分配可分页内存；若空间不足则睡眠等待更多内存。 */
+/* EN: Allocate pageable memory from a kernel submap, sleeping if there is not enough room. */
 vm_offset_t
 kmem_alloc_wait(map, size)
 	vm_map_t	map;
@@ -421,6 +433,8 @@ kmem_alloc_wait(map, size)
  *	Returns memory to a submap of the kernel, and wakes up any threads
  *	waiting for memory in that map.
  */
+/* 中文：将内存归还内核子映射，并唤醒在该映射中等待内存的线程。 */
+/* EN: Return memory to a kernel submap and wake up threads waiting for memory there. */
 void
 kmem_free_wakeup(map, addr, size)
 	vm_map_t	map;
@@ -439,6 +453,8 @@ kmem_free_wakeup(map, addr, size)
  * map the range between VM_MIN_KERNEL_ADDRESS and `start' as allocated, and
  * the range between `start' and `end' as free.
  */
+/* 中文：创建内核映射，建立覆盖内核正文、数据、bss 及已引导分配空间的映射关系。 */
+/* EN: Create the kernel map and install mappings covering kernel text, data, bss and bootstrap-allocated space. */
 void
 kmem_init(start, end)
 	vm_offset_t start, end;

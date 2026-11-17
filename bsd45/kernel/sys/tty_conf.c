@@ -110,6 +110,8 @@ int	nlinesw = sizeof (linesw) / sizeof (linesw[0]);
  * Do nothing specific version of line
  * discipline specific ioctl command.
  */
+/* 中文：行规程 ioctl 的空实现，不做任何处理直接返回 -1 */
+/* EN: No-op line discipline ioctl handler that does nothing and simply returns -1 */
 /*ARGSUSED*/
 nullioctl(tp, cmd, data, flags, p)
 	struct tty *tp;

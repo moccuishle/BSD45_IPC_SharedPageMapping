@@ -60,6 +60,8 @@ static	struct	sockaddr_iso idrp_addrs[2] =
 /*
  * IDRP initialization
  */
+/* 中文：初始化 IDRP 协议控制块：把 isop 链初始化为自环，设置本地/远端 ISO 地址，并向 CLNP 协议交换表注册 idrp_input 处理函数 */
+/* EN: Initialize the IDRP protocol control block: make the isop list circular, set local/remote ISO addresses, and register idrp_input in the CLNP protocol switch table */
 idrp_init()
 {
 	extern struct clnl_protosw clnl_protox[256];
@@ -80,6 +82,8 @@ idrp_init()
  * and mke suitable for the idrp socket.
  * No return value.  
  */
+/* 中文：接收来自 CLNP 的 IDRP 报文：提取源和目的 ISO 地址，并将报文追加到 IDRP socket 的接收缓冲区后唤醒读进程 */
+/* EN: Receive an IDRP packet from CLNP: extract source and destination ISO addresses, append the packet to the IDRP socket receive buffer and wake the reader */
 idrp_input(m, src, dst)
 	register struct mbuf *m;
 	struct sockaddr_iso *src, *dst;
@@ -101,6 +105,8 @@ idrp_input(m, src, dst)
 	return 0;
 }
 
+/* 中文：通过 CLNP 发送 IDRP 报文：把源和目的 ISO 地址写入控制块后调用 clnp_output 发出报文 */
+/* EN: Send an IDRP packet via CLNP: write source and destination ISO addresses into the control block and call clnp_output */
 idrp_output(m, addr)
 	struct mbuf *m, *addr;
 {
@@ -121,6 +127,8 @@ u_long	idrp_sendspace = 3072;		/* really max datagram size */
 u_long	idrp_recvspace = 40 * 1024;	/* 40 1K datagrams */
 
 /*ARGSUSED*/
+/* 中文：处理 IDRP socket 的用户请求（PRU_ATTACH、PRU_DETACH 等）：管理 isop_socket 绑定并返回相应错误码 */
+/* EN: Handle user requests on the IDRP socket (PRU_ATTACH, PRU_DETACH, etc.): manage isop_socket binding and return the appropriate error code */
 idrp_usrreq(so, req, m, addr, control)
 	struct socket *so;
 	int req;

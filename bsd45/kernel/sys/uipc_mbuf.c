@@ -51,6 +51,8 @@ extern	vm_map_t mb_map;
 struct	mbuf *mbutl;
 char	*mclrefcnt;
 
+/* 中文：初始化 mbuf 子系统，预分配一批 mbuf 簇并挂入空闲链表 */
+/* EN: Initialize the mbuf subsystem by preallocating clusters onto the free list */
 void
 mbinit()
 {
@@ -71,6 +73,8 @@ bad:
  * Must be called at splimp.
  */
 /* ARGSUSED */
+/* 中文：分配 ncl 个 mbuf 簇并挂入簇空闲链表（须在 splimp 下调用） */
+/* EN: Allocate ncl mbuf clusters and place them on the free list (must be called at splimp) */
 int
 m_clalloc(ncl, nowait)
 	register int ncl;
@@ -105,6 +109,8 @@ m_clalloc(ncl, nowait)
  * When MGET failes, ask protocols to free space when short of memory,
  * then re-attempt to allocate an mbuf.
  */
+/* 中文：MGET 失败时先回收协议占用空间，再重试分配 mbuf */
+/* EN: Reclaim protocol space then retry an mbuf allocation after MGET fails */
 struct mbuf *
 m_retry(i, t)
 	int i, t;
@@ -121,6 +127,8 @@ m_retry(i, t)
 /*
  * As above; retry an MGETHDR.
  */
+/* 中文：MGETHDR 失败时先回收协议占用空间，再重试分配带首部的 mbuf */
+/* EN: Reclaim protocol space then retry an MGETHDR allocation after failure */
 struct mbuf *
 m_retryhdr(i, t)
 	int i, t;
@@ -134,6 +142,8 @@ m_retryhdr(i, t)
 	return (m);
 }
 
+/* 中文：遍历所有协议域调用其 pr_drain 回调回收 mbuf 空间 */
+/* EN: Call each protocol domain's pr_drain callback to reclaim mbuf space */
 void
 m_reclaim()
 {
@@ -154,6 +164,8 @@ m_reclaim()
  * These are also available as macros
  * for critical paths.
  */
+/* 中文：分配一个指定类型的 mbuf（MGET 的函数版接口） */
+/* EN: Allocate an mbuf of the given type (function form of MGET) */
 struct mbuf *
 m_get(nowait, type)
 	int nowait, type;
@@ -164,6 +176,8 @@ m_get(nowait, type)
 	return (m);
 }
 
+/* 中文：分配一个带数据包首部的 mbuf（MGETHDR 的函数版接口） */
+/* EN: Allocate an mbuf with a packet header (function form of MGETHDR) */
 struct mbuf *
 m_gethdr(nowait, type)
 	int nowait, type;
@@ -174,6 +188,8 @@ m_gethdr(nowait, type)
 	return (m);
 }
 
+/* 中文：分配一个 mbuf 并把其数据区清零 */
+/* EN: Allocate an mbuf and zero its data area */
 struct mbuf *
 m_getclr(nowait, type)
 	int nowait, type;
@@ -187,6 +203,8 @@ m_getclr(nowait, type)
 	return (m);
 }
 
+/* 中文：释放单个 mbuf 并返回链中的下一个（MFREE 的函数版接口） */
+/* EN: Free a single mbuf and return the next in the chain (function form of MFREE) */
 struct mbuf *
 m_free(m)
 	struct mbuf *m;
@@ -197,6 +215,8 @@ m_free(m)
 	return (n);
 }
 
+/* 中文：释放整个 mbuf 链中的所有 mbuf */
+/* EN: Free all mbufs in an mbuf chain */
 void
 m_freem(m)
 	register struct mbuf *m;
@@ -219,6 +239,8 @@ m_freem(m)
  * allocate new mbuf to prepend to chain,
  * copy junk along.
  */
+/* 中文：在 mbuf 链头部前插一个新 mbuf，为 len 字节数据腾出空间 */
+/* EN: Prepend a new mbuf to the chain with room for len bytes */
 struct mbuf *
 m_prepend(m, len, how)
 	register struct mbuf *m;
@@ -250,6 +272,8 @@ m_prepend(m, len, how)
  */
 int MCFail;
 
+/* 中文：从 mbuf 链的 off0 偏移处复制 len 字节到一个新链（len 可为 M_COPYALL） */
+/* EN: Copy len bytes from an mbuf chain at offset off0 into a new chain (len may be M_COPYALL) */
 struct mbuf *
 m_copym(m, off0, len, wait)
 	register struct mbuf *m;
@@ -321,6 +345,8 @@ nospace:
  * Copy data from an mbuf chain starting "off" bytes from the beginning,
  * continuing for "len" bytes, into the indicated buffer.
  */
+/* 中文：把 mbuf 链从 off 偏移开始的 len 字节数据拷贝到缓冲区 cp */
+/* EN: Copy len bytes of data from an mbuf chain at offset off into buffer cp */
 void
 m_copydata(m, off, len, cp)
 	register struct mbuf *m;
@@ -357,6 +383,8 @@ m_copydata(m, off, len, cp)
  * Both chains must be of the same type (e.g. MT_DATA).
  * Any m_pkthdr is not updated.
  */
+/* 中文：把 mbuf 链 n 拼接到链 m 的末尾（两链须同类型） */
+/* EN: Concatenate mbuf chain n onto the end of chain m (both must be the same type) */
 void
 m_cat(m, n)
 	register struct mbuf *m, *n;
@@ -378,6 +406,8 @@ m_cat(m, n)
 	}
 }
 
+/* 中文：调整 mbuf 链长度：req_len 为正时从头部裁剪，为负时从尾部裁剪 */
+/* EN: Adjust an mbuf chain's length: trim from the head if req_len is positive, from the tail if negative */
 void
 m_adj(mp, req_len)
 	struct mbuf *mp;
@@ -462,6 +492,8 @@ m_adj(mp, req_len)
  */
 int MPFail;
 
+/* 中文：重排 mbuf 链使前 len 字节连续存放于一个 mbuf 数据区，成功返回新链，失败释放并返回 NULL */
+/* EN: Rearrange the chain so the first len bytes are contiguous; returns the new chain, or frees and returns NULL on failure */
 struct mbuf *
 m_pullup(n, len)
 	register struct mbuf *n;
@@ -526,6 +558,8 @@ bad:
  * all but the first len0 bytes.  In case of failure, it returns NULL and
  * attempts to restore the chain to its original state.
  */
+/* 中文：在 len0 字节处把 mbuf 链一分为二，返回尾部链（失败返回 NULL 并尽量恢复原链） */
+/* EN: Split an mbuf chain at len0 bytes and return the tail (NULL on failure, restoring the chain if possible) */
 struct mbuf *
 m_split(m0, len0, wait)
 	register struct mbuf *m0;
@@ -588,6 +622,8 @@ extpacket:
 /*
  * Routine to copy from device local memory into mbufs.
  */
+/* 中文：把设备本地内存中的数据包拷贝到新建的 mbuf 链中，返回该链 */
+/* EN: Copy a packet from device-local memory into a newly built mbuf chain and return it */
 struct mbuf *
 m_devget(buf, totlen, off0, ifp, copy)
 	char *buf;

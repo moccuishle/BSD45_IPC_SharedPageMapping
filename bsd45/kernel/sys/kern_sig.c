@@ -79,6 +79,8 @@ void stop __P((struct proc *p));
 	    ((signum) == SIGCONT && (q)->p_session == (p)->p_session))
 
 /* ARGSUSED */
+/* 中文：系统调用入口，检查或设置某信号的处理动作，可选地先取回旧动作再安装新动作 */
+/* EN: System call to examine or set the action for a signal, optionally retrieving the old action before installing the new one */
 int
 sigaction(p, uap, retval)
 	struct proc *p;
@@ -124,6 +126,8 @@ sigaction(p, uap, retval)
 	return (0);
 }
 
+/* 中文：原子地设置某信号的处理向量、捕获掩码与标志，并更新进程的忽略/捕获/栈上状态 */
+/* EN: Atomically set a signal's handler vector, catch mask and flags, updating the process's ignore/catch/on-stack state */
 void
 setsigvec(p, signum, sa)
 	register struct proc *p;
@@ -186,6 +190,8 @@ setsigvec(p, signum, sa)
  * Initialize signal state for process 0;
  * set to ignore signals that are ignored by default.
  */
+/* 中文：初始化进程 0 的信号状态，屏蔽那些默认动作为忽略的信号 */
+/* EN: Initialize signal state for process 0, masking signals whose default action is to ignore them */
 void
 siginit(p)
 	struct proc *p;
@@ -200,6 +206,8 @@ siginit(p)
 /*
  * Reset signals for an exec of the specified process.
  */
+/* 中文：在进程 exec 时重置信号状态，把已捕获信号恢复默认动作并复位备选信号栈 */
+/* EN: Reset signal state on exec, restoring caught signals to their default action and resetting the alternate signal stack */
 void
 execsigs(p)
 	register struct proc *p;
@@ -239,6 +247,8 @@ execsigs(p)
  * and return old mask as return value;
  * the library stub does the rest.
  */
+/* 中文：系统调用入口，按指定方式检查或改变进程的信号屏蔽字，并在 retval 中返回旧屏蔽字 */
+/* EN: System call to examine or change the process signal mask as specified, returning the old mask in retval */
 int
 sigprocmask(p, uap, retval)
 	register struct proc *p;
@@ -275,6 +285,8 @@ sigprocmask(p, uap, retval)
 }
 
 /* ARGSUSED */
+/* 中文：系统调用入口，返回当前待处理（被阻塞而挂起）的信号集合 */
+/* EN: System call that returns the set of currently pending (blocked) signals */
 int
 sigpending(p, uap, retval)
 	struct proc *p;
@@ -291,6 +303,8 @@ sigpending(p, uap, retval)
  * Generalized interface signal handler, 4.3-compatible.
  */
 /* ARGSUSED */
+/* 中文：4.3BSD 兼容的通用信号处理接口，取回或设置 4.3 风格的 sigvec 处理动作 */
+/* EN: 4.3BSD-compatible generalized signal interface to get or set 4.3-style sigvec handler actions */
 int
 compat_43_sigvec(p, uap, retval)
 	struct proc *p;
@@ -349,6 +363,8 @@ compat_43_sigvec(p, uap, retval)
 	return (0);
 }
 
+/* 中文：4.3BSD 兼容接口，把给定信号加入进程屏蔽字并返回旧屏蔽字 */
+/* EN: 4.3BSD-compatible interface to add the given signals to the process mask and return the old mask */
 int
 compat_43_sigblock(p, uap, retval)
 	register struct proc *p;
@@ -365,6 +381,8 @@ compat_43_sigblock(p, uap, retval)
 	return (0);
 }
 
+/* 中文：4.3BSD 兼容接口，把进程信号屏蔽字设为给定值并返回旧屏蔽字 */
+/* EN: 4.3BSD-compatible interface to set the process signal mask to the given value and return the old mask */
 int
 compat_43_sigsetmask(p, uap, retval)
 	struct proc *p;
@@ -388,6 +406,8 @@ compat_43_sigsetmask(p, uap, retval)
  * libc stub passes mask, not pointer, to save a copyin.
  */
 /* ARGSUSED */
+/* 中文：系统调用，等待信号期间以给定屏蔽字替换进程屏蔽字，收到信号后恢复旧屏蔽字并返回 EINTR */
+/* EN: System call to wait for a signal with a temporary mask, restoring the old mask and returning EINTR when a signal arrives */
 int
 sigsuspend(p, uap, retval)
 	register struct proc *p;
@@ -416,6 +436,8 @@ sigsuspend(p, uap, retval)
 
 #if defined(COMPAT_43) || defined(COMPAT_SUNOS)
 /* ARGSUSED */
+/* 中文：4.3BSD 兼容接口，获取或设置进程的 4.3 风格备选信号栈 */
+/* EN: 4.3BSD-compatible interface to get or set the process's 4.3-style alternate signal stack */
 int
 compat_43_sigstack(p, uap, retval)
 	struct proc *p;
@@ -447,6 +469,8 @@ compat_43_sigstack(p, uap, retval)
 #endif /* COMPAT_43 || COMPAT_SUNOS */
 
 /* ARGSUSED */
+/* 中文：系统调用，获取或设置进程的备选信号栈，检查最小栈大小与禁用标志 */
+/* EN: System call to get or set the process's alternate signal stack, checking the minimum size and disable flag */
 int
 sigaltstack(p, uap, retval)
 	struct proc *p;
@@ -486,6 +510,8 @@ sigaltstack(p, uap, retval)
 }
 
 /* ARGSUSED */
+/* 中文：系统调用，向单个进程、进程组或所有进程发送信号，须通过 CANSIGNAL 权限检查 */
+/* EN: System call to send a signal to a single process, a process group, or all processes, subject to CANSIGNAL permission checks */
 int
 kill(cp, uap, retval)
 	register struct proc *cp;
@@ -523,6 +549,8 @@ kill(cp, uap, retval)
 
 #if defined(COMPAT_43) || defined(COMPAT_SUNOS)
 /* ARGSUSED */
+/* 中文：4.3BSD 兼容系统调用，向指定进程组发送信号 */
+/* EN: 4.3BSD-compatible system call to send a signal to a specified process group */
 int
 compat_43_killpg(p, uap, retval)
 	struct proc *p;
@@ -543,6 +571,8 @@ compat_43_killpg(p, uap, retval)
  * Common code for kill process group/broadcast kill.
  * cp is calling process.
  */
+/* 中文：kill 的公共实现，向进程组或所有进程发送信号，all 为真时为广播，否则按 pgid 定位进程组 */
+/* EN: Common implementation for kill, sending a signal to a process group or all processes; all selects broadcast, otherwise pgid locates the group */
 int
 killpg1(cp, signum, pgid, all)
 	register struct proc *cp;
@@ -593,6 +623,8 @@ killpg1(cp, signum, pgid, all)
 /*
  * Send a signal to a process group.
  */
+/* 中文：向指定进程组发送信号，若进程组存在则调用 pgsignal */
+/* EN: Send a signal to the indicated process group, calling pgsignal if the group exists */
 void
 gsignal(pgid, signum)
 	int pgid, signum;
@@ -607,6 +639,8 @@ gsignal(pgid, signum)
  * Send a signal to a process group.  If checktty is 1,
  * limit to members which have a controlling terminal.
  */
+/* 中文：向进程组的各成员发送信号，checkctty 为真时只发给有控制终端的成员 */
+/* EN: Send a signal to members of a process group, limiting to those with a controlling terminal when checkctty is set */
 void
 pgsignal(pgrp, signum, checkctty)
 	struct pgrp *pgrp;
@@ -626,6 +660,8 @@ pgsignal(pgrp, signum, checkctty)
  * If it will be caught immediately, deliver it with correct code.
  * Otherwise, post it normally.
  */
+/* 中文：因陷阱向进程发送信号，若可立即捕获则带上正确代码直接投递，否则按常规登记 */
+/* EN: Send a trap-induced signal to a process, delivering it immediately with the correct code if catchable, otherwise posting it normally */
 void
 trapsignal(p, signum, code)
 	struct proc *p;
@@ -666,6 +702,8 @@ trapsignal(p, signum, code)
  *
  * Other ignored signals are discarded immediately.
  */
+/* 中文：向进程登记信号，处理忽略/阻塞/停止/继续等语义，并按进程状态唤醒或停止进程 */
+/* EN: Post a signal to a process, handling ignore/block/stop/continue semantics and waking or stopping the process according to its state */
 void
 psignal(p, signum)
 	register struct proc *p;
@@ -873,6 +911,8 @@ out:
  *	while (signum = CURSIG(curproc))
  *		postsig(signum);
  */
+/* 中文：检查当前进程是否有未被屏蔽的待处理信号，处理跟踪与默认动作，返回应投递的信号号或 0 */
+/* EN: Check for an unblocked pending signal for a process, handling tracing and default actions, returning the signal number to deliver or 0 */
 int
 issignal(p)
 	register struct proc *p;
@@ -1022,6 +1062,8 @@ issignal(p)
  * via wakeup.  Signals are handled elsewhere.  The process must not be
  * on the run queue.
  */
+/* 中文：把进程置为停止状态、清除 P_WAITED 标志，并通过唤醒其父进程通知 */
+/* EN: Put a process into the stopped state, clear the P_WAITED flag, and notify its parent via wakeup */
 void
 stop(p)
 	register struct proc *p;
@@ -1036,6 +1078,8 @@ stop(p)
  * Take the action for the specified signal
  * from the current set of pending signals.
  */
+/* 中文：对当前进程的指定待处理信号执行动作，默认为退出，被捕获则调用 sendsig 投递给用户态 */
+/* EN: Take action for a pending signal of the current process, exiting on default or delivering a caught signal to userland via sendsig */
 void
 postsig(signum)
 	register int signum;
@@ -1106,6 +1150,8 @@ postsig(signum)
 /*
  * Kill the current process for stated reason.
  */
+/* 中文：记录错误日志并向用户提示，然后向进程发送 SIGKILL 将其杀死 */
+/* EN: Log an error and notify the user, then kill the process by sending SIGKILL */
 void
 killproc(p, why)
 	struct proc *p;
@@ -1125,6 +1171,8 @@ killproc(p, why)
  * If dumping core, save the signal number for the debugger.  Calls exit and
  * does not return.
  */
+/* 中文：强制进程因指定信号退出，必要时转储核心并标记记账，随后调用 exit1 不返回 */
+/* EN: Force a process to exit due to a signal, dumping core if appropriate and marking accounting, then calling exit1 without returning */
 void
 sigexit(p, signum)
 	register struct proc *p;
@@ -1145,6 +1193,8 @@ sigexit(p, signum)
  * Dump core, into a file named "progname.core", unless the process was
  * setuid/setgid.
  */
+/* 中文：把进程的内存镜像写入名为“程序名.core”的核心文件，setuid/setgid 或超核心限额时失败 */
+/* EN: Dump the process's memory image to a file named "progname.core", failing for setuid/setgid processes or when over the core limit */
 int
 coredump(p)
 	register struct proc *p;
@@ -1207,6 +1257,8 @@ out:
  * Flag error in case process won't see signal immediately (blocked or ignored).
  */
 /* ARGSUSED */
+/* 中文：不存在的系统调用入口，向进程发送 SIGSYS 并返回 ENOSYS，以便在进程未立即察觉信号时标记错误 */
+/* EN: Handler for nonexistent system calls, sending SIGSYS to the process and returning ENOSYS to flag the error in case the signal is not seen immediately */
 int
 nosys(p, args, retval)
 	struct proc *p;

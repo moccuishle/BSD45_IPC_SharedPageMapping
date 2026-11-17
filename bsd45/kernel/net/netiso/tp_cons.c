@@ -117,6 +117,8 @@ int tpcons_output();
  *  version of the previous procedure for X.25
  */
 
+/* 中文：为 X.25/cons 连接 TP 控制块，附加 pklcd 通道并调用 cons_connect 建立连接 */
+/* EN: Connect a TP control block over X.25/cons by attaching a pklcd channel and calling cons_connect */
 tpcons_pcbconnect(isop, nam)
 struct isopcb *isop;
 register struct mbuf *nam;
@@ -146,6 +148,8 @@ register struct mbuf *nam;
  * FUNCTION and ARGUMENTS:
  * THIS MAYBE BELONGS IN SOME OTHER PLACE??? but i think not -
  */
+/* 中文：处理 cons 协议控制输入：发送完成时为 class 0 伪造 ACK，路由失效时复位，其余交 tpclnp_ctlinput */
+/* EN: Handle cons protocol control input: fake an ACK on send-done for class 0, reset on route-dead, else delegate to tpclnp_ctlinput */
 ProtoHook
 tpcons_ctlinput(cmd, siso, isop)
 	int cmd; 
@@ -208,6 +212,8 @@ tpcons_ctlinput(cmd, siso, isop)
  *  ignore the socket argument, and call tp_input. 
  * No return value.  
  */
+/* 中文：cons 中断入口：对收到的 mbuf 做 pullup 预处理后交给 tp_input 处理 */
+/* EN: cons interrupt entry: pre-pullup the received mbuf and pass it to tp_input */
 ProtoHook
 tpcons_input(m, faddr, laddr, channel)
 	struct mbuf 		*m;
@@ -240,6 +246,8 @@ tpcons_input(m, faddr, laddr, channel)
  *  whatever (E*) is returned form the net layer output routine.
  */
 
+/* 中文：把 TP 发出的 mbuf 封装成 cons 可接受的包，按需补 PKTHDR、重连通道后发送 */
+/* EN: Package a TP mbuf for cons: add a PKTHDR if needed, reconnect the channel if necessary, then send */
 int
 tpcons_output(isop, m0, datalen, nochksum)
 	struct isopcb		*isop;
@@ -296,6 +304,8 @@ tpcons_output(isop, m0, datalen, nochksum)
  *  whatever (E*) is returned form the net layer output routine.
  */
 
+/* 中文：数据报输出：用指定 cons 通道把 mbuf 交给 tpcons_output 发送 */
+/* EN: Datagram output: send an mbuf via tpcons_output using the given cons channel */
 int
 tpcons_dg_output(chan, m0, datalen)
 	caddr_t				chan;

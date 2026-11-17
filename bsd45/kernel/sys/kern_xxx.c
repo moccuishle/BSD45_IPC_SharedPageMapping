@@ -45,6 +45,8 @@
 #include <sys/syscallargs.h>
 
 /* ARGSUSED */
+/* 中文：reboot 系统调用：经 suser 校验权限后，用 opt 参数调用 boot 重启系统 */
+/* EN: reboot system call: after suser privilege check, call boot with the opt argument to reboot the system */
 int
 reboot(p, uap, retval)
 	struct proc *p;
@@ -64,6 +66,8 @@ reboot(p, uap, retval)
 #if defined(COMPAT_43) || defined(COMPAT_SUNOS)
 
 /* ARGSUSED */
+/* 中文：4.3BSD 兼容的 gethostname 系统调用：通过 kern_sysctl 读取 KERN_HOSTNAME 返回主机名 */
+/* EN: 4.3BSD-compatible gethostname call: read KERN_HOSTNAME via kern_sysctl to return the host name */
 int
 compat_43_gethostname(p, uap, retval)
 	struct proc *p;
@@ -81,6 +85,8 @@ compat_43_gethostname(p, uap, retval)
 }
 
 /* ARGSUSED */
+/* 中文：4.3BSD 兼容的 sethostname 系统调用：经 suser 校验权限后通过 kern_sysctl 写入 KERN_HOSTNAME 设置主机名 */
+/* EN: 4.3BSD-compatible sethostname call: after suser privilege check, set the host name by writing KERN_HOSTNAME via kern_sysctl */
 int
 compat_43_sethostname(p, uap, retval)
 	struct proc *p;
@@ -101,6 +107,8 @@ compat_43_sethostname(p, uap, retval)
 }
 
 /* ARGSUSED */
+/* 中文：4.3BSD 兼容的 gethostid 系统调用：把全局 hostid 写入 retval 返回 */
+/* EN: 4.3BSD-compatible gethostid call: write the global hostid into retval to return it */
 int
 compat_43_gethostid(p, uap, retval)
 	struct proc *p;
@@ -115,6 +123,8 @@ compat_43_gethostid(p, uap, retval)
 
 #ifdef COMPAT_43
 /* ARGSUSED */
+/* 中文：4.3BSD 兼容的 sethostid 系统调用：经 suser 校验权限后把参数 hostid 存入全局变量 hostid */
+/* EN: 4.3BSD-compatible sethostid call: after suser privilege check, store the argument hostid into the global hostid */
 int
 compat_43_sethostid(p, uap, retval)
 	struct proc *p;
@@ -131,6 +141,8 @@ compat_43_sethostid(p, uap, retval)
 	return (0);
 }
 
+/* 中文：4.3BSD 兼容的 quota 系统调用占位：函数体已删除，返回 ENOSYS 表示未实现 */
+/* EN: 4.3BSD-compatible quota system call placeholder: body removed, returns ENOSYS to indicate it is unimplemented */
 int
 compat_43_quota(p, uap, retval)
 	struct proc *p;

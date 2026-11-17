@@ -56,6 +56,8 @@
  */
 
 /* ARGSUSED */
+/* 中文：实现 gettimeofday 系统调用：把当前时间（及调用者请求的时区）拷贝回用户空间 */
+/* EN: Implement the gettimeofday system call: copy the current time (and timezone when requested) back to user space */
 int
 gettimeofday(p, uap, retval)
 	struct proc *p;
@@ -81,6 +83,8 @@ gettimeofday(p, uap, retval)
 }
 
 /* ARGSUSED */
+/* 中文：实现 settimeofday 系统调用：仅特权进程可用，先拷贝并校验所有参数，再更新系统时间与时区 */
+/* EN: Implement the settimeofday system call: restricted to the superuser, copy in and validate all parameters before updating system time and timezone */
 int
 settimeofday(p, uap, retval)
 	struct proc *p;
@@ -140,6 +144,8 @@ long	timedelta;			/* unapplied time correction, us. */
 long	bigadj = 1000000;		/* use 10x skew above bigadj us. */
 
 /* ARGSUSED */
+/* 中文：实现 adjtime 系统调用：以平滑方式逐步校正系统时间，并返回上一次尚未完成的校正量 */
+/* EN: Implement the adjtime system call: slew the system time gradually and return the previous unfinished adjustment */
 int
 adjtime(p, uap, retval)
 	struct proc *p;
@@ -218,6 +224,8 @@ adjtime(p, uap, retval)
  * absolute time the timer should go off.
  */
 /* ARGSUSED */
+/* 中文：实现 getitimer 系统调用：读取指定间隔定时器（实时/虚拟/性能）的当前值并返回给用户 */
+/* EN: Implement the getitimer system call: read the current value of the selected interval timer (real/virtual/profiling) and return it to userland */
 int
 getitimer(p, uap, retval)
 	struct proc *p;
@@ -255,6 +263,8 @@ getitimer(p, uap, retval)
 }
 
 /* ARGSUSED */
+/* 中文：实现 setitimer 系统调用：设置指定间隔定时器的当前值与周期，并返回原值 */
+/* EN: Implement the setitimer system call: set the current value and interval of the selected timer and return the old value */
 int
 setitimer(p, uap, retval)
 	struct proc *p;
@@ -304,6 +314,8 @@ setitimer(p, uap, retval)
  * This is where delay in processing this timeout causes multiple
  * SIGALRM calls to be compressed into one.
  */
+/* 中文：真实间隔定时器到期处理：向进程发送 SIGALRM，若设置了周期则重新装载定时器并对处理延迟进行补偿 */
+/* EN: Real interval timer expiry handler: send SIGALRM to the process and, if periodic, reload the timer compensating for processing delay */
 void
 realitexpire(arg)
 	void *arg;
@@ -337,6 +349,8 @@ realitexpire(arg)
  * fix it to have at least minimal value (i.e. if it is less
  * than the resolution of the clock, round it up.)
  */
+/* 中文：校验并修正待装入间隔定时器的时间值：范围检查，并把小于时钟分辨率的正值向上取整 */
+/* EN: Validate and fix a timeval to be loaded into an interval timer: range-check it and round sub-resolution positive values up to one tick */
 int
 itimerfix(tv)
 	struct timeval *tv;
@@ -360,6 +374,8 @@ itimerfix(tv)
  * that it is called in a context where the timers
  * on which it is operating cannot change in value.
  */
+/* 中文：按给定的微秒数递减间隔定时器，到期时按周期重装并把余量结转到新值以避免漂移 */
+/* EN: Decrement an interval timer by the given microseconds, reloading it at expiry and carrying over the remainder to avoid drift */
 int
 itimerdecr(itp, usec)
 	register struct itimerval *itp;
@@ -400,6 +416,8 @@ expire:
  * it just gets very confused in this case.
  * Caveat emptor.
  */
+/* 中文：把 t2 加到 t1 上（秒与微秒分别相加后规整进位） */
+/* EN: Add t2 to t1 (add seconds and microseconds separately, then normalize any carry) */
 timevaladd(t1, t2)
 	struct timeval *t1, *t2;
 {
@@ -409,6 +427,8 @@ timevaladd(t1, t2)
 	timevalfix(t1);
 }
 
+/* 中文：从 t1 中减去 t2（秒与微秒分别相减后规整借位） */
+/* EN: Subtract t2 from t1 (subtract seconds and microseconds separately, then normalize any borrow) */
 timevalsub(t1, t2)
 	struct timeval *t1, *t2;
 {
@@ -418,6 +438,8 @@ timevalsub(t1, t2)
 	timevalfix(t1);
 }
 
+/* 中文：规整 timeval：微秒为负时向秒借位，微秒达到或超过 1000000 时向秒进位 */
+/* EN: Normalize a timeval: borrow a second when microseconds are negative and carry when they reach 1000000 */
 timevalfix(t1)
 	struct timeval *t1;
 {

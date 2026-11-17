@@ -98,6 +98,8 @@ struct sockproto	rclnp_proto	= { PF_ISO, 0 };
  * NOTES:			The protocol field of rclnp_proto is set to zero indicating
  *					no protocol.
  */
+/* 中文：为原始 CLNP 输入准备通用地址与协议结构，连同 mbuf 链一起交给 raw_input 处理 */
+/* EN: Set up generic address and protocol structures for raw CLNP input and pass them with the mbuf chain to raw_input */
 rclnp_input(m, src, dst, hdrlen)
 struct mbuf 		*m;		/* ptr to packet */
 struct sockaddr_iso	*src;	/* ptr to src address */
@@ -128,6 +130,8 @@ int					hdrlen; /* length (in bytes) of clnp header */
  *
  * NOTES:			
  */
+/* 中文：准备并发送一个原始 CLNP 包：校验后设置源/目的地址，再调用 clnp_output 发送 */
+/* EN: Prepare and send a raw CLNP packet: validate and set up source/destination addresses, then call clnp_output to transmit it */
 rclnp_output(m0, so)
 struct mbuf		*m0;		/* packet to send */
 struct socket	*so;	/* socket to send from */
@@ -181,6 +185,8 @@ bad:
  *
  * NOTES:			
  */
+/* 中文：处理原始 CLNP 套接字选项，校验并设置 CLNP 标志与选项数据 */
+/* EN: Handle raw CLNP socket options, validating and setting CLNP flags and option data */
 rclnp_ctloutput(op, so, level, optname, m)
 int				op;				/* type of operation */
 struct socket	*so;			/* ptr to socket */
@@ -267,6 +273,8 @@ struct mbuf		**m;			/* ptr to ptr to option data */
 	return error;
 }
 
+/* 中文：原始 CLNP 套接字的用户请求处理：实现 attach/detach/bind/connect，其余请求交给 raw_usrreq */
+/* EN: User-request handler for raw CLNP sockets: implement attach/detach/bind/connect and pass other requests to raw_usrreq */
 /*ARGSUSED*/
 clnp_usrreq(so, req, m, nam, control)
 	register struct socket *so;

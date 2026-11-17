@@ -83,6 +83,8 @@ void	ptsstop __P((struct tty *, int));
  *
  * XXX cdevsw & pstat require the array `pty[]' to be an array
  */
+/* 中文：在系统中建立 n（n 为 1 时取默认值）个伪终端。 */
+/* EN: Establish n (or the default when n is 1) pseudo-terminals in the system. */
 void
 ptyattach(n)
 	int n;
@@ -106,6 +108,8 @@ ptyattach(n)
 }
 
 /*ARGSUSED*/
+/* 中文：打开伪终端的从设备（slave）侧。 */
+/* EN: Open the slave side of a pseudo-terminal. */
 ptsopen(dev, flag, devtype, p)
 	dev_t dev;
 	int flag, devtype;
@@ -143,6 +147,8 @@ ptsopen(dev, flag, devtype, p)
 	return (error);
 }
 
+/* 中文：关闭伪终端的从设备侧。 */
+/* EN: Close the slave side of a pseudo-terminal. */
 ptsclose(dev, flag, mode, p)
 	dev_t dev;
 	int flag, mode;
@@ -158,6 +164,8 @@ ptsclose(dev, flag, mode, p)
 	return (err);
 }
 
+/* 中文：从伪终端从设备侧读取数据（即读取主设备侧写入的输入）。 */
+/* EN: Read data from the slave side of a pty (i.e. input written by the master side). */
 ptsread(dev, uio, flag)
 	dev_t dev;
 	struct uio *uio;
@@ -210,6 +218,8 @@ again:
  * Wakeups of controlling tty will happen
  * indirectly, when tty driver calls ptsstart.
  */
+/* 中文：向伪终端从设备侧写入数据，唤醒控制终端的相关处理。 */
+/* EN: Write to the slave side of a pseudo-terminal, triggering wakeups on the controlling terminal. */
 ptswrite(dev, uio, flag)
 	dev_t dev;
 	struct uio *uio;
@@ -227,6 +237,8 @@ ptswrite(dev, uio, flag)
  * Start output on pseudo-tty.
  * Wake up process selecting or sleeping for input from controlling tty.
  */
+/* 中文：启动伪终端从设备侧的输出，唤醒在主设备侧等待输入的进程。 */
+/* EN: Start output on the slave side of a pty, waking processes waiting for input on the master side. */
 void
 ptsstart(tp)
 	struct tty *tp;
@@ -242,6 +254,8 @@ ptsstart(tp)
 	ptcwakeup(tp, FREAD);
 }
 
+/* 中文：唤醒在伪终端主设备侧等待的进程。 */
+/* EN: Wake up processes waiting on the master side of a pseudo-terminal. */
 ptcwakeup(tp, flag)
 	struct tty *tp;
 	int flag;
@@ -259,6 +273,8 @@ ptcwakeup(tp, flag)
 }
 
 /*ARGSUSED*/
+/* 中文：打开伪终端的主设备（master）侧。 */
+/* EN: Open the master side of a pseudo-terminal. */
 #ifdef __STDC__
 ptcopen(dev_t dev, int flag, int devtype, struct proc *p)
 #else
@@ -289,6 +305,8 @@ ptcopen(dev, flag, devtype, p)
 	return (0);
 }
 
+/* 中文：关闭伪终端的主设备侧。 */
+/* EN: Close the master side of a pseudo-terminal. */
 ptcclose(dev)
 	dev_t dev;
 {
@@ -302,6 +320,8 @@ ptcclose(dev)
 	return (0);
 }
 
+/* 中文：从伪终端主设备侧读取数据（即读取从设备侧产生的输出）。 */
+/* EN: Read data from the master side of a pty (i.e. output produced by the slave side). */
 ptcread(dev, uio, flag)
 	dev_t dev;
 	struct uio *uio;
@@ -368,6 +388,8 @@ ptcread(dev, uio, flag)
 	return (error);
 }
 
+/* 中文：停止伪终端从设备侧的输出（流控处理）。 */
+/* EN: Stop output on the slave side of a pty (flow control). */
 void
 ptsstop(tp, flush)
 	register struct tty *tp;
@@ -392,6 +414,8 @@ ptsstop(tp, flush)
 	ptcwakeup(tp, flag);
 }
 
+/* 中文：实现伪终端主设备侧的 select/poll 就绪检查。 */
+/* EN: Implement select/poll readiness checks on the master side of a pty. */
 ptcselect(dev, rw, p)
 	dev_t dev;
 	int rw;
@@ -446,6 +470,8 @@ ptcselect(dev, rw, p)
 	return (0);
 }
 
+/* 中文：向伪终端主设备侧写入数据，作为从设备侧的输入。 */
+/* EN: Write data to the master side of a pty, feeding it as input to the slave side. */
 ptcwrite(dev, uio, flag)
 	dev_t dev;
 	register struct uio *uio;
@@ -534,6 +560,8 @@ block:
 }
 
 /*ARGSUSED*/
+/* 中文：处理伪终端的 ioctl 请求（设置窗口大小、包模式控制等）。 */
+/* EN: Handle ioctl requests on a pseudo-terminal (window size, packet mode controls, etc.). */
 ptyioctl(dev, cmd, data, flag, p)
 	dev_t dev;
 	u_long cmd;

@@ -44,6 +44,8 @@ static char sccsid[] = "@(#)umoddi3.c	8.1 (Berkeley) 6/4/93";
 /*
  * Return remainder after dividing two unsigned quads.
  */
+/* 中文：计算两个无符号 64 位数相除后的余数，通过 __qdivrem 求余并返回 */
+/* EN: Compute the remainder of dividing two unsigned 64-bit quads via __qdivrem and return it */
 u_quad_t
 __umoddi3(a, b)
 	u_quad_t a, b;

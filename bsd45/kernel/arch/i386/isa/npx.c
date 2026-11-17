@@ -67,6 +67,8 @@ extern long npx0mask;
 /*
  * Probe routine - look device, otherwise set emulator bit
  */
+/* 中文：探测数值协处理器：清 EM 位并初始化设备，读状态与控制字确认 387/287 存在则关 EM 返回 1，否则开 EM 返回 0 */
+/* EN: Probe for a numeric coprocessor: clear EM, init the device, and if status is zero and the control word matches, return 1 with EM clear; otherwise set EM and return 0 */
 npxprobe(dvp)
 	struct isa_device *dvp;
 {	static status, control;
@@ -120,6 +122,8 @@ npxattach(dvp)
 /*
  * Initialize floating point unit, usually after an error
  */
+/* 中文：初始化浮点单元（通常在出错后）：关 EM、复位 NPX、设置控制字并保存当前进程的 FPU 状态，再开 EM */
+/* EN: Initialize the floating-point unit (usually after an error): clear EM, reset the NPX, set the control word, save the current process's FPU state, then set EM */
 npxinit(control) {
 
 	if (npxexists == 0) return;

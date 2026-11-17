@@ -78,6 +78,8 @@ extern	struct isopcb tuba_isopcb;
  * (called from the software clock routine), then timertype tells which timer.
  */
 /*ARGSUSED*/
+/* 中文：处理 tuba 上 TCP 的用户请求：先分配/绑定 ISO PCB 与 TCP PCB 并关联，再按 PRU_ATTACH/BIND/CONNECT/DETACH 等分派处理 */
+/* EN: Handle TCP user requests on tuba: allocate/bind the ISO and TCP PCBs and associate them, then dispatch PRU_ATTACH/BIND/CONNECT/DETACH and other operations */
 tuba_usrreq(so, req, m, nam, control)
 	struct socket *so;
 	int req;
@@ -299,6 +301,8 @@ notrace:
 	return(error);
 }
 
+/* 中文：把 socket 选项控制请求按 level 分派给 clnp_ctloutput 或 tcp_ctloutput */
+/* EN: Dispatch socket option control requests to clnp_ctloutput or tcp_ctloutput based on the level */
 tuba_ctloutput(op, so, level, optname, mp)
 	int op;
 	struct socket *so;

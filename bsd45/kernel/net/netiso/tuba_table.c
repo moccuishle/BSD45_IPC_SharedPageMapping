@@ -55,6 +55,8 @@ struct	tuba_cache **tuba_table;
 struct	radix_node_head *tuba_tree;
 extern	int arpt_keep, arpt_prune;	/* use same values as arp cache */
 
+/* 中文：定时清理 TUBA 缓存表中过期且引用计数为 0 的项，从基数树删除并释放，然后重新调度自身 */
+/* EN: Periodically purge expired, unreferenced entries from the TUBA cache table, removing them from the radix tree and freeing them, then rescheduling itself */
 void
 tuba_timer()
 {
@@ -74,12 +76,16 @@ tuba_timer()
 	splx(s);
 }
 
+/* 中文：初始化 TUBA 地址缓存，建立基数树并启动定时清理 */
+/* EN: Initialize the TUBA address cache by setting up the radix tree and starting the periodic cleanup timer */
 tuba_table_init()
 {
 	rn_inithead((void **)&tuba_tree, 0);
 	timeout(tuba_timer, (caddr_t)0, arpt_prune * hz);
 }
 
+/* 中文：在 TUBA 缓存中查找给定 ISO 地址的索引，未找到则新建缓存项，必要时扩展哈希表 */
+/* EN: Look up the index of a given ISO address in the TUBA cache, creating a new entry if absent and growing the hash table if needed */
 int
 tuba_lookup(siso, wait)
 	register struct sockaddr_iso *siso;

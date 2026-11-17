@@ -111,6 +111,8 @@ void	tp_send();
  * RETURN VALUE:
  * 	Returns 1 if it did this, 0 if the ack caused no action.
  */
+/* 中文：判断 XAK 中的序号是否确认了新的 XPD 数据，若是则推进 tp_Xuna 并丢弃 XPD 发送缓冲中的一个记录 */
+/* EN: Check whether the sequence number in an XAK acknowledges new XPD data; if so advance tp_Xuna and drop one record from the XPD send buffer */
 int
 tp_goodXack(tpcb, seq)
 	struct tp_pcb	*tpcb;
@@ -162,6 +164,8 @@ tp_goodXack(tpcb, seq)
  * void
  */
 
+/* 中文：根据新测得的往返时延更新平滑 RTT 与平均偏差 rtv，并据此设定重传定时器 */
+/* EN: Update the smoothed round-trip time and mean deviation (rtv) from a new measurement and set the retransmit timer accordingly */
 void
 tp_rtt_rtv(tpcb)
 register struct tp_pcb *tpcb;
@@ -241,6 +245,8 @@ register struct tp_pcb *tpcb;
  * 	by calling tp_sbdrop().
  * 	No need to see the tpdu itself.
  */
+/* 中文：判断 AK 是否确认了发送窗口内的数据或带来新信用量：确认则丢弃重传队列中的 TPDU、更新 RTT、拥塞窗口并重设定时器 */
+/* EN: Determine whether an AK acknowledges new data or carries new credit; drop acknowledged TPDUs from the retransmission queue, update RTT and congestion window and reset timers */
 int
 tp_goodack(tpcb, cdt, seq, subseq)
 	register struct tp_pcb	*tpcb;
@@ -415,6 +421,8 @@ done:
  *  drops everything up TO but not INCLUDING seq # (seq)
  *  from the retransmission queue.
  */
+/* 中文：从重传队列中丢弃序号小于给定 seq 的所有记录，并唤醒发送方、返回丢弃的字节数 */
+/* EN: Drop all records before the given sequence number from the retransmission queue, wake the sender and return the number of bytes dropped */
 tp_sbdrop(tpcb, seq) 
 	register struct 	tp_pcb 			*tpcb;
 	SeqNum					seq;
@@ -454,6 +462,8 @@ tp_sbdrop(tpcb, seq)
  *  When the ack arrives, the smoothed round-trip time is figured
  *  using this value.
  */
+/* 中文：从 tp_sndnxt 起发送 TPDU，受信用量和拥塞窗口限制；首次发送时记录时间戳供 RTT 计算并设置重传定时器 */
+/* EN: Emit TPDUs starting at tp_sndnxt, bounded by credit and congestion window; timestamp first transmissions for RTT estimation and set the retransmit timer */
 void
 tp_send(tpcb)
 	register struct tp_pcb	*tpcb;
@@ -624,6 +634,8 @@ send:
 int TPNagleok;
 int TPNagled;
 
+/* 中文：按协商的 MTU 把 socket 发送缓冲中的数据预分包成 TPDU，并按 Nagle 算法合并小包 */
+/* EN: Pre-packetize data in the socket send buffer into TPDUs according to the negotiated MTU, coalescing small packets per the Nagle algorithm */
 tp_packetize(tpcb, m, eotsdu)
 register struct tp_pcb *tpcb;
 register struct mbuf *m;
@@ -720,6 +732,8 @@ out:
  * being in a reneged portion of the window.
  */
 
+/* 中文：把收到的 DT TPDU 数据放入接收缓冲，处理按序/乱序重组，并返回是否需要立即发送 ACK */
+/* EN: Stash an incoming DT TPDU's data into the receive buffer, handle in-order/out-of-order reassembly, and return whether an ACK should be sent immediately */
 tp_stash(tpcb, e)
 	register struct tp_pcb		*tpcb;
 	register struct tp_event	*e;
@@ -875,6 +889,8 @@ tp_stash(tpcb, e)
  * Do this when closing the socket, or when somebody has changed
  * the space avaible in the receive socket (XXX).
  */
+/* 中文：丢弃重组队列上的所有报文并释放队列，在关闭 socket 或接收缓冲改变时调用 */
+/* EN: Drop all packets on the reassembly queue and free it; called when closing the socket or when the receive buffer changes */
 tp_rsyflush(tpcb)
 register struct tp_pcb *tpcb;
 {
@@ -895,6 +911,8 @@ register struct tp_pcb *tpcb;
 	tpcb->tp_rsyq = 0;
 }
 
+/* 中文：按接收缓冲大小和地址格式分配或调整重组队列 tp_rsyq 的容量 */
+/* EN: Allocate or resize the reassembly queue tp_rsyq according to the receive buffer size and address format */
 tp_rsyset(tpcb)
 register struct tp_pcb *tpcb;
 {
@@ -916,6 +934,8 @@ register struct tp_pcb *tpcb;
 	tpcb->tp_rsyq = (struct mbuf **)rsyq;
 }
 
+/* 中文：调试辅助：校验发送缓冲中 mbuf 链的长度与字节计数是否和 sockbuf 的记账一致 */
+/* EN: Debug helper: verify that mbuf chain lengths and byte counts in the send buffer are consistent with the sockbuf accounting */
 tpsbcheck(tpcb, i)
 struct tp_pcb *tpcb;
 {

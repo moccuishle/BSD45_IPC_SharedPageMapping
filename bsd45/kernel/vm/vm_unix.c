@@ -54,6 +54,8 @@ struct obreak_args {
 	char	*nsiz;
 };
 /* ARGSUSED */
+/* 中文：实现传统的 break() 系统调用，调整进程数据段（堆）的大小。 */
+/* EN: Implement the traditional break() system call to change the size of a process's data segment (heap). */
 int
 obreak(p, uap, retval)
 	struct proc *p;
@@ -94,6 +96,8 @@ obreak(p, uap, retval)
  * Enlarge the "stack segment" to include the specified
  * stack pointer for the process.
  */
+/* 中文：扩大进程的“栈段”以包含指定的栈指针。 */
+/* EN: Enlarge the process's "stack segment" to include the specified stack pointer. */
 int
 grow(p, sp)
 	struct proc *p;
@@ -126,6 +130,8 @@ struct ovadvise_args {
 	int	anom;
 };
 /* ARGSUSED */
+/* 中文：实现传统的 vadvise() 系统调用，向内核建议进程的页面置换策略（如 ANOM/STABLE）。 */
+/* EN: Implement the traditional vadvise() system call to advise the kernel about a process's page replacement behavior (e.g. ANOM/STABLE). */
 int
 ovadvise(p, uap, retval)
 	struct proc *p;

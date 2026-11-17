@@ -103,6 +103,8 @@ u_char tp_traceflags[128];
 /*ARGSUSED*/
 /*VARARGS*/
 
+/* 中文：记录一条 TP 协议跟踪事件到环形缓冲区，按事件类型把 TPDU、字符串、参数或引用等数据填入跟踪结构 */
+/* EN: Record a TP protocol trace event into the circular buffer, filling the trace structure with the TPDU, string, parameters or reference data according to the event type */
 void
 tpTrace(tpcb, event, arg, src, len, arg4, arg5)
 	struct tp_pcb	*tpcb;

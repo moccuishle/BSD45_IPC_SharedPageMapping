@@ -86,6 +86,8 @@ struct pagerops devicepagerops = {
 	vm_pager_clusternull
 };
 
+/* 中文：初始化设备分页器的数据结构（对象队列与锁）。 */
+/* EN: Initialize the device pager's data structures (object queues and locks). */
 static void
 dev_pager_init()
 {
@@ -97,6 +99,8 @@ dev_pager_init()
 	TAILQ_INIT(&dev_pager_fakelist);
 }
 
+/* 中文：为指定设备分配一个设备分页器对象，用于把设备内存映射进虚拟地址空间。 */
+/* EN: Allocate a device pager object for a device, allowing its memory to be mapped into virtual address space. */
 static vm_pager_t
 dev_pager_alloc(handle, size, prot, foff)
 	caddr_t handle;
@@ -212,6 +216,8 @@ top:
 	return(pager);
 }
 
+/* 中文：释放设备分页器对象及其关联资源。 */
+/* EN: Deallocate a device pager object and its associated resources. */
 static void
 dev_pager_dealloc(pager)
 	vm_pager_t pager;
@@ -247,6 +253,8 @@ dev_pager_dealloc(pager)
 	free((caddr_t)pager, M_VMPAGER);
 }
 
+/* 中文：把设备的一页映射装入到 vm_page，供页错误时使用。 */
+/* EN: Map a device page into a vm_page for use on page faults. */
 static int
 dev_pager_getpage(pager, mlist, npages, sync)
 	vm_pager_t pager;
@@ -305,6 +313,8 @@ dev_pager_getpage(pager, mlist, npages, sync)
 	return(VM_PAGER_OK);
 }
 
+/* 中文：把脏页写回到设备（若设备支持）。 */
+/* EN: Write a dirty page back to the device (if supported). */
 static int
 dev_pager_putpage(pager, mlist, npages, sync)
 	vm_pager_t pager;
@@ -322,6 +332,8 @@ dev_pager_putpage(pager, mlist, npages, sync)
 	panic("dev_pager_putpage called");
 }
 
+/* 中文：查询设备分页器是否持有指定的页。 */
+/* EN: Check whether the device pager holds a given page. */
 static boolean_t
 dev_pager_haspage(pager, offset)
 	vm_pager_t pager;
@@ -334,6 +346,8 @@ dev_pager_haspage(pager, offset)
 	return(TRUE);
 }
 
+/* 中文：为设备内存获取（构造）一个伪 vm_page 结构。 */
+/* EN: Get (construct) a fake vm_page structure for device memory. */
 static vm_page_t
 dev_pager_getfake(paddr)
 	vm_offset_t paddr;
@@ -356,6 +370,8 @@ dev_pager_getfake(paddr)
 	return(m);
 }
 
+/* 中文：释放先前通过 dev_pager_getfake 获得的伪 vm_page。 */
+/* EN: Release a fake vm_page previously obtained via dev_pager_getfake. */
 static void
 dev_pager_putfake(m)
 	vm_page_t m;

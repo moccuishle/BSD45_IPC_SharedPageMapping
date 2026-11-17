@@ -58,6 +58,8 @@
  * CLTP protocol implementation.
  * Per ISO 8602, December, 1987.
  */
+/* 中文：初始化 CLTP 协议，把控制块链表 cltb 初始化为仅含自身头结点的空双向循环链表 */
+/* EN: Initialize the CLTP protocol by setting up the cltb pcb list as an empty circular doubly-linked list headed by itself */
 cltp_init()
 {
 
@@ -67,6 +69,8 @@ cltp_init()
 int cltp_cksum = 1;
 
 
+/* 中文：处理收到的 CLTP 数据报，解析源/目的 TSEL 与校验和选项，按目的选择符找到套接字并把数据附加到其接收队列 */
+/* EN: Process an incoming CLTP datagram, parsing source/destination TSELs and checksum options, finding the socket by destination selector and appending data to its receive queue */
 /* ARGUSED */
 cltp_input(m0, srcsa, dstsa, cons_channel, output)
 	struct mbuf *m0;
@@ -154,6 +158,8 @@ bad:
  * Notify a cltp user of an asynchronous error;
  * just wake up so that he can collect error status.
  */
+/* 中文：异步错误通知 CLTP 用户，通过唤醒套接字的读写等待者让其收集错误状态 */
+/* EN: Notify a CLTP user of an asynchronous error by waking the socket's readers and writers so it can collect the status */
 cltp_notify(isop)
 	register struct isopcb *isop;
 {
@@ -162,6 +168,8 @@ cltp_notify(isop)
 	sowwakeup(isop->isop_socket);
 }
 
+/* 中文：处理 CLTP 的控制输入命令，对重定向/路由失效等调用 iso_pcbnotify 更新路由或把错误通知各连接 */
+/* EN: Handle CLTP control input commands, using iso_pcbnotify to update routes on redirects/route-death or to notify connections of errors */
 cltp_ctlinput(cmd, sa)
 	int cmd;
 	struct sockaddr *sa;
@@ -196,6 +204,8 @@ cltp_ctlinput(cmd, sa)
 	}
 }
 
+/* 中文：为一个已连接 inpcb 的数据报添加 CLTP 首部（源/目的 TSEL 与可选校验和）并经 CLNP 层输出 */
+/* EN: Prepend a CLTP header (source/destination TSELs and optional checksum) to a datagram on a connected pcb and output it via CLNP */
 cltp_output(isop, m)
 	register struct isopcb *isop;
 	register struct mbuf *m;
@@ -254,6 +264,8 @@ u_long	cltp_recvspace = 40 * (1024 + sizeof(struct sockaddr_iso));
 					/* 40 1K datagrams */
 
 
+/* 中文：CLTP 协议的 usrreq 入口，按请求分派连接、绑定、断开、发送、取地址等操作，不支持的操作返回 EOPNOTSUPP */
+/* EN: The CLTP protocol usrreq entry point, dispatching attach/bind/connect/disconnect/send/address requests and returning EOPNOTSUPP for unsupported ones */
 /*ARGSUSED*/
 cltp_usrreq(so, req, m, nam, control)
 	struct socket *so;

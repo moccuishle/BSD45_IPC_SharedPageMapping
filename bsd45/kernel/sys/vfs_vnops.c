@@ -60,6 +60,8 @@ struct 	fileops vnops =
  * Common code for vnode open operations.
  * Check permissions, and call the VOP_OPEN or VOP_CREATE routine.
  */
+/* 中文：vnode 打开的公共实现：查找路径、按 fmode 检查权限、处理 O_CREAT/O_TRUNC 并调用 VOP_OPEN */
+/* EN: common vnode open: look up the path, check permissions per fmode, handle O_CREAT/O_TRUNC and call VOP_OPEN */
 vn_open(ndp, fmode, cmode)
 	register struct nameidata *ndp;
 	int fmode, cmode;
@@ -153,6 +155,8 @@ bad:
  * Check for write permissions on the specified vnode.
  * Prototype text segments cannot be written.
  */
+/* 中文：检查 vnode 是否可写：若有共享正文段且无法解除缓存则返回 ETXTBSY */
+/* EN: check whether a vnode may be written, returning ETXTBSY if a shared text segment cannot be uncached */
 vn_writechk(vp)
 	register struct vnode *vp;
 {
@@ -170,6 +174,8 @@ vn_writechk(vp)
 /*
  * Vnode close call
  */
+/* 中文：vnode 关闭：更新写计数、调用 VOP_CLOSE 并释放 vnode 引用 */
+/* EN: close a vnode: update the write count, call VOP_CLOSE and release the vnode reference */
 vn_close(vp, flags, cred, p)
 	register struct vnode *vp;
 	int flags;
@@ -188,6 +194,8 @@ vn_close(vp, flags, cred, p)
 /*
  * Package up an I/O request on a vnode into a uio and do it.
  */
+/* 中文：把对 vnode 的 I/O 请求封装成 uio，按读写方向调用 VOP_READ/VOP_WRITE 并返回剩余字节数 */
+/* EN: package a vnode I/O request into a uio, call VOP_READ/VOP_WRITE and return the residual byte count */
 vn_rdwr(rw, vp, base, len, offset, segflg, ioflg, cred, aresid, p)
 	enum uio_rw rw;
 	struct vnode *vp;
@@ -233,6 +241,8 @@ vn_rdwr(rw, vp, base, len, offset, segflg, ioflg, cred, aresid, p)
 /*
  * File table vnode read routine.
  */
+/* 中文：文件表 vnode 读例程：按文件偏移调用 VOP_READ 并更新偏移 */
+/* EN: file-table vnode read routine: call VOP_READ at the file offset and advance it */
 vn_read(fp, uio, cred)
 	struct file *fp;
 	struct uio *uio;
@@ -256,6 +266,8 @@ vn_read(fp, uio, cred)
 /*
  * File table vnode write routine.
  */
+/* 中文：文件表 vnode 写例程：按追加/非阻塞/同步标志调用 VOP_WRITE 并更新偏移 */
+/* EN: file-table vnode write routine: call VOP_WRITE with append/nonblock/sync flags and update the offset */
 vn_write(fp, uio, cred)
 	struct file *fp;
 	struct uio *uio;
@@ -288,6 +300,8 @@ vn_write(fp, uio, cred)
 /*
  * File table vnode stat routine.
  */
+/* 中文：文件表 vnode stat 例程：用 VOP_GETATTR 取属性并转换为 struct stat */
+/* EN: file-table vnode stat routine: fetch attributes via VOP_GETATTR and convert them to a struct stat */
 vn_stat(vp, sb, p)
 	struct vnode *vp;
 	register struct stat *sb;
@@ -352,6 +366,8 @@ vn_stat(vp, sb, p)
 /*
  * File table vnode ioctl routine.
  */
+/* 中文：文件表 vnode ioctl 例程：处理 FIONREAD 等，其余转交 VOP_IOCTL */
+/* EN: file-table vnode ioctl routine: handle FIONREAD and pass others to VOP_IOCTL */
 vn_ioctl(fp, com, data, p)
 	struct file *fp;
 	u_long com;
@@ -396,6 +412,8 @@ vn_ioctl(fp, com, data, p)
 /*
  * File table vnode select routine.
  */
+/* 中文：文件表 vnode select 例程：转调 VOP_SELECT */
+/* EN: file-table vnode select routine: dispatch to VOP_SELECT */
 vn_select(fp, which, p)
 	struct file *fp;
 	int which;
@@ -410,6 +428,8 @@ vn_select(fp, which, p)
  * Check that the vnode is still valid, and if so
  * acquire requested lock.
  */
+/* 中文：校验 vnode 有效性并按 flags 获取锁，处理 VXLOCK 等待与 LK_RETRY 重试 */
+/* EN: verify a vnode and acquire the requested lock, handling VXLOCK waits and LK_RETRY */
 int
 vn_lock(vp, flags, p)
 	struct vnode *vp;
@@ -439,6 +459,8 @@ vn_lock(vp, flags, p)
 /*
  * File table vnode close routine.
  */
+/* 中文：文件表 vnode close 例程：从 file 取 vnode 后转调 vn_close */
+/* EN: file-table vnode close routine: extract the vnode from the file and call vn_close */
 vn_closefile(fp, p)
 	struct file *fp;
 	struct proc *p;

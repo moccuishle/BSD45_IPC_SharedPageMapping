@@ -139,6 +139,8 @@ vm_map_t	kmap_free;
 static void	_vm_map_clip_end __P((vm_map_t, vm_map_entry_t, vm_offset_t));
 static void	_vm_map_clip_start __P((vm_map_t, vm_map_entry_t, vm_offset_t));
 
+/* 中文：初始化 vm_map 模块，必须在其他 vm_map 例程之前调用，建立静态内核映射结构与空闲链表 */
+/* EN: Initialize the vm_map module; must be called before any other vm_map routine, setting up static kernel map structures and free lists */
 void
 vm_map_startup()
 {
@@ -176,6 +178,8 @@ vm_map_startup()
  * and initialize those structures.  The refcnt is set to 1.
  * The remaining fields must be initialized by the caller.
  */
+/* 中文：分配并初始化一个 vmspace 结构（含 vm_map 与 pmap），引用计数置为 1 */
+/* EN: Allocate and initialize a vmspace structure with its vm_map and pmap, setting the reference count to 1 */
 struct vmspace *
 vmspace_alloc(min, max, pageable)
 	vm_offset_t min, max;
@@ -192,6 +196,8 @@ vmspace_alloc(min, max, pageable)
 	return (vm);
 }
 
+/* 中文：释放 vmspace 的一个引用，引用归零时删除所有映射并释放 pmap 与结构本身 */
+/* EN: Drop a reference to a vmspace, deleting all mappings and freeing the pmap and structure when the count reaches zero */
 void
 vmspace_free(vm)
 	register struct vmspace *vm;
@@ -218,6 +224,8 @@ vmspace_free(vm)
  *	the given physical map structure, and having
  *	the given lower and upper address bounds.
  */
+/* 中文：用给定的物理映射与地址上下界创建并返回一个新的空 VM 映射 */
+/* EN: Create and return a new empty VM map with the given physical map and address bounds */
 vm_map_t
 vm_map_create(pmap, min, max, pageable)
 	pmap_t		pmap;
@@ -246,6 +254,8 @@ vm_map_create(pmap, min, max, pageable)
  * such as that in the vmspace structure.
  * The pmap is set elsewhere.
  */
+/* 中文：初始化一个已存在的 vm_map 结构（如 vmspace 中的），pmap 在其他地方设置 */
+/* EN: Initialize an existing vm_map structure (such as one in a vmspace); the pmap is set elsewhere */
 void
 vm_map_init(map, min, max, pageable)
 	register struct vm_map *map;
@@ -274,6 +284,8 @@ vm_map_init(map, min, max, pageable)
  *	Allocates a VM map entry for insertion.
  *	No entry fields are filled in.  This routine is
  */
+/* 中文：为插入分配一个 VM 映射项但不填充任何字段，仅供内部使用 */
+/* EN: Allocate a VM map entry for insertion without filling in any fields, internal use only */
 vm_map_entry_t
 vm_map_entry_create(map)
 	vm_map_t	map;
@@ -307,6 +319,8 @@ vm_map_entry_create(map)
  *
  *	Inverse of vm_map_entry_create.
  */
+/* 中文：释放一个映射项，是 vm_map_entry_create 的逆操作，仅供内部使用 */
+/* EN: Dispose of a map entry, the inverse of vm_map_entry_create, internal use only */
 void
 vm_map_entry_dispose(map, entry)
 	vm_map_t	map;
@@ -356,6 +370,8 @@ vm_map_entry_dispose(map, entry)
  *	Creates another valid reference to the given map.
  *
  */
+/* 中文：为给定映射增加一个新的有效引用 */
+/* EN: Create another valid reference to the given map */
 void
 vm_map_reference(map)
 	register vm_map_t	map;
@@ -379,6 +395,8 @@ vm_map_reference(map)
  *	destroying it if no references remain.
  *	The map should not be locked.
  */
+/* 中文：移除对指定映射的一个引用，引用耗尽时销毁该映射，调用时映射不应被加锁 */
+/* EN: Remove a reference from the given map, destroying it when no references remain; the map should not be locked */
 void
 vm_map_deallocate(map)
 	register vm_map_t	map;
@@ -418,6 +436,8 @@ vm_map_deallocate(map)
  *
  *	Requires that the map be locked, and leaves it so.
  */
+/* 中文：在指定地址范围把整个 VM 对象插入目标映射，要求映射已加锁且保持加锁 */
+/* EN: Insert a whole VM object into the target map at the specified address range; requires the map be locked and leaves it so */
 int
 vm_map_insert(map, object, offset, start, end)
 	vm_map_t	map;
@@ -554,6 +574,8 @@ vm_map_insert(map, object, offset, start, end)
  *	result indicates whether the address is
  *	actually contained in the map.
  */
+/* 中文：查找包含或紧邻指定地址的映射项并返回该项，布尔结果指示地址是否实际被包含，仅供内部使用 */
+/* EN: Find the map entry containing or immediately preceding an address and return it; the boolean result indicates whether the address is actually contained, internal use only */
 boolean_t
 vm_map_lookup_entry(map, address, entry)
 	register vm_map_t	map;
@@ -630,6 +652,8 @@ vm_map_lookup_entry(map, address, entry)
  * Find sufficient space for `length' bytes in the given map, starting at
  * `start'.  The map must be locked.  Returns 0 on success, 1 on no space.
  */
+/* 中文：在映射中从 start 起寻找长度为 length 的足够空闲空间，成功返回 0、无空间返回 1，映射须已加锁 */
+/* EN: Find sufficient space of the given length starting at start in the map; returns 0 on success, 1 on no space; the map must be locked */
 int
 vm_map_findspace(map, start, length, addr)
 	register vm_map_t map;
@@ -690,6 +714,8 @@ vm_map_findspace(map, start, length, addr)
  *	returned in the same parameter.
  *
  */
+/* 中文：在目标映射中从指定地址以首次适配方式查找给定长度的未分配区域并插入映射项 */
+/* EN: Find an unallocated region of the given length by first-fit from the specified address in the target map and insert it */
 int
 vm_map_find(map, object, offset, addr, length, find_space)
 	vm_map_t	map;
@@ -723,6 +749,8 @@ vm_map_find(map, object, offset, addr, length, find_space)
  *		removing extra sharing maps
  *		[XXX maybe later] merging with a neighbor
  */
+/* 中文：尝试简化给定映射项的表示（去除多余的共享映射层），仅供内部使用 */
+/* EN: Attempt to simplify the representation of a given map entry by removing extra sharing-map layers, internal use only */
 void
 vm_map_simplify_entry(map, entry)
 	vm_map_t	map;
@@ -798,6 +826,8 @@ vm_map_simplify_entry(map, entry)
  *	This routine is called only when it is known that
  *	the entry must be split.
  */
+/* 中文：仅在确知需要拆分时调用，把一个映射项的起始端裁剪到指定地址并拆成两项 */
+/* EN: Called only when a split is known to be necessary; clip a map entry's start to the given address, splitting it in two */
 static void
 _vm_map_clip_start(map, entry, start)
 	register vm_map_t	map;
@@ -853,6 +883,8 @@ _vm_map_clip_start(map, entry, start)
  *	This routine is called only when it is known that
  *	the entry must be split.
  */
+/* 中文：仅在确知需要拆分时调用，把一个映射项的末端裁剪到指定地址并拆成两项 */
+/* EN: Called only when a split is known to be necessary; clip a map entry's end to the given address, splitting it in two */
 static void
 _vm_map_clip_end(map, entry, end)
 	register vm_map_t	map;
@@ -914,6 +946,8 @@ _vm_map_clip_end(map, entry, end)
  *	range from the superior map, and then destroy the
  *	submap (if desired).  [Better yet, don't try it.]
  */
+/* 中文：把指定地址范围标记为交由下级映射处理，仅限内核使用 */
+/* EN: Mark the given address range as handled by a subordinate map, kernel use only */
 int
 vm_map_submap(map, start, end, submap)
 	register vm_map_t	map;
@@ -958,6 +992,8 @@ vm_map_submap(map, start, end, submap)
  *	specified, the maximum protection is to be set;
  *	otherwise, only the current protection is affected.
  */
+/* 中文：设置目标映射中指定地址区域的保护权限，可选择是否同时设置最大保护 */
+/* EN: Set the protection of a specified address region in the target map, optionally also setting the maximum protection */
 int
 vm_map_protect(map, start, end, new_prot, set_max)
 	register vm_map_t	map;
@@ -1080,6 +1116,8 @@ vm_map_protect(map, start, end, new_prot, set_max)
  *	affects how the map will be shared with
  *	child maps at the time of vm_map_fork.
  */
+/* 中文：设置目标映射中指定地址范围的继承属性，影响 fork 时与子映射的共享方式 */
+/* EN: Set the inheritance of a specified address range in the target map, affecting how it is shared with child maps at fork time */
 int
 vm_map_inherit(map, start, end, new_inheritance)
 	register vm_map_t	map;
@@ -1133,6 +1171,8 @@ vm_map_inherit(map, start, end, new_inheritance)
  *	The map must not be locked, but a reference
  *	must remain to the map throughout the call.
  */
+/* 中文：设置目标映射中指定地址范围的可分页性，不可分页区域需锁定物理内存与物理页映射 */
+/* EN: Set the pageability of a specified address range in the target map; non-pageable regions require locked-down physical memory and page maps */
 int
 vm_map_pageable(map, start, end, new_pageable)
 	register vm_map_t	map;
@@ -1370,6 +1410,8 @@ vm_map_pageable(map, start, end, new_pageable)
  *
  * Returns an error if any part of the specified range is not mapped.
  */
+/* 中文：把地址范围内的脏缓存页写回其 pager；syncio 为真时同步写，invalidate 为真时同时释放缓存页 */
+/* EN: Push dirty cached pages in the address range to their pager; syncio forces synchronous writes and invalidate also frees cached pages */
 int
 vm_map_clean(map, start, end, syncio, invalidate)
 	vm_map_t	map;
@@ -1462,6 +1504,8 @@ vm_map_clean(map, start, end, syncio, invalidate)
  *	The map in question should be locked.
  *	[This is the reason for this routine's existence.]
  */
+/* 中文：使某映射项描述的区域变为可分页（解除连线），调用时相关映射须已加锁，仅供内部使用 */
+/* EN: Make the region described by a map entry pageable by unwiring it; the map must be locked, internal use only */
 void
 vm_map_entry_unwire(map, entry)
 	vm_map_t		map;
@@ -1476,6 +1520,8 @@ vm_map_entry_unwire(map, entry)
  *
  *	Deallocate the given entry from the target map.
  */		
+/* 中文：从目标映射中释放给定的映射项，仅供内部使用 */
+/* EN: Deallocate a given entry from the target map, internal use only */
 void
 vm_map_entry_delete(map, entry)
 	register vm_map_t	map;
@@ -1504,6 +1550,8 @@ vm_map_entry_delete(map, entry)
  *	When called with a sharing map, removes pages from
  *	that region from all physical maps.
  */
+/* 中文：从目标映射中释放指定地址范围；对共享映射调用时会从所有物理映射移除该区域的页，仅供内部使用 */
+/* EN: Deallocate a specified address range from the target map; when called on a sharing map it removes the region's pages from all physical maps, internal use only */
 int
 vm_map_delete(map, start, end)
 	register vm_map_t	map;
@@ -1600,6 +1648,8 @@ vm_map_delete(map, start, end)
  *	Remove the given address range from the target map.
  *	This is the exported form of vm_map_delete.
  */
+/* 中文：从目标映射移除指定地址范围，是 vm_map_delete 的对外接口 */
+/* EN: Remove a specified address range from the target map; the exported form of vm_map_delete */
 int
 vm_map_remove(map, start, end)
 	register vm_map_t	map;
@@ -1623,6 +1673,8 @@ vm_map_remove(map, start, end)
  *	privilege on the entire address region given.
  *	The entire region must be allocated.
  */
+/* 中文：断言目标映射在整个指定地址区域允许给定权限，该区域必须全部已分配且无空洞 */
+/* EN: Assert that the target map allows the given privilege over the entire specified region, which must be fully allocated with no holes */
 boolean_t
 vm_map_check_protection(map, start, end, protection)
 	register vm_map_t	map;
@@ -1674,6 +1726,8 @@ vm_map_check_protection(map, start, end, protection)
  *	Copies the contents of the source entry to the destination
  *	entry.  The entries *must* be aligned properly.
  */
+/* 中文：将源映射项的内容复制到目标映射项，两个映射项必须正确对齐；通过写时复制实现虚拟复制 */
+/* EN: Copy the contents of a source map entry into a destination entry, which must be properly aligned; implements the virtual copy via copy-on-write */
 void
 vm_map_copy_entry(src_map, dst_map, src_entry, dst_entry)
 	vm_map_t		src_map, dst_map;
@@ -1812,6 +1866,8 @@ vm_map_copy_entry(src_map, dst_map, src_entry, dst_entry)
  *	map to make copies.  This also reduces map
  *	fragmentation.]
  */
+/* 中文：执行从源地址映射范围到目标映射范围的虚拟内存复制，可按需分配目标区或销毁源区 */
+/* EN: Perform a virtual memory copy from a source address-map range to a destination map range, optionally allocating the destination or destroying the source */
 int
 vm_map_copy(dst_map, src_map,
 			  dst_addr, len, src_addr,
@@ -2108,6 +2164,8 @@ vm_map_copy(dst_map, src_map,
  *
  * The source map must not be locked.
  */
+/* 中文：根据现有进程的 vmspace 与 vm_map 创建新的进程 vmspace，按各区域的继承属性建立新映射，源映射不得加锁 */
+/* EN: Create a new process vmspace from an existing one's vmspace and vm_map, building the new map according to each region's inheritance values; the source map must not be locked */
 struct vmspace *
 vmspace_fork(vm1)
 	register struct vmspace *vm1;
@@ -2276,6 +2334,8 @@ vmspace_fork(vm1)
  *	copying operations, although the data referenced will
  *	remain the same.
  */
+/* 中文：针对给定虚拟地址与故障类型，查找对应的 VM 对象、偏移和保护；使映射保持读锁，返回值在调用 vm_map_lookup_done 前有效 */
+/* EN: Find the VM object, offset and protection for a virtual address given a fault type; leaves the map read-locked and results valid until vm_map_lookup_done is called */
 int
 vm_map_lookup(var_map, vaddr, fault_type, out_entry,
 				object, offset, out_prot, wired, single_use)
@@ -2499,6 +2559,8 @@ vm_map_lookup(var_map, vaddr, fault_type, out_entry,
  *	(according to the handle returned by that lookup).
  */
 
+/* 中文：释放 vm_map_lookup 获取的所有锁，依据该查找返回的映射项句柄 */
+/* EN: Release all locks acquired by a vm_map_lookup, according to the map entry handle returned by that lookup */
 void
 vm_map_lookup_done(map, entry)
 	register vm_map_t	map;
@@ -2530,6 +2592,8 @@ vm_map_lookup_done(map, entry)
  *		at allocation time because the adjacent entry
  *		is often wired down.
  */
+/* 中文：尝试在给定起始地址附近简化映射表示，合并相邻同类映射项，主要用于使内核映射更紧凑 */
+/* EN: Attempt to simplify the map representation near a given starting address by merging adjacent compatible entries, mainly to keep kernel maps compact */
 void
 vm_map_simplify(map, start)
 	vm_map_t	map;
@@ -2579,6 +2643,8 @@ vm_map_simplify(map, start)
 /*
  *	vm_map_print:	[ debug ]
  */
+/* 中文：打印映射及其各表项的调试信息（含保护、继承、共享映射等），供调试使用 */
+/* EN: Print debugging information about a map and its entries, including protection, inheritance and sharing maps, for debugging */
 void
 vm_map_print(map, full)
 	register vm_map_t	map;

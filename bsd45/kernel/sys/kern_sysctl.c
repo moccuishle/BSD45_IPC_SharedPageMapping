@@ -76,6 +76,8 @@ static struct sysctl_lock {
 	int	sl_locked;
 } memlock;
 
+/* 中文：sysctl 系统调用入口，校验权限与名字，按顶层分类分派到对应处理函数，并在访问用户缓冲区前后加锁与线性化 */
+/* EN: The sysctl system call: validates permissions and names, dispatches by top-level category to the appropriate handler, and locks/wires the user buffer around access */
 int
 __sysctl(p, uap, retval)
 	struct proc *p;
@@ -182,6 +184,8 @@ int securelevel;
 /*
  * kernel related system variables.
  */
+/* 中文：处理内核相关的 sysctl 变量，读取或设置操作系统版本、主机名、安全级别、进程/文件信息等 */
+/* EN: Handle kernel-related sysctl variables, reading or setting OS version, hostname, securelevel, process/file info and more */
 kern_sysctl(name, namelen, oldp, oldlenp, newp, newlen, p)
 	int *name;
 	u_int namelen;
@@ -272,6 +276,8 @@ kern_sysctl(name, namelen, oldp, oldlenp, newp, newlen, p)
 /*
  * hardware related system variables.
  */
+/* 中文：处理硬件相关的 sysctl 变量，报告机器类型、CPU 型号、字节序、物理/用户内存与页大小 */
+/* EN: Handle hardware-related sysctl variables, reporting machine type, CPU model, byte order, physical/user memory and page size */
 hw_sysctl(name, namelen, oldp, oldlenp, newp, newlen, p)
 	int *name;
 	u_int namelen;
@@ -323,6 +329,8 @@ static struct ctldebug *debugvars[CTL_DEBUG_MAXID] = {
 	&debug10, &debug11, &debug12, &debug13, &debug14,
 	&debug15, &debug16, &debug17, &debug18, &debug19,
 };
+/* 中文：处理调试相关的 sysctl 变量，读取或修改调试变量的名称与整数值 */
+/* EN: Handle debugging-related sysctl variables, reading or modifying a debug variable's name and integer value */
 int
 debug_sysctl(name, namelen, oldp, oldlenp, newp, newlen, p)
 	int *name;
@@ -357,6 +365,8 @@ debug_sysctl(name, namelen, oldp, oldlenp, newp, newlen, p)
  * Validate parameters and get old / set new parameters
  * for an integer-valued sysctl function.
  */
+/* 中文：校验参数并读取或设置一个整型 sysctl 变量的值 */
+/* EN: Validate parameters and get or set the value of an integer-valued sysctl variable */
 sysctl_int(oldp, oldlenp, newp, newlen, valp)
 	void *oldp;
 	size_t *oldlenp;
@@ -381,6 +391,8 @@ sysctl_int(oldp, oldlenp, newp, newlen, valp)
 /*
  * As above, but read-only.
  */
+/* 中文：只读的整型 sysctl 辅助函数，把常量值返回给用户，写入请求返回 EPERM */
+/* EN: Read-only integer sysctl helper that returns a constant value to the user, returning EPERM on a write request */
 sysctl_rdint(oldp, oldlenp, newp, val)
 	void *oldp;
 	size_t *oldlenp;
@@ -403,6 +415,8 @@ sysctl_rdint(oldp, oldlenp, newp, val)
  * Validate parameters and get old / set new parameters
  * for a string-valued sysctl function.
  */
+/* 中文：校验参数并读取或设置一个字符串型 sysctl 变量，设置时以 NUL 结尾 */
+/* EN: Validate parameters and get or set a string-valued sysctl variable, NUL-terminating on a set */
 sysctl_string(oldp, oldlenp, newp, newlen, str, maxlen)
 	void *oldp;
 	size_t *oldlenp;
@@ -432,6 +446,8 @@ sysctl_string(oldp, oldlenp, newp, newlen, str, maxlen)
 /*
  * As above, but read-only.
  */
+/* 中文：只读的字符串型 sysctl 辅助函数，把常量字符串返回给用户，写入请求返回 EPERM */
+/* EN: Read-only string sysctl helper that returns a constant string to the user, returning EPERM on a write request */
 sysctl_rdstring(oldp, oldlenp, newp, str)
 	void *oldp;
 	size_t *oldlenp;
@@ -455,6 +471,8 @@ sysctl_rdstring(oldp, oldlenp, newp, str)
  * Validate parameters and get old / set new parameters
  * for a structure oriented sysctl function.
  */
+/* 中文：校验参数并读取或设置一个结构体型 sysctl 变量，传输长度为 len 字节 */
+/* EN: Validate parameters and get or set a structure-valued sysctl variable of len bytes */
 sysctl_struct(oldp, oldlenp, newp, newlen, sp, len)
 	void *oldp;
 	size_t *oldlenp;
@@ -482,6 +500,8 @@ sysctl_struct(oldp, oldlenp, newp, newlen, sp, len)
  * Validate parameters and get old parameters
  * for a structure oriented sysctl function.
  */
+/* 中文：只读的结构体型 sysctl 辅助函数，把 len 字节结构返回给用户，写入请求返回 EPERM */
+/* EN: Read-only structure sysctl helper that returns a len-byte structure to the user, returning EPERM on a write request */
 sysctl_rdstruct(oldp, oldlenp, newp, sp, len)
 	void *oldp;
 	size_t *oldlenp;
@@ -503,6 +523,8 @@ sysctl_rdstruct(oldp, oldlenp, newp, sp, len)
 /*
  * Get file structures.
  */
+/* 中文：向用户空间导出打开文件表，先返回所需缓冲大小，再复制 filehead 与每个 file 结构 */
+/* EN: Export the open file table to userland, first returning the required buffer size then copying out the filehead and each file structure */
 sysctl_file(where, sizep)
 	char *where;
 	size_t *sizep;
@@ -554,6 +576,8 @@ sysctl_file(where, sizep)
  */
 #define KERN_PROCSLOP	(5 * sizeof (struct kinfo_proc))
 
+/* 中文：按名字条件（全部/PID/进程组/终端/用户）筛选进程，把符合条件的 kinfo_proc 复制到用户缓冲区并计算所需大小 */
+/* EN: Select processes by name criteria (all/pid/pgrp/tty/uid/ruid), copying matching kinfo_proc entries to the user buffer and computing the required size */
 sysctl_doproc(name, namelen, where, sizep)
 	int *name;
 	u_int namelen;
@@ -646,6 +670,8 @@ again:
 /*
  * Fill in an eproc structure for the specified process.
  */
+/* 中文：为指定进程填充 eproc 结构，包含进程/凭据、虚拟内存、父进程、进程组与控制终端等信息 */
+/* EN: Fill an eproc structure for a process with its credentials, virtual memory, parent, process group and controlling terminal information */
 void
 fill_eproc(p, ep)
 	register struct proc *p;
@@ -712,6 +738,8 @@ fill_eproc(p, ep)
 #define	KINFO_LOADAVG		(5<<8)
 #define	KINFO_CLOCKRATE		(6<<8)
 
+/* 中文：4.3BSD 兼容的 getkerninfo 系统调用，把各类内核信息请求转换为对应 sysctl 调用并返回结果大小 */
+/* EN: The 4.3BSD-compatible getkerninfo system call, translating various kernel-info requests into corresponding sysctl calls and returning the result size */
 compat_43_getkerninfo(p, uap, retval)
 	struct proc *p;
 	register struct compat_43_getkerninfo_args /* {

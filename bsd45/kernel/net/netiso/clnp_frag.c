@@ -105,6 +105,8 @@ struct mbuf	*clnp_comp_pdu();
  *					the packet was fragmented during forwarding. In this
  *					case, we ought to send an ER back.
  */
+/* 中文：把数据报分片并通过接口逐个发送各分片，不能分片时丢弃并回送 ER */
+/* EN: Fragment a datagram and send the pieces out over an interface, discarding and sending an ER when fragmentation is not possible */
 clnp_fragment(ifp, m, first_hop, total_len, segoff, flags, rt)
 struct ifnet	*ifp;		/* ptr to outgoing interface */
 struct mbuf		*m;			/* ptr to packet */
@@ -321,6 +323,8 @@ struct rtentry *rt;			/* route if direct ether */
  *		clnp_slowtimo can not affect this code because clnpintr, and thus
  *		this code, is called at a higher priority than clnp_slowtimo.
  */
+/* 中文：尝试用当前分片重组 clnp 报文，找到同属一包的分片则插入并尝试合成，成功返回重组报文否则保存分片返回 0 */
+/* EN: Attempt to reassemble a CLNP packet with the current fragment, inserting it into a matching packet and completing it; returns the assembled packet or 0 */
 struct mbuf *
 clnp_reass(m, src, dst, seg)
 struct mbuf 		*m;		/* new fragment */
@@ -382,6 +386,8 @@ struct clnp_segment	*seg;	/* segment part of fragment header */
  *
  * NOTES:			Failure is only due to insufficient resources.
  */
+/* 中文：为新的分片报文分配并初始化分片链表头结构，记录源/目的、首部副本等信息，成功返回非 0 */
+/* EN: Allocate and initialize the fragment-list header structures for a new fragmented packet, recording source/destination and a header copy; returns nonzero on success */
 clnp_newpkt(m, src, dst, seg)
 struct mbuf 		*m;		/* new fragment */
 struct iso_addr		*src;	/* src of new fragment */
@@ -446,6 +452,8 @@ struct clnp_segment	*seg;	/* segment part of fragment header */
  *					The clnp_frag structure actually lies on top of
  *					part of the old clnp header.
  */
+/* 中文：把一个新分片按偏移插入分片链表，并裁剪掉与前后分片重叠的数据，是重组算法的核心 */
+/* EN: Insert a new fragment by offset into the fragment list, trimming data that overlaps neighboring fragments; the core of the reassembly algorithm */
 clnp_insert_frag(cfh, m, seg)
 struct clnp_fragl	*cfh;	/* header of list of packet fragments */
 struct mbuf 		*m;		/* new fragment */
@@ -643,6 +651,8 @@ struct clnp_segment	*seg;	/* segment part of fragment header */
  * NOTES:			This code assumes that there are no overlaps of
  *					fragment pdus.
  */
+/* 中文：扫描分片链表合并相邻分片，若判断报文已完整则去掉分片头、还原 clnp 首部并返回重组报文，否则返回 0 */
+/* EN: Scan the fragment list merging contiguous fragments; if the packet is complete, strip the fragment headers, restore the CLNP header and return the assembled packet, else return 0 */
 struct mbuf *
 clnp_comp_pdu(cfh)
 struct clnp_fragl	*cfh;		/* fragment header */
@@ -795,6 +805,8 @@ static int troll_cnt;
  *
  * NOTES:			This is based on the clock.
  */
+/* 中文：基于系统时钟产生一个 0 到 1 之间的伪随机数，用于 troll 测试 */
+/* EN: Generate a pseudo-random number between 0 and 1 based on the system clock, for troll testing */
 float troll_random()
 {
 	extern struct timeval time;
@@ -820,6 +832,8 @@ float troll_random()
  * NOTES:			The operation of this procedure is regulated by the
  *					troll control structure (Troll).
  */
+/* 中文：按 troll 控制结构对数据报做恶意处理（复制、丢弃、裁剪或篡改字节）后再从接口输出，返回 0 或错误码 */
+/* EN: Maliciously manipulate the datagram per the troll control struct (duplicate, drop, trim or munge bytes) before output, returning 0 or an error code */
 troll_output(ifp, m, dst, rt)
 struct ifnet	*ifp;
 struct mbuf		*m;

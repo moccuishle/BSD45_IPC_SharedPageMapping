@@ -119,6 +119,8 @@ int						eoninit();
 void						eonrtrequest();
 struct ifnet			eonif[1];
 
+/* 中文：EON 协议初始化入口：调用 eonattach 完成接口挂接 */
+/* EN: EON protocol initialization entry: call eonattach to attach the interface */
 eonprotoinit() {
 	(void) eonattach();
 }
@@ -135,6 +137,8 @@ struct eon_llinfo eon_llinfo;
  * RETURNS:			void
  */
 
+/* 中文：EON 接口的自动配置挂接例程：初始化 ifnet 结构（名称、MTU、类型及 init/ioctl/output 函数指针） */
+/* EN: Autoconfiguration attach routine for the EON interface: initialize the ifnet structure with name, MTU, type and init/ioctl/output function pointers */
 eonattach()
 {
 	register struct ifnet *ifp = eonif;
@@ -176,6 +180,8 @@ eonattach()
  *
  * RETURNS:			nothing
  */
+/* 中文：处理 EON 接口的 ioctl（ifconfig）命令：响应地址设置、链路上下线等控制操作 */
+/* EN: Handle EON interface ioctl (ifconfig) commands: address setting, link up/down and related control operations */
 eonioctl(ifp, cmd, data)
 	register struct ifnet *ifp;
 	u_long cmd;
@@ -204,6 +210,8 @@ eonioctl(ifp, cmd, data)
 }
 
 
+/* 中文：构造 EON 的 IP 首部与路由：按目标位置填写 sockaddr_in 并查找或复用缓存路由 */
+/* EN: Build the EON IP header and route: fill in the sockaddr_in for the destination and find or reuse a cached route */
 eoniphdr(hdr, loc, ro, class, zero)
 struct route *ro;
 register struct eon_iphdr *hdr;
@@ -260,6 +268,8 @@ caddr_t loc;
  *
  * RETURNS:			nothing
  */
+/* 中文：维护 EON 直接接收者列表：按路由命令添加或删除条目，其余目标交由 IP 路由处理 */
+/* EN: Maintain the list of direct EON recipients: add or delete entries per routing commands and leave other destinations to IP routing */
 void
 eonrtrequest(cmd, rt, gate)
 register struct rtentry *rt;
@@ -325,6 +335,8 @@ register struct sockaddr *gate;
  * RETURNS:			nothing
  */
 
+/* 中文：EON 接口初始化例程（该版本仅打印调试信息） */
+/* EN: EON interface initialization routine (prints a debug message in this version) */
 eoninit(unit)
 	int unit;
 {
@@ -346,6 +358,8 @@ eoninit(unit)
  * NOTES:			
  *
  */
+/* 中文：EON 接口的输出例程：在 CLNP 报文前添加 EON/IP 首部后交给 IP 层发送 */
+/* EN: EON interface output routine: prepend an EON/IP header to the CLNP packet and hand it to IP for transmission */
 eonoutput(ifp, m, dst, rt)
 	struct ifnet 	*ifp;
 	register struct mbuf	*m;		/* packet */
@@ -444,6 +458,8 @@ flush:
 	return error;
 }
 
+/* 中文：EON 接口的输入例程：剥去 EON/IP 首部，把内部 CLNP 报文交给 CLNP 层处理 */
+/* EN: EON interface input routine: strip the EON/IP header and pass the inner CLNP packet to the CLNP layer */
 eoninput(m, iphlen)
 	register struct mbuf	*m;
 	int iphlen;
@@ -557,6 +573,8 @@ drop:
 	}
 }
 
+/* 中文：EON 的控制输入例程：统计并处理来自底层的控制/错误命令（如 ICMP 类错误） */
+/* EN: EON control input routine: count and process control/error commands from lower layers, such as ICMP-style errors */
 int
 eonctlinput(cmd, sin)
 	int cmd;

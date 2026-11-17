@@ -33,6 +33,8 @@ struct vnode *rootvnode = &iso_rootv;
 /* EN: Which filesystem backs "/".  glue.c sets this before vfs_init() based on whether we booted from the ISO or the installed disk. */
 static int vfs_root_src = VFS_ROOT_ISO;
 
+/* 中文：设置作为根文件系统来源的后端（ISO/tmpfs/FFS），由 glue.c 在 vfs_init() 前调用 */
+/* EN: Set which filesystem backend backs the root (ISO/tmpfs/FFS), called by glue.c before vfs_init() */
 void
 vfs_set_root_source(int source)
 {
@@ -40,6 +42,8 @@ vfs_set_root_source(int source)
 	vfs_root_src = source;
 }
 
+/* 中文：返回当前配置的根文件系统来源后端 */
+/* EN: Return the currently configured root filesystem backend */
 int
 vfs_root_source(void)
 {
@@ -895,6 +899,8 @@ vfs_cache_report(char *buf, unsigned len)
  * 两套显式 VFS 接口：同步接口在调用者上下文执行后端并返回字节数；异步接口
  * 排队 kiocb 并返回 -EIOCBQUEUED，之后恰好完成一次。
  */
+/* 中文：同步读接口，调用 vnode 的 read 操作把数据读入 buf 并返回字节数，参数或操作缺失返回 -EINVAL */
+/* EN: Synchronous read interface, invoking the vnode's read op into buf and returning the byte count, or -EINVAL on a bad argument or missing op */
 int
 vfs_read_sync(struct vnode *vp, unsigned off, void *buf, unsigned len)
 {
@@ -904,6 +910,8 @@ vfs_read_sync(struct vnode *vp, unsigned off, void *buf, unsigned len)
 	return (vp->ops->read(vp, off, buf, len));
 }
 
+/* 中文：同步写接口，调用 vnode 的 write 操作把 buf 数据写出并返回字节数，参数或操作缺失返回 -EINVAL */
+/* EN: Synchronous write interface, invoking the vnode's write op on buf and returning the byte count, or -EINVAL on a bad argument or missing op */
 int
 vfs_write_sync(struct vnode *vp, unsigned off, const void *buf, unsigned len)
 {
@@ -913,6 +921,8 @@ vfs_write_sync(struct vnode *vp, unsigned off, const void *buf, unsigned len)
 	return (vp->ops->write(vp, off, buf, len));
 }
 
+/* 中文：异步读接口，校验 kiocb 与 vnode 后把操作标记为 KI_READ 并提交异步队列 */
+/* EN: Asynchronous read interface, validating the kiocb and vnode, marking the op as KI_READ and queuing it for completion */
 int
 vfs_read_async(struct kiocb *ki)
 {
@@ -923,6 +933,8 @@ vfs_read_async(struct kiocb *ki)
 	return (vfs_submit_async(ki));
 }
 
+/* 中文：异步写接口，校验 kiocb 与 vnode 后把操作标记为 KI_WRITE 并提交异步队列 */
+/* EN: Asynchronous write interface, validating the kiocb and vnode, marking the op as KI_WRITE and queuing it for completion */
 int
 vfs_write_async(struct kiocb *ki)
 {

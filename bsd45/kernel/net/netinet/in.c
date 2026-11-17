@@ -52,6 +52,8 @@
 /*
  * Return the network number from an internet address.
  */
+/* 中文：从 internet 地址提取网络号，若为子网则返回子网号 */
+/* EN: extract the network number from an internet address, returning the subnet number when subnetted */
 u_long
 in_netof(in)
 	struct in_addr in;
@@ -91,6 +93,8 @@ int subnetsarelocal = SUBNETSARELOCAL;
  * is true, this includes other subnets of the local net.
  * Otherwise, it includes only the directly-connected (sub)nets.
  */
+/* 中文：判断一个 internet 地址是否属于本地主机(依 subnetsarelocal 决定是否含同网其他子网) */
+/* EN: test whether an internet address belongs to a local host (including other local subnets if subnetsarelocal) */
 in_localaddr(in)
 	struct in_addr in;
 {
@@ -114,6 +118,8 @@ in_localaddr(in)
  * that may not be forwarded, or whether datagrams to that destination
  * may be forwarded.
  */
+/* 中文：判断发往该地址的数据报是否可转发(排除实验/组播/网络0/回环地址) */
+/* EN: test whether datagrams to an address may be forwarded (excluding experimental/multicast/net-0/loopback) */
 in_canforward(in)
 	struct in_addr in;
 {
@@ -133,6 +139,8 @@ in_canforward(in)
 /*
  * Trim a mask in a sockaddr
  */
+/* 中文：裁剪 sockaddr_in 中的掩码，将 sin_len 收缩到最后一个非零字节 */
+/* EN: trim a mask in a sockaddr_in, shrinking sin_len to the last nonzero byte */
 void
 in_socktrim(ap)
 struct sockaddr_in *ap;
@@ -156,6 +164,8 @@ extern	struct ifnet loif;
  * Ifp is 0 if not an interface-specific ioctl.
  */
 /* ARGSUSED */
+/* 中文：处理 internet 的通用 ioctl：设置/获取接口地址、掩码、目的/广播地址并管理 in_ifaddr */
+/* EN: handle generic internet ioctls: set/get interface address, mask, destination/broadcast address and manage in_ifaddr */
 in_control(so, cmd, data, ifp)
 	struct socket *so;
 	u_long cmd;
@@ -376,6 +386,8 @@ in_control(so, cmd, data, ifp)
 /*
  * Delete any existing route for an interface.
  */
+/* 中文：删除接口地址上已存在的路由并清除 IFA_ROUTE 标志 */
+/* EN: delete any existing route for an interface address and clear the IFA_ROUTE flag */
 void
 in_ifscrub(ifp, ia)
 	register struct ifnet *ifp;
@@ -395,6 +407,8 @@ in_ifscrub(ifp, ia)
  * Initialize an interface's internet address
  * and routing table entry.
  */
+/* 中文：初始化接口 internet 地址和路由表项：设置地址/掩码、广播地址并添加网络路由 */
+/* EN: initialize an interface's internet address and routing entry: set address/mask, broadcast and add the network route */
 in_ifinit(ifp, ia, sin, scrub)
 	register struct ifnet *ifp;
 	register struct in_ifaddr *ia;
@@ -483,6 +497,8 @@ in_ifinit(ifp, ia, sin, scrub)
 /*
  * Return 1 if the address might be a local broadcast address.
  */
+/* 中文：判断一个地址是否可能是本地广播地址 */
+/* EN: test whether an address might be a local broadcast address */
 in_broadcast(in, ifp)
 	struct in_addr in;
         struct ifnet *ifp;
@@ -516,6 +532,8 @@ in_broadcast(in, ifp)
 /*
  * Add an address to the list of IP multicast addresses for a given interface.
  */
+/* 中文：为接口添加 IP 组播地址：已存在则增引用，否则分配记录、更新驱动过滤并通知 IGMP */
+/* EN: add an IP multicast address to an interface: bump refcount if present, else allocate a record, update driver filter and notify IGMP */
 struct in_multi *
 in_addmulti(ap, ifp)
 	register struct in_addr *ap;
@@ -584,6 +602,8 @@ in_addmulti(ap, ifp)
 /*
  * Delete a multicast address record.
  */
+/* 中文：减少组播地址记录引用计数，为 0 时通知 IGMP、摘链、更新驱动过滤并释放记录 */
+/* EN: decrement a multicast record's refcount; at zero, notify IGMP, unlink, update the driver filter and free it */
 int
 in_delmulti(inm)
 	register struct in_multi *inm;

@@ -27,6 +27,8 @@
 
 #define	WIN_HANDLE_BASE	0x100
 
+/* 中文：以四个参数组装 sysregs 寄存器结构，调用底层 BSD45 系统调用并返回 eax 中的结果 */
+/* EN: Fill a sysregs structure with four arguments, invoke the underlying BSD45 syscall and return the result in eax */
 static int
 win_bsd(unsigned nr, unsigned a, unsigned b, unsigned c)
 {
@@ -41,6 +43,8 @@ win_bsd(unsigned nr, unsigned a, unsigned b, unsigned c)
 	return ((int)t.eax);
 }
 
+/* 中文：Win32 personality 的入口分派器，把 GetCurrentProcessId/CreateFileA/ReadFile 等 API 号映射到对应的 BSD 系统调用 */
+/* EN: Win32 personality entry dispatcher that maps API numbers such as GetCurrentProcessId/CreateFileA/ReadFile to BSD syscalls */
 int
 win32_dispatch(struct sysregs *r)
 {

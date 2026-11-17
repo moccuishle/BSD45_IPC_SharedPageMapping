@@ -76,6 +76,8 @@ static int compatspcodes[16] = {
 };
 
 /*ARGSUSED*/
+/* 中文：旧行规程兼容 ioctl 主入口：在旧 sgttyb/tchars/ltchars 结构与新 termios 之间转换各种 TIOC* 命令 */
+/* EN: main compat ioctl entry: translates legacy TIOC* commands between old sgttyb/tchars/ltchars structures and the new termios */
 ttcompat(tp, com, data, flag)
 	register struct tty *tp;
 	u_long com;
@@ -222,6 +224,8 @@ ttcompat(tp, com, data, flag)
 	return (0);
 }
 
+/* 中文：把 tty 的 termios 标志转换成旧 sgtty 的 flags 字，供 TIOCGETP/TIOCLGET 使用 */
+/* EN: convert a tty's termios settings into the legacy sgtty flags word */
 ttcompatgetflags(tp)
 	register struct tty *tp;
 {
@@ -279,6 +283,8 @@ if (ttydebug)
 	return (flags);
 }
 
+/* 中文：把旧 sgtty flags 字写回到 termios 的 iflag/oflag/lflag/cflag 中 */
+/* EN: apply legacy sgtty flags back into a termios structure's flag fields */
 ttcompatsetflags(tp, t)
 	register struct tty *tp;
 	register struct termios *t;
@@ -350,6 +356,8 @@ ttcompatsetflags(tp, t)
 	t->c_cflag = cflag;
 }
 
+/* 中文：把旧 sgtty flags 的高 16 位(本地模式)写回 termios 的本地标志 */
+/* EN: apply the high 16 bits (local modes) of legacy sgtty flags back into a termios */
 ttcompatsetlflags(tp, t)
 	register struct tty *tp;
 	register struct termios *t;

@@ -297,6 +297,8 @@ printf("ps %x pe %x ", firstaddr, maxmem <<PG_SHIFT);
 
 }
 
+/* 中文：判断给定物理地址是否属于可用内存（低于 0xa0000 或高于等于 0x100000）。 */
+/* EN: Test whether a physical address is valid usable memory (below 0xa0000 or at/above 0x100000). */
 pmap_isvalidphys(addr) {
 	if (addr < 0xa0000) return (1);
 	if (addr >= 0x100000) return (1);
@@ -314,6 +316,8 @@ pmap_isvalidphys(addr) {
  * it cannot be used, and will generate a panic if tried. Note that this
  * memory will never be freed, and in essence it is wired down.
  */
+/* 中文：引导期内存分配器：在虚拟内存系统启动前，通过抢占待管理页池中的页并建立、清零映射来提供早期动态内存分配；仅限 pmap_bootstrap 到 vm_page_startup 之间使用。 */
+/* EN: Bootstrap memory allocator: provide early dynamic allocation before the VM system is up by stealing pages from the page pool and mapping and zeroing them; only valid between pmap_bootstrap and vm_page_startup. */
 void *
 pmap_bootstrap_alloc(size) {
 	vm_offset_t val;

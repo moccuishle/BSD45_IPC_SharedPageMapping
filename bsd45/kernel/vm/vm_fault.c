@@ -91,6 +91,8 @@
  *	The map in question must be referenced, and remains so.
  *	Caller may hold no locks.
  */
+/* 中文：处理给定地址和权限的缺页异常，沿影子链查找或分配物理页，必要时从 pager 读入、填零或写时复制，最后插入物理映射 */
+/* EN: Handle a page fault at the given address and permissions, searching the shadow chain to find or allocate a page, reading from pager, zero-filling or copy-on-write as needed, then entering it in the pmap */
 int
 vm_fault(map, vaddr, fault_type, change_wiring)
 	vm_map_t	map;
@@ -852,6 +854,8 @@ vm_fault(map, vaddr, fault_type, change_wiring)
  *
  *	Wire down a range of virtual addresses in a map.
  */
+/* 中文：锁定映射中一段虚拟地址范围，通知物理映射系统该范围不可缺页，并逐页模拟缺页把页装入并建立映射 */
+/* EN: Wire down a range of virtual addresses in a map, informing the pmap the range may not fault, then simulating a fault page by page to load and map each page */
 int
 vm_fault_wire(map, start, end)
 	vm_map_t	map;
@@ -893,6 +897,8 @@ vm_fault_wire(map, start, end)
  *
  *	Unwire a range of virtual addresses in a map.
  */
+/* 中文：解除映射中一段虚拟地址范围的锁定，逐页解除物理映射布线并释放页锁定，再通知物理映射系统该范围可缺页 */
+/* EN: Unwire a range of virtual addresses in a map, removing each page's pmap wiring and unwiring the pages, then informing the pmap the range may fault */
 void
 vm_fault_unwire(map, start, end)
 	vm_map_t	map;
@@ -943,6 +949,8 @@ vm_fault_unwire(map, start, end)
  *		entry corresponding to a main map entry that is wired down).
  */
 
+/* 中文：把已锁定映射项中的所有页复制到另一个映射项，为目标项分配新对象与物理页并逐页复制后建立物理映射 */
+/* EN: Copy all pages from a wired-down map entry into another, allocating a new object and pages for the destination entry and entering each in the pmap */
 void
 vm_fault_copy_entry(dst_map, src_map, dst_entry, src_entry)
 	vm_map_t	dst_map;

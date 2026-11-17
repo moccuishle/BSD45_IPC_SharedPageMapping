@@ -57,6 +57,7 @@ static unsigned char mbr[SECSZ];
 static unsigned char s2[D_STAGE2_SECS * SECSZ];
 static unsigned streamed_len;	/* bytes seen by the current stream */
 
+/* 中文：把 ISO9660 文件按 2048 字节的区一次流式读入静态缓冲 iso_sec，每读一区调用 emit(chunk, sec)，成功返回 0、失败返回 -1 */
 /* EN: Stream an ISO9660 file one 2048-byte extent sector at a time into the static iso_sec buffer, invoking emit(lba_chunk, sec) for each. Returns 0 or -1. */
 static int
 stream_iso_file(const char *path,
@@ -94,6 +95,7 @@ stream_iso_file(const char *path,
 	return (0);
 }
 
+/* 中文：把一个 FFS 镜像区块写到磁盘：CD 扇区 chunk 对应磁盘 LBA chunk*4（镜像字节 N 落在磁盘 LBA N/512） */
 /* EN: Emit an FFS image chunk to the disk: CD sector `chunk` -> disk LBA chunk*4 (image byte N == disk LBA N/512). */
 static int
 emit_ffs(unsigned chunk, const unsigned char *sec)
@@ -103,6 +105,7 @@ emit_ffs(unsigned chunk, const unsigned char *sec)
 	    -1 : 0);
 }
 
+/* 中文：把一个内核区块写到磁盘的 D_KERNEL_LBA + chunk*4 处 */
 /* EN: Emit a kernel chunk to the disk at D_KERNEL_LBA + chunk*4. */
 static int
 emit_kernel(unsigned chunk, const unsigned char *sec)
@@ -112,6 +115,7 @@ emit_kernel(unsigned chunk, const unsigned char *sec)
 	    ISO_SECS_PER_DISK, sec) < 0 ? -1 : 0);
 }
 
+/* 中文：在 mbr 中查找并改写 "BDMF" 清单（内核 LBA、内核字节数、stage2 字节数），返回偏移，找不到返回 -1 */
 /* EN: Patch the "BDMF" manifest inside mbr (kernel LBA, kernel byte count, stage2 byte count); returns offset or -1. */
 static int
 patch_manifest(unsigned klen)
@@ -142,6 +146,7 @@ patch_manifest(unsigned klen)
 	return (off);
 }
 
+/* 中文：install 命令主体：把 ISO 上的 FFS 镜像、stage2 引导程序、内核与 MBR 依次写入 VMware 虚拟磁盘，成功返回 0、失败返回 -1 */
 /* EN: The install command body. Returns 0 on success, -1 on failure. */
 int
 install_to_disk(void)

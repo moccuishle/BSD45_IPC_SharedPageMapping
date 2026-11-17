@@ -108,6 +108,8 @@ volatile struct	timeval mono_time;
 /*
  * Initialize clock frequencies and start both clocks running.
  */
+/* 中文：初始化时钟频率并启动时钟：调用机器相关初始化并计算 profhz 与 stathz 的比例 */
+/* EN: Initialize clock frequencies and start the clocks: call machine-dependent clock init and compute the profhz/stathz ratio */
 void
 initclocks()
 {
@@ -132,6 +134,8 @@ initclocks()
 /*
  * The real-time timer, interrupting hz times per second.
  */
+/* 中文：实时时钟中断处理：推进时间、处理间隔定时器、驱动统计时钟，并在低优先级调度到期的 callout 回调 */
+/* EN: Real-time clock interrupt handler: advance the time-of-day, handle interval timers, drive the stat clock and dispatch due callouts at low priority */
 void
 hardclock(frame)
 	register struct clockframe *frame;
@@ -219,6 +223,8 @@ hardclock(frame)
  * Software (low priority) clock interrupt.
  * Run periodic events from timeout queue.
  */
+/* 中文：软件时钟中断：在低优先级下执行调用队列中已到期的定时回调函数 */
+/* EN: Software clock interrupt: run due timer callbacks from the callout queue at low interrupt priority */
 /*ARGSUSED*/
 void
 softclock()
@@ -254,6 +260,8 @@ softclock()
  *	value is returned from timeout, rather, the original arguments
  *	to timeout are used to identify entries for untimeout.
  */
+/* 中文：调度一个函数在指定 tick 数之后执行，按到期时间顺序插入 callout 队列 */
+/* EN: Schedule a function to execute after a given number of ticks, inserting it into the callout queue in time order */
 void
 timeout(ftn, arg, ticks)
 	void (*ftn) __P((void *));
@@ -299,6 +307,8 @@ timeout(ftn, arg, ticks)
 	splx(s);
 }
 
+/* 中文：取消先前由 timeout 注册的函数调用，把对应的 callout 项移回空闲链表 */
+/* EN: Cancel a previously scheduled timeout call, moving its callout entry back to the free list */
 void
 untimeout(ftn, arg)
 	void (*ftn) __P((void *));
@@ -327,6 +337,8 @@ untimeout(ftn, arg)
  * Compute number of hz until specified time.  Used to
  * compute third argument to timeout() from an absolute time.
  */
+/* 中文：计算距离给定绝对时间还有多少个 hz（tick），用于生成 timeout 的到期参数 */
+/* EN: Compute how many hz (ticks) remain until an absolute time, used to derive a timeout delay */
 int
 hzto(tv)
 	struct timeval *tv;
@@ -362,6 +374,8 @@ hzto(tv)
  * Kernel profiling passes proc0 which never exits and hence
  * keeps the profile clock running constantly.
  */
+/* 中文：在进程上启动性能剖析：设置 P_PROFIL 标志，第一个剖析进程时把统计时钟切到 profhz */
+/* EN: Start profiling on a process: set the P_PROFIL flag and, for the first profiled process, switch the stat clock to profhz */
 void
 startprofclock(p)
 	register struct proc *p;
@@ -382,6 +396,8 @@ startprofclock(p)
 /*
  * Stop profiling on a process.
  */
+/* 中文：停止进程的性能剖析：清除 P_PROFIL 标志，最后一个剖析进程时把统计时钟恢复为 stathz */
+/* EN: Stop profiling on a process: clear the P_PROFIL flag and, for the last profiled process, restore the stat clock to stathz */
 void
 stopprofclock(p)
 	register struct proc *p;
@@ -405,6 +421,8 @@ int	dk_ndrive = DK_NDRIVE;
  * Statistics clock.  Grab profile sample, and if divider reaches 0,
  * do process and kernel statistics.
  */
+/* 中文：统计时钟中断：采集剖析样本，按用户态/内核/中断/空闲归类 CPU 时间，并重新计算当前进程优先级 */
+/* EN: Statistics clock interrupt: collect profiling samples, account CPU time as user/kernel/interrupt/idle and recalculate the current process priority */
 void
 statclock(frame)
 	register struct clockframe *frame;
@@ -511,6 +529,8 @@ statclock(frame)
 /*
  * Return information about system clocks.
  */
+/* 中文：sysctl 处理函数，返回系统时钟信息（hz、tick、profhz、stathz） */
+/* EN: Sysctl handler that returns system clock information (hz, tick, profhz, stathz) */
 sysctl_clockrate(where, sizep)
 	register char *where;
 	size_t *sizep;

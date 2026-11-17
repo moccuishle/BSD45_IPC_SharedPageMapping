@@ -51,6 +51,8 @@
 #include <sys/acct.h>
 #include <sys/ktrace.h>
 
+/* 中文：fork 系统调用入口，直接以非 vfork 方式调用 fork1 创建子进程 */
+/* EN: fork syscall entry that calls fork1 to create a child process without vfork semantics */
 /* ARGSUSED */
 fork(p, uap, retval)
 	struct proc *p;
@@ -61,6 +63,8 @@ fork(p, uap, retval)
 	return (fork1(p, 0, retval));
 }
 
+/* 中文：vfork 系统调用入口，以 isvfork=1 调用 fork1，使子进程共享父进程地址空间直到 exec/exit */
+/* EN: vfork syscall entry that calls fork1 with isvfork=1 so the child shares the parent's address space until exec/exit */
 /* ARGSUSED */
 vfork(p, uap, retval)
 	struct proc *p;
@@ -73,6 +77,8 @@ vfork(p, uap, retval)
 
 int	nprocs = 1;		/* process 0 */
 
+/* 中文：fork/vfork 的核心实现：检查进程数与每用户限制、分配并初始化新 proc、挑选未用 PID、复制父进程资源，再由 vm_fork 复制地址空间 */
+/* EN: Core of fork/vfork: checks process limits, allocates and initializes a new proc, picks a free pid, copies parent resources, then calls vm_fork to clone the address space */
 fork1(p1, isvfork, retval)
 	register struct proc *p1;
 	int isvfork;

@@ -79,6 +79,8 @@
  *	The start and end address of physical memory is passed in.
  */
 
+/* 中文：初始化虚拟内存系统（仅由第一个 CPU 执行），参数为物理内存的起止地址。 */
+/* EN: Initialize the virtual memory system (only by the first CPU), given the start and end addresses of physical memory. */
 void vm_mem_init()
 {
 	extern vm_offset_t	avail_start, avail_end;

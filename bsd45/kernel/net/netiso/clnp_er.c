@@ -102,6 +102,8 @@ static struct clnp_fixed er_template = {
  *
  * NOTES:			
  */
+/* 中文：处理收到的 ER（错误报告）PDU，把 CLNP 错误原因码映射为 PRC_* 控制命令并上报给传输层 */
+/* EN: Process an incoming ER (error report) PDU, mapping the CLNP reason code to a PRC_* control command and reporting it to the transport layer */
 clnp_er_input(m, src, reason)
 struct mbuf		*m;		/* ptr to packet itself */
 struct iso_addr	*src;	/* ptr to src of er */
@@ -190,6 +192,8 @@ u_char			reason;	/* reason code of er */
  * NOTES:			This code assumes that we have previously tried to pull
  *					up the header of the datagram into one mbuf.
  */
+/* 中文：丢弃一个 CLNP 数据报，在允许且不是 ER 包时尽可能发出 ER 错误报告 */
+/* EN: Discard a CLNP datagram, emitting an ER error report when possible and allowed (not itself an ER) */
 clnp_discard(m, reason)
 struct mbuf	*m;		/* header of packet to discard */
 char					reason;	/* reason for discard */
@@ -229,6 +233,8 @@ char					reason;	/* reason for discard */
  *					was created by us; in this case, do not send
  *					an ER.
  */
+/* 中文：构造并发送一个 ER PDU，以本机为源、原包源为目的，附带丢弃原因与选项，负责释放传入的 mbuf */
+/* EN: Build and send an ER PDU with this host as source and the original sender as destination, including the discard reason and options; takes ownership of the passed mbuf */
 clnp_emit_er(m, reason)
 struct mbuf	*m;		/* header of packet to discard */
 char					reason;	/* reason for discard */
@@ -362,6 +368,8 @@ done:
 		RTFREE(route.ro_rt);
 }
 
+/* 中文：在 CLNP 错误码表中查找给定错误码 p，返回其下标，未找到返回 CLNP_ERRORS+1 */
+/* EN: Look up the given CLNP error code p in the error-code table, returning its index or CLNP_ERRORS+1 if not found */
 clnp_er_index(p)
 u_char p;
 {

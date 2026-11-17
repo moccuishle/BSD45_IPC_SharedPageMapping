@@ -126,6 +126,8 @@ int 	iso_check_csum(), tp_driver(), tp_headersize(), tp_error_emit();
 	#endif lint
 */
 
+/* 中文：为 tp_input 准备输入 mbuf 链，确保首部至少一字节且四字节对齐，并把整个 TP 首部拉入首个 mbuf */
+/* EN: Prepare an incoming mbuf chain for tp_input, ensuring at least one byte and 4-byte alignment, and pulling the whole TP header into the first mbuf */
 struct mbuf *
 tp_inputprep(m) 
 	register struct mbuf *m;
@@ -261,6 +263,8 @@ static u_char tpdu_info[][4] =
  *
  * NOTES:
  */
+/* 中文：当监听套接字收到连接请求时创建新套接字与其传输控制块，从父控制块复制参数并路由到对端地址 */
+/* EN: Create a new socket and transport pcb when a CR arrives on a listening socket, copying parameters from the parent and routing to the peer address */
 static struct socket *
 tp_newsocket(so, fname, cons_channel, class_to_use, netservice)
 	struct socket				*so;
@@ -381,6 +385,8 @@ ok:
 }
 
 #ifndef TPCONS
+/* 中文：未定义 TPCONS 时的空实现，直接返回 0 */
+/* EN: Stub implementation when TPCONS is not defined; simply returns 0 */
 tpcons_output()
 {
 	return(0);
@@ -413,6 +419,8 @@ tpcons_output()
  *  mustn't be zero.
  *  2 seems like a reasonable minimum.
  */
+/* 中文：处理收到的 TPDU，分解首部与参数、查找或建立控制块、构造事件交给 tp_driver，并处理校验、连包与错误响应 */
+/* EN: Process an incoming TPDU: decompose the header and parameters, find or create a tpcb, build an event for tp_driver, and handle checksums, concatenation and error responses */
 ProtoHook
 tp_input(m, faddr, laddr, cons_channel, dgout_routine, ce_bit)
 	register	struct mbuf 	*m;
@@ -1590,6 +1598,8 @@ respond:
  *
  * NOTES:	 It would be nice if it got the network header size as well.
  */
+/* 中文：对给定的连接与 TPDU 类型，返回 TP 首部的预期字节大小 */
+/* EN: Return the expected size in bytes of the TP header for the given connection and TPDU type */
 int
 tp_headersize(dutype, tpcb) 
 	int 			dutype;

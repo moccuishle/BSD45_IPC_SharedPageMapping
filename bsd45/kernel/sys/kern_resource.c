@@ -58,6 +58,8 @@ int	dosetrlimit __P((struct proc *p, u_int which, struct rlimit *limp));
  * Resource controls and accounting.
  */
 
+/* 中文：getpriority 系统调用：按进程/进程组/用户查询指定对象中的最小 nice 值，未找到返回 ESRCH */
+/* EN: getpriority system call: query the lowest nice value among processes/process groups/users, returning ESRCH when none is found */
 int
 getpriority(curp, uap, retval)
 	struct proc *curp;
@@ -115,6 +117,8 @@ getpriority(curp, uap, retval)
 	return (0);
 }
 
+/* 中文：setpriority 系统调用：按进程/进程组/用户调用 donice 调整目标 nice 值，无匹配对象返回 ESRCH */
+/* EN: setpriority system call: adjust target nice values via donice for processes/process groups/users, returning ESRCH if nothing matched */
 /* ARGSUSED */
 int
 setpriority(curp, uap, retval)
@@ -175,6 +179,8 @@ setpriority(curp, uap, retval)
 	return (error);
 }
 
+/* 中文：调整进程 nice 值：做权限检查、将 n 限制在 PRIO_MIN..PRIO_MAX，降低优先级需超级用户权限，最后重算调度优先级 */
+/* EN: Adjust a process's nice value: check permissions, clamp n to PRIO_MIN..PRIO_MAX, require superuser to raise priority, then recompute scheduling priority */
 int
 donice(curp, chgp, n)
 	register struct proc *curp, *chgp;
@@ -198,6 +204,8 @@ donice(curp, chgp, n)
 }
 
 #if defined(COMPAT_43) || defined(COMPAT_SUNOS)
+/* 中文：4.3BSD 兼容 setrlimit：把用户传入的 old rlimit 转成新结构后调用 dosetrlimit 设置资源限制 */
+/* EN: 4.3BSD-compatible setrlimit: convert the user's old rlimit to the new struct and call dosetrlimit to set the resource limit */
 /* ARGSUSED */
 int
 compat_43_setrlimit(p, uap, retval)
@@ -220,6 +228,8 @@ compat_43_setrlimit(p, uap, retval)
 	return (dosetrlimit(p, SCARG(uap, which), &lim));
 }
 
+/* 中文：4.3BSD 兼容 getrlimit：把进程的 rlimit 转成 old 格式（无限值映射到 0x7fffffff）后 copyout 给用户 */
+/* EN: 4.3BSD-compatible getrlimit: convert the process's rlimit to old format (infinity mapped to 0x7fffffff) and copyout to user */
 /* ARGSUSED */
 int
 compat_43_getrlimit(p, uap, retval)
@@ -245,6 +255,8 @@ compat_43_getrlimit(p, uap, retval)
 }
 #endif /* COMPAT_43 || COMPAT_SUNOS */
 
+/* 中文：setrlimit 系统调用：从用户复制 rlimit 结构后调用 dosetrlimit 设置进程资源限制 */
+/* EN: setrlimit system call: copy the rlimit struct from user and call dosetrlimit to set the process resource limit */
 /* ARGSUSED */
 int
 setrlimit(p, uap, retval)
@@ -264,6 +276,8 @@ setrlimit(p, uap, retval)
 	return (dosetrlimit(p, SCARG(uap, which), &alim));
 }
 
+/* 中文：设置资源限制的核心实现：校验权限与上限、必要时复制 plimit，按 DATA/STACK/NOFILE/NPROC 截断并调整栈保护，最后保存新限制 */
+/* EN: Core resource-limit setter: check privileges and caps, copy plimit if shared, clamp and adjust for DATA/STACK/NOFILE/NPROC, then store the new limit */
 int
 dosetrlimit(p, which, limp)
 	struct proc *p;
@@ -348,6 +362,8 @@ dosetrlimit(p, which, limp)
 	return (0);
 }
 
+/* 中文：getrlimit 系统调用：把指定资源的 rlimit 从内核 copyout 给用户 */
+/* EN: getrlimit system call: copyout the rlimit of the given resource from kernel to user */
 /* ARGSUSED */
 int
 getrlimit(p, uap, retval)
@@ -369,6 +385,8 @@ getrlimit(p, uap, retval)
  * Transform the running time and tick information in proc p into user,
  * system, and interrupt time usage.
  */
+/* 中文：把进程累计运行 tick 换算为的用户/系统/中断时间：按各自 tick 占比分摊实时时长，当前进程额外补偿当前时间片 */
+/* EN: Convert accumulated tick counts into user/system/interrupt CPU time: apportion elapsed real time by tick ratios, compensating the current time slice for curproc */
 void
 calcru(p, up, sp, ip)
 	register struct proc *p;
@@ -422,6 +440,8 @@ calcru(p, up, sp, ip)
 	}
 }
 
+/* 中文：getrusage 系统调用：返回自身或子进程的资源使用统计，自身时先 calcru 刷新时间，再 copyout rusage 给用户 */
+/* EN: getrusage system call: return resource usage for self or children, refreshing times via calcru for self, then copyout the rusage to user */
 /* ARGSUSED */
 int
 getrusage(p, uap, retval)
@@ -452,6 +472,8 @@ getrusage(p, uap, retval)
 	    sizeof (struct rusage)));
 }
 
+/* 中文：把 ru2 的资源使用统计累加到 ru：时间相加、最大常驻集取大者、其余计数字段逐项相加 */
+/* EN: Add rusage stats from ru2 into ru: sum timeval fields, take the max maxrss, and add up the remaining counters */
 void
 ruadd(ru, ru2)
 	register struct rusage *ru, *ru2;
@@ -473,6 +495,8 @@ ruadd(ru, ru2)
  * We share these structures copy-on-write after fork,
  * and copy when a limit is changed.
  */
+/* 中文：复制 plimit 结构：分配新 plimit、拷贝各资源限制、清标志并把引用计数置 1，用于 fork 后写时复制 */
+/* EN: Copy a plimit structure: allocate a new one, copy all rlimits, clear flags and set refcount 1, used for copy-on-write after fork */
 struct plimit *
 limcopy(lim)
 	struct plimit *lim;

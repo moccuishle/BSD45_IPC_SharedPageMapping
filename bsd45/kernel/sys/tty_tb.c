@@ -97,6 +97,8 @@ struct tb {
 /*
  * Open as tablet discipline; called on discipline change.
  */
+/* 中文：以绘图板线路规程打开设备：分配并初始化一块 tb 状态、设置输入缓冲与默认 tiger/point 模式 */
+/* EN: Open the device as a tablet line discipline: allocate and initialize a tb state, set up the input buffer and default tiger/point mode */
 /*ARGSUSED*/
 tbopen(dev, tp)
 	dev_t dev;
@@ -124,6 +126,8 @@ tbopen(dev, tp)
 /*
  * Line discipline change or last device close.
  */
+/* 中文：线路规程变更或设备最后关闭：停止绘图板、在 spltty 下释放 tb 状态并清空 tty 队列与线路规程 */
+/* EN: On line-discipline change or last close: stop the tablet, free the tb state under spltty and clear tty queues and line discipline */
 tbclose(tp)
 	register struct tty *tp;
 {
@@ -145,6 +149,8 @@ tbclose(tp)
  * Read from a tablet line.
  * Characters have been buffered in a buffer and decoded.
  */
+/* 中文：从绘图板线路读取数据：要求载波置位，并用 uiomove 把已解码的 tbpos 记录返回用户 */
+/* EN: Read from a tablet line: require carrier and use uiomove to return the decoded tbpos record to user space */
 tbread(tp, uio)
 	register struct tty *tp;
 	struct uio *uio;
@@ -169,6 +175,8 @@ tbread(tp, uio)
  * This routine could be expanded in-line in the receiver
  * interrupt routine to make it run as fast as possible.
  */
+/* 中文：绘图板底层字符输入：按同步字节/位对齐缓冲，收满一条记录后调用对应的解码例程 */
+/* EN: Low-level tablet character input: buffer bytes aligned on the sync byte/bit and call the decode routine once a full record is collected */
 tbinput(c, tp)
 	register int c;
 	register struct tty *tp;
@@ -196,6 +204,8 @@ tbinput(c, tp)
 /*
  * Decode GTCO 8 byte format (high res, tilt, and pressure).
  */
+/* 中文：解码 GTCO 8 字节高分辨率格式：提取压力、x/y 坐标、倾斜量并递增采样计数 */
+/* EN: Decode the GTCO 8-byte high-resolution format: extract pressure, x/y position, tilts and bump the sample count */
 static
 gtcodecode(tc, cp, tbpos)
 	struct tbconf *tc;
@@ -219,6 +229,8 @@ gtcodecode(tc, cp, tbpos)
 /*
  * Decode old Hitachi 5 byte format (low res).
  */
+/* 中文：解码老式日立 5 字节低分辨率格式：提取按键状态、x/y 坐标与接近信息并递增采样计数 */
+/* EN: Decode the old Hitachi 5-byte low-resolution format: extract button status, x/y position and proximity, then bump the sample count */
 static
 tbdecode(tc, cp, tbpos)
 	struct tbconf *tc;
@@ -244,6 +256,8 @@ tbdecode(tc, cp, tbpos)
 /*
  * Decode new Hitach 5-byte format (low res).
  */
+/* 中文：解码新式日立 5 字节低分辨率格式：掩去同步位后提取状态、x/y 坐标并递增采样计数 */
+/* EN: Decode the new Hitachi 5-byte low-resolution format: mask the sync bit, extract status and x/y position, then bump the sample count */
 static
 tblresdecode(tc, cp, tbpos)
 	struct tbconf *tc;
@@ -265,6 +279,8 @@ tblresdecode(tc, cp, tbpos)
 /*
  * Decode new Hitach 6-byte format (high res).
  */
+/* 中文：解码新式日立 6 字节高分辨率格式：提取 x/y 坐标、状态与接近信息并递增采样计数 */
+/* EN: Decode the new Hitachi 6-byte high-resolution format: extract x/y position, status and proximity, then bump the sample count */
 static
 tbhresdecode(tc, cp, tbpos)
 	struct tbconf *tc;
@@ -289,6 +305,8 @@ tbhresdecode(tc, cp, tbpos)
 /*
  * Polhemus decode.
  */
+/* 中文：解码 Polhemus 17 字节三维格式：提取 x/y/z 位置、方位/俯仰/翻滚、状态与按键 */
+/* EN: Decode the Polhemus 17-byte 3D format: extract x/y/z position, azimuth/pitch/roll, status and key */
 static
 poldecode(tc, cp, polpos)
 	struct tbconf *tc;
@@ -307,6 +325,8 @@ poldecode(tc, cp, polpos)
 		polpos->p_key = cp[2];
 }
 
+/* 中文：绘图板 ioctl：处理模式/类型查询与设置（BIOGMODE/BIOSTYPE/BIOSMODE/BIOGTYPE），其余命令透传或返回 ENOTTY */
+/* EN: Tablet ioctl: handle mode/type query and set (BIOGMODE/BIOSTYPE/BIOSMODE/BIOGTYPE), pass through other commands or return ENOTTY */
 /*ARGSUSED*/
 tbioctl(tp, cmd, data, flag)
 	struct tty *tp;

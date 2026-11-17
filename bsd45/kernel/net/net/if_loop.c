@@ -77,6 +77,8 @@
 struct	ifnet loif;
 
 /* ARGSUSED */
+/* 中文：初始化并注册回环（loopback）网络接口。 */
+/* EN: Initialize and register the loopback network interface. */
 void
 loopattach(n)
 	int n;
@@ -100,6 +102,8 @@ loopattach(n)
 #endif
 }
 
+/* 中文：回环接口的输出例程：把发出的报文直接送回本机的输入路径。 */
+/* EN: Loopback output routine: feed outgoing packets straight back into the local input path. */
 int
 looutput(ifp, m, dst, rt)
 	struct ifnet *ifp;
@@ -183,6 +187,8 @@ looutput(ifp, m, dst, rt)
 }
 
 /* ARGSUSED */
+/* 中文：回环接口的路由请求处理（设置与解析链路层地址）。 */
+/* EN: Handle routing requests for the loopback interface (set/resolve link-layer address). */
 void
 lortrequest(cmd, rt, sa)
 	int cmd;
@@ -198,6 +204,8 @@ lortrequest(cmd, rt, sa)
  * Process an ioctl request.
  */
 /* ARGSUSED */
+/* 中文：处理回环接口的 ioctl 请求（如 SIOCSIFADDR 设置地址）。 */
+/* EN: Handle ioctl requests on the loopback interface (e.g. SIOCSIFADDR). */
 int
 loioctl(ifp, cmd, data)
 	register struct ifnet *ifp;

@@ -122,6 +122,8 @@ vm_map_t pager_map;
 boolean_t pager_map_wanted;
 vm_offset_t pager_sva, pager_eva;
 
+/* 中文：初始化分页器子系统：为页面映射创建内核子映射，并逐个调用所有已注册分页器的初始化例程 */
+/* EN: Initialize the pager subsystem: create a kernel submap for page mappings and call the init routine of every registered pager */
 void
 vm_pager_init()
 {
@@ -147,6 +149,8 @@ vm_pager_init()
  * Size, protection and offset parameters are passed in for pagers that
  * need to perform page-level validation (e.g. the device pager).
  */
+/* 中文：按给定类型创建一个分页器实例：把 size、保护模式和偏移传给该类型分页器的分配例程 */
+/* EN: Allocate a pager instance of the given type: pass size, protection and offset to that pager's allocation routine */
 vm_pager_t
 vm_pager_allocate(type, handle, size, prot, off)
 	int type;
@@ -163,6 +167,8 @@ vm_pager_allocate(type, handle, size, prot, off)
 	return (NULL);
 }
 
+/* 中文：释放一个分页器实例（传入空指针时触发 panic） */
+/* EN: Deallocate a pager instance (panics on a null pager) */
 void
 vm_pager_deallocate(pager)
 	vm_pager_t	pager;
@@ -173,6 +179,8 @@ vm_pager_deallocate(pager)
 	(*pager->pg_ops->pgo_dealloc)(pager);
 }
 
+/* 中文：从分页器读取 npages 个页面；若分页器为空则直接用零填充这些页面 */
+/* EN: Read npages pages from a pager; when the pager is null, zero-fill the pages instead */
 int
 vm_pager_get_pages(pager, mlist, npages, sync)
 	vm_pager_t	pager;
@@ -195,6 +203,8 @@ vm_pager_get_pages(pager, mlist, npages, sync)
 	return ((*pager->pg_ops->pgo_getpages)(pager, mlist, npages, sync));
 }
 
+/* 中文：把 npages 个页面写回分页器（调用其 pgo_putpages 例程） */
+/* EN: Write npages pages back to a pager by calling its pgo_putpages routine */
 int
 vm_pager_put_pages(pager, mlist, npages, sync)
 	vm_pager_t	pager;
@@ -208,6 +218,8 @@ vm_pager_put_pages(pager, mlist, npages, sync)
 }
 
 /* XXX compatibility*/
+/* 中文：兼容接口：从分页器读取单个页面 */
+/* EN: Compatibility wrapper: read a single page from a pager */
 int
 vm_pager_get(pager, m, sync)
 	vm_pager_t	pager;
@@ -218,6 +230,8 @@ vm_pager_get(pager, m, sync)
 }
 
 /* XXX compatibility*/
+/* 中文：兼容接口：向分页器写回单个页面 */
+/* EN: Compatibility wrapper: write a single page back to a pager */
 int
 vm_pager_put(pager, m, sync)
 	vm_pager_t	pager;
@@ -227,6 +241,8 @@ vm_pager_put(pager, m, sync)
 	return vm_pager_put_pages(pager, &m, 1, sync);
 }
 
+/* 中文：查询分页器在指定偏移处是否持有页面 */
+/* EN: Ask a pager whether it holds a page at the given offset */
 boolean_t
 vm_pager_has_page(pager, offset)
 	vm_pager_t	pager;
@@ -241,6 +257,8 @@ vm_pager_has_page(pager, offset)
  * Called by pageout daemon before going back to sleep.
  * Gives pagers a chance to clean up any completed async pageing operations.
  */
+/* 中文：在 pageout 守护进程再次睡眠前调用，给各分页器清理已完成的异步分页操作的机会 */
+/* EN: Called by the pageout daemon before sleeping again, giving each pager a chance to clean up completed asynchronous paging operations */
 void
 vm_pager_sync()
 {
@@ -251,6 +269,8 @@ vm_pager_sync()
 			(*(*pgops)->pgo_putpages)(NULL, NULL, 0, FALSE);
 }
 
+/* 中文：调用分页器的聚类例程，求出给定偏移附近连续页面的起止范围 */
+/* EN: Call the pager's clustering routine to find the range of pages surrounding a given offset */
 void
 vm_pager_cluster(pager, offset, loff, hoff)
 	vm_pager_t	pager;
@@ -263,6 +283,8 @@ vm_pager_cluster(pager, offset, loff, hoff)
 	((*pager->pg_ops->pgo_cluster)(pager, offset, loff, hoff));
 }
 
+/* 中文：不支持聚类的分页器所使用的占位例程，被调用时直接 panic */
+/* EN: Placeholder clustering routine for pagers without clustering support; panics when called */
 void
 vm_pager_clusternull(pager, offset, loff, hoff)
 	vm_pager_t	pager;
@@ -273,6 +295,8 @@ vm_pager_clusternull(pager, offset, loff, hoff)
 	panic("vm_pager_nullcluster called");
 }
 
+/* 中文：把 npages 个物理页面映射到 pager_map 内核子映射中，返回映射的起始虚拟地址 */
+/* EN: Map npages physical pages into the pager_map kernel submap and return the starting virtual address */
 vm_offset_t
 vm_pager_map_pages(mlist, npages, canwait)
 	vm_page_t	*mlist;
@@ -320,6 +344,8 @@ vm_pager_map_pages(mlist, npages, canwait)
 	return (kva);
 }
 
+/* 中文：从 pager_map 中取消映射 npages 个页面，并清除对应页面的 PG_PAGEROWNED 标志 */
+/* EN: Unmap npages pages from pager_map and clear the PG_PAGEROWNED flag on the corresponding pages */
 void
 vm_pager_unmap_pages(kva, npages)
 	vm_offset_t	kva;
@@ -349,6 +375,8 @@ vm_pager_unmap_pages(kva, npages)
 	vm_map_unlock(pager_map);
 }
 
+/* 中文：将 pager_map 中的内核虚拟地址转换为对应的 vm_page 结构 */
+/* EN: Translate a kernel virtual address in pager_map into its corresponding vm_page */
 vm_page_t
 vm_pager_atop(kva)
 	vm_offset_t	kva;
@@ -361,6 +389,8 @@ vm_pager_atop(kva)
 	return (PHYS_TO_VM_PAGE(pa));
 }
 
+/* 中文：在分页器链表中按 handle 查找分页器实例，找不到返回 NULL */
+/* EN: Look up a pager instance by handle in a pager list, returning NULL if absent */
 vm_pager_t
 vm_pager_lookup(pglist, handle)
 	register struct pagerlst *pglist;
@@ -378,6 +408,8 @@ vm_pager_lookup(pglist, handle)
  * This routine gains a reference to the object.
  * Explicit deallocation is necessary.
  */
+/* 中文：设置或清除 vm_object 的 OBJ_CANPERSIST 标志以控制其是否可持久缓存，并释放对象引用 */
+/* EN: Set or clear OBJ_CANPERSIST on a vm_object to control whether it may persist in the cache, then release the object reference */
 int
 pager_cache(object, should_cache)
 	vm_object_t	object;

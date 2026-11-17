@@ -56,6 +56,8 @@ void	if_slowtimo __P((void *arg));
  * Routines with ifa_ifwith* names take sockaddr *'s as
  * parameters.
  */
+/* 中文：初始化网络接口，为每个未设置发送队列长度的接口使用默认值，并启动接口慢速定时器 */
+/* EN: Initialize network interfaces, setting the default send-queue length for those without one and starting the interface slow timer */
 void
 ifinit()
 {
@@ -71,6 +73,8 @@ ifinit()
 /*
  * Call each interface on a Unibus reset.
  */
+/* 中文：在 Unibus 复位时调用每个接口的复位例程（仅 vax 平台） */
+/* EN: Call each interface's reset routine on a Unibus reset (vax only) */
 void
 ifubareset(uban)
 	int uban;
@@ -91,6 +95,8 @@ static char *sprint_d __P((u_int, char *, int));
  * Attach an interface to the
  * list of "active" interfaces.
  */
+/* 中文：把一个网络接口挂接到活动接口链表，分配接口索引并为其创建链路层地址 */
+/* EN: Attach a network interface to the active list, assigning it an index and creating a link-level address for it */
 void
 if_attach(ifp)
 	struct ifnet *ifp;
@@ -163,6 +169,8 @@ if_attach(ifp)
  * Locate an interface based on a complete address.
  */
 /*ARGSUSED*/
+/* 中文：按完整地址查找接口地址，匹配接口地址或其广播地址 */
+/* EN: Locate an interface address by a complete address, matching either the interface address or its broadcast address */
 struct ifaddr *
 ifa_ifwithaddr(addr)
 	register struct sockaddr *addr;
@@ -188,6 +196,8 @@ ifa_ifwithaddr(addr)
  * Locate the point to point interface with a given destination address.
  */
 /*ARGSUSED*/
+/* 中文：按目标地址查找点到点接口，返回其目标地址匹配的接口地址项 */
+/* EN: Locate a point-to-point interface by destination address, returning the interface address whose destination matches */
 struct ifaddr *
 ifa_ifwithdstaddr(addr)
 	register struct sockaddr *addr;
@@ -211,6 +221,8 @@ ifa_ifwithdstaddr(addr)
  * Find an interface on a specific network.  If many, choice
  * is most specific found.
  */
+/* 中文：在特定网络上查找接口，按网络掩码匹配并选择最具体的接口地址 */
+/* EN: Find an interface on a specific network, matching by netmask and selecting the most specific interface address */
 struct ifaddr *
 ifa_ifwithnet(addr)
 	struct sockaddr *addr;
@@ -250,6 +262,8 @@ ifa_ifwithnet(addr)
 /*
  * Find an interface using a specific address family
  */
+/* 中文：按指定地址族查找并返回第一个匹配的接口地址 */
+/* EN: Find and return the first interface address of the specified address family */
 struct ifaddr *
 ifa_ifwithaf(af)
 	register int af;
@@ -268,6 +282,8 @@ ifa_ifwithaf(af)
  * Find an interface address specific to an interface best matching
  * a given address.
  */
+/* 中文：在指定接口上查找与给定地址最匹配的接口地址项 */
+/* EN: Find the interface address on a given interface that best matches the given address */
 struct ifaddr *
 ifaof_ifpforaddr(addr, ifp)
 	struct sockaddr *addr;
@@ -311,6 +327,8 @@ ifaof_ifpforaddr(addr, ifp)
  * Lookup an appropriate real ifa to point to.
  * This should be moved to /sys/net/link.c eventually.
  */
+/* 中文：安装带链路层网关的路由时的默认处理，查找真实的接口地址替换路由的接口地址 */
+/* EN: Default action when installing a route with a link-level gateway, looking up a real interface address to replace the route's ifa */
 void
 link_rtrequest(cmd, rt, sa)
 	int cmd;
@@ -338,6 +356,8 @@ link_rtrequest(cmd, rt, sa)
  * the transition.
  * NOTE: must be called at splnet or eqivalent.
  */
+/* 中文：把接口标记为 down，通知各协议状态变化、清空发送队列并发送路由消息 */
+/* EN: Mark an interface down, notifying protocols of the transition, flushing its send queue and sending a routing message */
 void
 if_down(ifp)
 	register struct ifnet *ifp;
@@ -356,6 +376,8 @@ if_down(ifp)
  * the transition.
  * NOTE: must be called at splnet or eqivalent.
  */
+/* 中文：把接口标记为 up 并发送路由消息通知状态变化 */
+/* EN: Mark an interface up and send a routing message to notify protocols of the transition */
 void
 if_up(ifp)
 	register struct ifnet *ifp;
@@ -374,6 +396,8 @@ if_up(ifp)
 /*
  * Flush an interface queue.
  */
+/* 中文：清空接口发送队列中所有排队的 mbuf 并复位队列的头尾与长度 */
+/* EN: Flush all queued mbufs from an interface send queue and reset its head, tail and length */
 void
 if_qflush(ifq)
 	register struct ifqueue *ifq;
@@ -395,6 +419,8 @@ if_qflush(ifq)
  * from softclock, we decrement timers (if set) and
  * call the appropriate interface routine on expiration.
  */
+/* 中文：接口看门狗定时器处理，由 softclock 周期调用，递减各接口计时器并在到期时调用其看门狗例程 */
+/* EN: Interface watchdog timer handler called periodically from softclock, decrementing each interface's timer and invoking its watchdog on expiry */
 void
 if_slowtimo(arg)
 	void *arg;
@@ -416,6 +442,8 @@ if_slowtimo(arg)
  * Map interface name to
  * interface structure pointer.
  */
+/* 中文：把接口名称（如 "ed0"）解析为对应的接口结构指针，匹配名称与单元号 */
+/* EN: Map an interface name such as "ed0" to its interface structure pointer, matching name and unit number */
 struct ifnet *
 ifunit(name)
 	register char *name;
@@ -455,6 +483,8 @@ ifunit(name)
 /*
  * Interface ioctls.
  */
+/* 中文：处理网络接口 ioctl，包括获取/设置标志与度量、增删组播地址，并把其余命令交给协议层 */
+/* EN: Handle network interface ioctls for getting/setting flags and metrics, adding/removing multicast addresses, and passing other commands to the protocol layer */
 int
 ifioctl(so, cmd, data, p)
 	struct socket *so;
@@ -587,6 +617,8 @@ ifioctl(so, cmd, data, p)
  * other information.
  */
 /*ARGSUSED*/
+/* 中文：返回系统接口配置列表，把每个接口及其地址以 ifreq 形式复制到用户缓冲区 */
+/* EN: Return the system interface configuration list, copying out each interface and its addresses as ifreq structures */
 int
 ifconf(cmd, data)
 	int cmd;
@@ -653,6 +685,8 @@ ifconf(cmd, data)
 	return (error);
 }
 
+/* 中文：把无符号整数 n 转换为十进制字符串写入 buf 尾部，并返回字符串起始指针 */
+/* EN: Convert an unsigned integer n to a decimal string at the end of buf and return a pointer to its start */
 static char *
 sprint_d(n, buf, buflen)
 	u_int n;

@@ -71,6 +71,8 @@ int mmapdebug = 0;
 #endif
 
 /* ARGSUSED */
+/* 中文：实现 sbrk 系统调用：该版本尚未实现，始终返回 EOPNOTSUPP */
+/* EN: Implement the sbrk system call: not implemented in this version, always returns EOPNOTSUPP */
 int
 sbrk(p, uap, retval)
 	struct proc *p;
@@ -85,6 +87,8 @@ sbrk(p, uap, retval)
 }
 
 /* ARGSUSED */
+/* 中文：实现 sstk 系统调用：该版本尚未实现，始终返回 EOPNOTSUPP */
+/* EN: Implement the sstk system call: not implemented in this version, always returns EOPNOTSUPP */
 int
 sstk(p, uap, retval)
 	struct proc *p;
@@ -100,6 +104,8 @@ sstk(p, uap, retval)
 
 #if defined(COMPAT_43) || defined(COMPAT_SUNOS)
 /* ARGSUSED */
+/* 中文：兼容 4.3BSD/Sunos 的 getpagesize 系统调用：返回系统页面大小 */
+/* EN: Compatibility getpagesize system call for 4.3BSD/Sunos: return the system page size */
 int
 compat_43_getpagesize(p, uap, retval)
 	struct proc *p;
@@ -113,6 +119,8 @@ compat_43_getpagesize(p, uap, retval)
 #endif /* COMPAT_43 || COMPAT_SUNOS */
 
 #ifdef COMPAT_43
+/* 中文：兼容 4.3BSD 的 mmap 系统调用：把旧式参数结构转换为新 mmap_args 后调用内部实现 */
+/* EN: Compatibility 4.3BSD mmap system call: translate the old argument structure into mmap_args and call the internal implementation */
 int
 compat_43_mmap(p, uap, retval)
 	struct proc *p;
@@ -173,6 +181,8 @@ compat_43_mmap(p, uap, retval)
 }
 #endif
 
+/* 中文：实现 mmap 系统调用：校验参数与文件描述符，建立文件映射或匿名映射到进程地址空间并返回映射地址 */
+/* EN: Implement the mmap system call: validate arguments and file descriptor, create a file or anonymous mapping in the process address space and return the mapped address */
 int
 mmap(p, uap, retval)
 	struct proc *p;
@@ -304,6 +314,8 @@ mmap(p, uap, retval)
 	return (error);
 }
 
+/* 中文：实现 msync 系统调用：把指定地址区间的修改写回文件，并根据标志使缓存失效 */
+/* EN: Implement the msync system call: write back changes in the given address range to the file and optionally invalidate caches */
 int
 msync(p, uap, retval)
 	struct proc *p;
@@ -382,6 +394,8 @@ msync(p, uap, retval)
 	return (0);
 }
 
+/* 中文：实现 munmap 系统调用：从进程地址空间解除指定地址区间的映射 */
+/* EN: Implement the munmap system call: unmap the given address range from the process address space */
 int
 munmap(p, uap, retval)
 	register struct proc *p;
@@ -431,6 +445,8 @@ munmap(p, uap, retval)
 	return(0);
 }
 
+/* 中文：解除文件描述符 f 上的映射标记（清除 UF_MAPPED 标志） */
+/* EN: Clear the UF_MAPPED mapping flag on file descriptor fd */
 void
 munmapfd(p, fd)
 	struct proc *p;
@@ -447,6 +463,8 @@ munmapfd(p, fd)
 	p->p_fd->fd_ofileflags[fd] &= ~UF_MAPPED;
 }
 
+/* 中文：实现 mprotect 系统调用：修改指定地址区间的页面保护权限 */
+/* EN: Implement the mprotect system call: change the page protection of the given address range */
 int
 mprotect(p, uap, retval)
 	struct proc *p;
@@ -484,6 +502,8 @@ mprotect(p, uap, retval)
 }
 
 /* ARGSUSED */
+/* 中文：实现 madvise 系统调用：该版本尚未实现，始终返回 EOPNOTSUPP */
+/* EN: Implement the madvise system call: not implemented in this version, always returns EOPNOTSUPP */
 int
 madvise(p, uap, retval)
 	struct proc *p;
@@ -500,6 +520,8 @@ madvise(p, uap, retval)
 }
 
 /* ARGSUSED */
+/* 中文：实现 mincore 系统调用：该版本尚未实现，始终返回 EOPNOTSUPP */
+/* EN: Implement the mincore system call: not implemented in this version, always returns EOPNOTSUPP */
 int
 mincore(p, uap, retval)
 	struct proc *p;
@@ -515,6 +537,8 @@ mincore(p, uap, retval)
 	return (EOPNOTSUPP);
 }
 
+/* 中文：实现 mlock 系统调用：把指定地址区间的页面锁定在内存中，防止被换出 */
+/* EN: Implement the mlock system call: wire the pages in the given address range into memory so they cannot be paged out */
 int
 mlock(p, uap, retval)
 	struct proc *p;
@@ -553,6 +577,8 @@ mlock(p, uap, retval)
 	return (error == KERN_SUCCESS ? 0 : ENOMEM);
 }
 
+/* 中文：实现 munlock 系统调用：解锁指定地址区间中之前被 mlock 锁定的页面 */
+/* EN: Implement the munlock system call: unwire pages previously locked by mlock in the given address range */
 int
 munlock(p, uap, retval)
 	struct proc *p;
@@ -589,6 +615,8 @@ munlock(p, uap, retval)
  * Currently used by mmap, exec, and sys5 shared memory.
  * Handle is either a vnode pointer or NULL for MAP_ANON.
  */
+/* 中文：mmap 的内部实现：根据 handle（vnode 或 NULL 表示匿名）选择分页器，在指定 vm_map 中建立映射 */
+/* EN: Internal mmap implementation: choose a pager based on handle (a vnode or NULL for anonymous) and create the mapping in the given vm_map */
 int
 vm_mmap(map, addr, size, prot, maxprot, flags, handle, foff)
 	register vm_map_t map;

@@ -106,6 +106,8 @@ struct tp_pcb *tp_listeners, *tp_intercepts;
  * FUNCTION and ARGUMENTS:
  *  print (str) followed by the control info in the mbufs of an mbuf chain (n)
  */
+/* 中文：调试辅助（ARGO_DEBUG）：打印 mbuf 链 n 中各记录与 mbuf 的长度、数据、类型等信息 */
+/* EN: Debug helper (ARGO_DEBUG): print length, data and type info for each record and mbuf in an mbuf chain n */
 void
 dump_mbuf(n, str)
 	struct mbuf *n;
@@ -168,6 +170,8 @@ dump_mbuf(n, str)
  *		xpd data in the buffer
  *  E* whatever is returned from the fsm.
  */
+/* 中文：接收带外（加速）数据：从 socket 接收缓冲取出 MT_OOBDATA 记录拷入 m，处理未连接/非阻塞空队列等错误，返回错误码 */
+/* EN: Receive out-of-band (expedited) data: take an MT_OOBDATA record from the socket receive buffer into m, handling not-connected/nonblocking-empty cases, returning an error */
 tp_rcvoob(tpcb, so, m, outflags, inflags)
 	struct tp_pcb	*tpcb;
 	register struct socket	*so;
@@ -275,6 +279,8 @@ release:
  *  EMSGSIZE if trying to send > max-xpd bytes (16)
  *  ENOBUFS if ran out of mbufs
  */
+/* 中文：发送带外（加速）数据：等待 XPD 缓冲空闲、校验长度不超过 TP_MAX_XPD_DATA，把 xdata 追加到 Xsnd 缓冲并触发 T_XPD_req 事件 */
+/* EN: Send out-of-band (expedited) data: wait for the XPD buffer, check length against TP_MAX_XPD_DATA, append xdata to the Xsnd buffer and raise T_XPD_req */
 tp_sendoob(tpcb, so, xdata, outflags)
 	struct tp_pcb	*tpcb;
 	register struct socket	*so;
@@ -372,6 +378,8 @@ tp_sendoob(tpcb, so, xdata, outflags)
  * 	(nam) is used for addresses usually, in particular for the bind request.
  * 
  */
+/* 中文：TP 用户请求总入口：处理除 getsockopt/setsockopt 外的所有 PRU_* 请求（attach/bind/connect/send/receive 等），在 splnet 下分派并返回错误码 */
+/* EN: Main TP user-request entry: handle all PRU_* requests except getsockopt/setsockopt (attach/bind/connect/send/receive, etc.) under splnet, returning an error */
 /*ARGSUSED*/
 ProtoHook
 tp_usrreq(so, req, m, nam, controlp)
@@ -700,6 +708,8 @@ tp_usrreq(so, req, m, nam, controlp)
 	splx(s);
 	return error;
 }
+/* 中文：跟踪辅助：在 IFTRACE 下记录 socket 发送时的剩余字节与 iov 数量 */
+/* EN: Trace helper: under IFTRACE record remaining bytes and iov count for a socket send */
 tp_ltrace(so, uio)
 struct socket *so;
 struct uio *uio;
@@ -713,6 +723,8 @@ struct uio *uio;
 	ENDTRACE
 }
 
+/* 中文：确认处理：若 PCB 处于 TP_CONFIRMING 状态则触发 T_ACPT_req 事件，否则打印警告并返回 0 */
+/* EN: Confirmation handling: raise T_ACPT_req if the PCB is in TP_CONFIRMING state, else print a warning and return 0 */
 tp_confirm(tpcb)
 register struct tp_pcb *tpcb;
 {
@@ -727,6 +739,8 @@ register struct tp_pcb *tpcb;
 /*
  * Process control data sent with sendmsg()
  */
+/* 中文：处理 sendmsg 携带的控制数据：解析 cmsghdr 调用 tp_ctloutput 设置选项，TPOPT_DISC_DATA 时丢弃数据并发起断连，最后释放 mbuf */
+/* EN: Process control data sent with sendmsg: parse cmsghdr and call tp_ctloutput, on TPOPT_DISC_DATA drop data and start a disconnect, then free the mbuf */
 tp_snd_control(m, so, data)
 	struct mbuf *m;
 	struct socket *so;

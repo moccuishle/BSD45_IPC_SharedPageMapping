@@ -86,6 +86,8 @@ struct svm_allocate_args {
 	boolean_t anywhere;
 };
 /* ARGSUSED */
+/* 中文：MACH 兼容的系统调用包装，在进程映射中分配零填内存并把得到的地址写回用户参数 */
+/* EN: MACH-compatible syscall wrapper that allocates zero-fill memory in a process map and writes the resulting address back to the user argument */
 int
 svm_allocate(p, uap, retval)
 	struct proc *p;
@@ -114,6 +116,8 @@ struct svm_deallocate_args {
 	vm_size_t size;
 };
 /* ARGSUSED */
+/* 中文：MACH 兼容的系统调用包装，释放进程映射中指定范围的内存 */
+/* EN: MACH-compatible syscall wrapper that deallocates a specified range in a process map */
 int
 svm_deallocate(p, uap, retval)
 	struct proc *p;
@@ -134,6 +138,8 @@ struct svm_inherit_args {
 	vm_inherit_t inherit;
 };
 /* ARGSUSED */
+/* 中文：MACH 兼容的系统调用包装，设置进程映射中指定范围的继承属性 */
+/* EN: MACH-compatible syscall wrapper that sets the inheritance of a specified range in a process map */
 int
 svm_inherit(p, uap, retval)
 	struct proc *p;
@@ -155,6 +161,8 @@ struct svm_protect_args {
 	vm_prot_t prot;
 };
 /* ARGSUSED */
+/* 中文：MACH 兼容的系统调用包装，设置进程映射中指定范围的保护权限 */
+/* EN: MACH-compatible syscall wrapper that sets the protection of a specified range in a process map */
 int
 svm_protect(p, uap, retval)
 	struct proc *p;
@@ -172,6 +180,8 @@ svm_protect(p, uap, retval)
  *	vm_inherit sets the inheritence of the specified range in the
  *	specified map.
  */
+/* 中文：设置指定映射中某地址范围的继承属性，地址按页对齐后调用 vm_map_inherit */
+/* EN: Set the inheritance of a range in a map, page-aligning the bounds before calling vm_map_inherit */
 int
 vm_inherit(map, start, size, new_inheritance)
 	register vm_map_t	map;
@@ -190,6 +200,8 @@ vm_inherit(map, start, size, new_inheritance)
  *	specified map.
  */
 
+/* 中文：设置指定映射中某地址范围的保护权限，地址按页对齐后调用 vm_map_protect */
+/* EN: Set the protection of a range in a map, page-aligning the bounds before calling vm_map_protect */
 int
 vm_protect(map, start, size, set_maximum, new_protection)
 	register vm_map_t	map;
@@ -209,6 +221,8 @@ vm_protect(map, start, size, set_maximum, new_protection)
  *	vm_allocate allocates "zero fill" memory in the specfied
  *	map.
  */
+/* 中文：在指定映射中分配一段零填内存，按 anywhere 决定地址是否任意，返回分配结果 */
+/* EN: Allocate a zero-fill region in a map, using anywhere to decide whether the address is arbitrary, returning the result */
 int
 vm_allocate(map, addr, size, anywhere)
 	register vm_map_t	map;
@@ -240,6 +254,8 @@ vm_allocate(map, addr, size, anywhere)
  *	vm_deallocate deallocates the specified range of addresses in the
  *	specified address map.
  */
+/* 中文：释放指定映射中某地址范围，地址按页对齐后调用 vm_map_remove */
+/* EN: Deallocate a range in a map, page-aligning the bounds before calling vm_map_remove */
 int
 vm_deallocate(map, start, size)
 	register vm_map_t	map;
@@ -258,6 +274,8 @@ vm_deallocate(map, start, size)
 /*
  * Similar to vm_allocate but assigns an explicit pager.
  */
+/* 中文：类似 vm_allocate 但为分配区域绑定显式 pager，从对象缓存查找或创建 VM 对象后插入映射 */
+/* EN: Like vm_allocate but assigns an explicit pager, looking up or creating a VM object in the object cache and mapping it in */
 int
 vm_allocate_with_pager(map, addr, size, anywhere, pager, poffset, internal)
 	register vm_map_t	map;

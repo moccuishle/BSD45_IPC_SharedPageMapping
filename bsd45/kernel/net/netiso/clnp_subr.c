@@ -100,6 +100,8 @@ SOFTWARE.
  *
  * NOTES:			
  */
+/* 中文：校验 mbuf 链的数据长度与 CLNP 头声明长度一致：短包丢弃并置 GEN_INCOMPLETE，长包则裁剪尾部 */
+/* EN: Verify the mbuf chain data length matches the CLNP header's declared length: drop short packets with GEN_INCOMPLETE and trim long ones */
 struct mbuf *
 clnp_data_ck(m, length)
 register struct mbuf	*m;		/* ptr to mbuf chain containing hdr & data */
@@ -146,6 +148,8 @@ int						length;	/* length (in bytes) of packet */
  *
  * NOTES:			
  */
+/* 中文：未启用代码（notdef）：从缓冲中提取源/目的 ISO 地址，数据不足或地址非法则返回 0，否则返回地址部分之后的指针 */
+/* EN: Disabled code (notdef): extract source/destination ISO addresses from a buffer, returning 0 on insufficient data or invalid addresses, else a pointer past them */
 caddr_t
 clnp_extract_addr(bufp, buflen, srcp, destp)
 caddr_t					bufp;		/* ptr to buffer containing addresses */
@@ -199,6 +203,8 @@ register struct iso_addr	*destp;		/* ptr to destination address buffer */
  *
  * NOTES:			
  */
+/* 中文：判断目的 ISO 地址是否为本机地址（遍历接口地址），是则返回 1，否则 0 */
+/* EN: Decide whether a destination ISO address belongs to this host by scanning interface addresses, returning 1 or 0 */
 clnp_ours(dst)
 register struct iso_addr *dst;		/* ptr to destination address */
 {
@@ -240,6 +246,8 @@ int congest_threshold = 0;
  *
  * NOTES:			
  */
+/* 中文：转发 CLNP 数据报：丢弃组播与 TTL 归零包，按源路由或普通路由选下一跳，更新选项/拥塞位，小包直接输出大包分片 */
+/* EN: Forward a CLNP datagram: drop multicast and zero-TTL packets, route via source route or normal route, update options/congestion bit, output small packets and fragment large ones */
 clnp_forward(m, len, dst, oidx, seg_off, inbound_shp)
 struct mbuf			*m;		/* pkt to forward */
 int					len;	/* length of pkt */
@@ -396,6 +404,8 @@ done:
  *
  * NOTES:			Assume that there is enough space for the address part.
  */
+/* 中文：未启用代码（notdef）：把源/目的 ISO 地址写入数据报缓冲的地址部分，返回地址部分之后的指针；假定空间足够 */
+/* EN: Disabled code (notdef): write source/destination ISO addresses into a datagram buffer's address part, returning a pointer past it; assumes enough space */
 caddr_t
 clnp_insert_addr(bufp, srcp, dstp)
 caddr_t						bufp;	/* address of where addr part goes */
@@ -434,6 +444,8 @@ register struct iso_addr	*dstp;	/* ptr to dst addr */
  * NOTES:			It is up to the caller to free the routing entry
  *					allocated in route.
  */
+/* 中文：为 CLNP 数据报路由到目的地的第一跳：SO_DONTROUTE 时查本地接口，否则校验或分配路由项，回填第一跳与接口，成功返回 0 */
+/* EN: Route a CLNP datagram to its first hop: use a local interface for SO_DONTROUTE, else validate or allocate a route entry and fill in first hop/interface, returning 0 on success */
 clnp_route(dst, ro, flags, first_hop, ifa)
 	struct iso_addr	*dst;			/* ptr to datagram destination */
 	register struct	route_iso *ro;	/* existing route structure */
@@ -529,6 +541,8 @@ clnp_route(dst, ro, flags, first_hop, ifa)
  * NOTES:			Remember that option index pointers are really
  *					offsets from the beginning of the mbuf.
  */
+/* 中文：按源路由选项为数据报选路：源路由结束则按最终目的路由，否则按源路由指定的下一地址路由；完全源路由首跳不符返回 EHOSTUNREACH */
+/* EN: Source-route a datagram: route on the final destination when source routing is terminated, else on the next address in the option; a complete-route first-hop mismatch returns EHOSTUNREACH */
 clnp_srcroute(options, oidx, ro, first_hop, ifa, final_dst)
 struct mbuf			*options;		/* ptr to options */
 struct clnp_optidx	*oidx;			/* index to options */
@@ -585,6 +599,8 @@ struct iso_addr		*final_dst;		/* final destination */
  *
  * SIDE EFFECTS:	
  */
+/* 中文：生成并发送 CLNP 回显应答：用请求构造伪 isopcb，以 CLNP_ECHOR 标志调用 clnp_output，返回其结果 */
+/* EN: Generate and transmit a CLNP echo reply: build a fake isopcb from the request and call clnp_output with the CLNP_ECHOR flag, returning its result */
 clnp_echoreply(ec_m, ec_len, ec_src, ec_dst, ec_oidxp)
 struct mbuf			*ec_m;		/* echo request */
 int					ec_len;		/* length of ec */
@@ -621,6 +637,8 @@ struct clnp_optidx	*ec_oidxp;	/* options index to ec packet */
  *
  * SIDE EFFECTS:	prints notice, slows down system.
  */
+/* 中文：报告路由 MTU 未初始化的错误：打印含文件名/行号的提示并返回接口 MTU */
+/* EN: Report a route with an uninitialized MTU: print a notice with file/line and return the interface MTU */
 clnp_badmtu(ifp, rt, line, file)
 struct ifnet *ifp;	/* outgoing interface */
 struct rtentry *rt; /* dst route */
@@ -647,6 +665,8 @@ char *file;			/* where the dirty deed occured */
  *
  * NOTES:			No attempt has been made to make this efficient
  */
+/* 中文：反向 bcopy：从源缓冲末尾开始逐字节复制到目的缓冲，共 len 字节 */
+/* EN: Backwards bcopy: copy len bytes from the end of the source buffer to the destination buffer, byte by byte */
 clnp_ypocb(from, to, len)
 caddr_t from;		/* src buffer */
 caddr_t to;			/* dst buffer */

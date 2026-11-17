@@ -15,6 +15,8 @@
 
 #include "subsys/subsys.h"
 
+/* 中文：判断系统调用号是否属于允许的 POSIX 接口集合，属于则允许否则拒绝 */
+/* EN: Test whether a syscall number belongs to the allowed set of POSIX interfaces, admitting POSIX calls and rejecting others */
 static int
 posix_allowed(int nr)
 {
@@ -37,6 +39,8 @@ posix_allowed(int nr)
 	}
 }
 
+/* 中文：POSIX personality 的系统调用分派：非 POSIX 调用直接返回 ENOSYS，否则转交 bsd45_syscall 执行 */
+/* EN: System-call dispatch for the POSIX personality: return ENOSYS for non-POSIX calls, otherwise hand off to bsd45_syscall */
 int
 posix_dispatch(struct sysregs *r)
 {

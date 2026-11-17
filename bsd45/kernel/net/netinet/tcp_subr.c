@@ -69,6 +69,8 @@ extern	struct inpcb *tcp_last_inpcb;
 /*
  * Tcp initialization
  */
+/* 中文：初始化 TCP：随机化初始发送序号、初始化 tcb 链表，并确保协议/链路头部空间足够 */
+/* EN: Initialize TCP: randomize the initial send sequence, init the tcb list and ensure sufficient protocol/link header space */
 void
 tcp_init()
 {
@@ -87,6 +89,8 @@ tcp_init()
  * in a skeletal tcp/ip header, minimizing the amount of work
  * necessary when the connection is used.
  */
+/* 中文：为连接创建 TCP/IP 头部模板 mbuf，预先填好源/目的地址与端口等字段以加快发包 */
+/* EN: Create a TCP/IP header template mbuf for a connection, pre-filling addresses and ports to speed up packet sending */
 struct tcpiphdr *
 tcp_template(tp)
 	struct tcpcb *tp;
@@ -134,6 +138,8 @@ tcp_template(tp)
  * In any case the ack and sequence number of the transmitted
  * segment are as specified by the parameters.
  */
+/* 中文：向对端发送单个 TCP 报文（如 RST 或 ACK），按给定序号与确认号构造并经 ip_output 发出 */
+/* EN: Send a single TCP segment (e.g. RST or ACK) to the peer, building it with the given sequence/ack numbers and sending via ip_output */
 void
 tcp_respond(tp, ti, m, ack, seq, flags)
 	struct tcpcb *tp;
@@ -203,6 +209,8 @@ tcp_respond(tp, ti, m, ack, seq, flags)
  * empty reassembly queue and hooking it to the argument
  * protocol control block.
  */
+/* 中文：新建 TCP 控制块：清零分配、初始化重组队列、MSS、RTO 等参数并挂到 inpcb 上 */
+/* EN: Create a new TCP control block: zero and allocate it, init the reassembly queue, MSS, retransmit timer and attach it to the inpcb */
 struct tcpcb *
 tcp_newtcpcb(inp)
 	struct inpcb *inp;
@@ -241,6 +249,8 @@ tcp_newtcpcb(inp)
  * the specified error.  If connection is synchronized,
  * then send a RST to peer.
  */
+/* 中文：丢弃一个 TCP 连接并报告错误：若已同步则发 RST 给对端，最后调用 tcp_close */
+/* EN: Drop a TCP connection reporting an error: send an RST if synchronized, then call tcp_close */
 struct tcpcb *
 tcp_drop(tp, errno)
 	register struct tcpcb *tp;
@@ -266,6 +276,8 @@ tcp_drop(tp, errno)
  *	discard internet protocol block
  *	wake up any sleepers
  */
+/* 中文：关闭 TCP 控制块：保存路由度量、释放重组队列和模板、断开 pcb 并清空输入缓存 */
+/* EN: Close a TCP control block: cache route metrics, free the reassembly queue and template, detach the pcb and clear the input cache */
 struct tcpcb *
 tcp_close(tp)
 	register struct tcpcb *tp;
@@ -365,6 +377,8 @@ tcp_close(tp)
 	return ((struct tcpcb *)0);
 }
 
+/* 中文：TCP 内存不足时的排空回调，当前为空实现 */
+/* EN: TCP drain callback for low-memory situations, currently a no-op */
 void
 tcp_drain()
 {
@@ -376,6 +390,8 @@ tcp_drain()
  * store error as soft error, but wake up user
  * (for now, won't do anything until can select for soft error).
  */
+/* 中文：把异步错误通知给 TCP 用户：按连接状态决定存为 soft error 还是 so_error，并唤醒等待者 */
+/* EN: Notify a TCP user of an asynchronous error: store it as a soft error or so_error depending on state, and wake waiters */
 void
 tcp_notify(inp, error)
 	struct inpcb *inp;
@@ -405,6 +421,8 @@ tcp_notify(inp, error)
 	sowwakeup(so);
 }
 
+/* 中文：处理来自网络层的 ICMP 控制输入，按命令选择 tcp_notify 或 tcp_quench 通知相关连接 */
+/* EN: Handle ICMP control input from the network layer, notifying affected connections via tcp_notify or tcp_quench */
 void
 tcp_ctlinput(cmd, sa, ip)
 	int cmd;
@@ -433,6 +451,8 @@ tcp_ctlinput(cmd, sa, ip)
  * When a source quench is received, close congestion window
  * to one segment.  We will gradually open it again as we proceed.
  */
+/* 中文：收到源抑制（source quench）时把拥塞窗口收缩到一个最大报文段，之后逐步恢复 */
+/* EN: Shrink the congestion window to one maximum segment upon receiving a source quench, then open it gradually again */
 void
 tcp_quench(inp, errno)
 	struct inpcb *inp;

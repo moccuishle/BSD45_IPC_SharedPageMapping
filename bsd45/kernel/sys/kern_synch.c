@@ -59,6 +59,8 @@ int	lbolt;			/* once a second sleep address */
  * Force switch among equal priority processes every 100ms.
  */
 /* ARGSUSED */
+/* 中文：进程调度周期性回调：每 100ms 强制在同等优先级的进程之间重新调度 */
+/* EN: Periodic scheduling callback: force a switch among equal-priority processes every 100ms */
 void
 roundrobin(arg)
 	void *arg;
@@ -157,6 +159,8 @@ fixpt_t	ccpu = 0.95122942450071400909 * FSCALE;		/* exp(-1/20) */
  * Recompute process priorities, every hz ticks.
  */
 /* ARGSUSED */
+/* 中文：每 hz 个时钟周期重新计算所有进程的优先级：更新 CPU 使用估计、交换时间与睡眠时间，并唤醒 lbolt 等待者 */
+/* EN: Recompute process priorities every hz ticks: update CPU usage estimates, swap and sleep times, and wake lbolt waiters */
 void
 schedcpu(arg)
 	void *arg;
@@ -225,6 +229,8 @@ schedcpu(arg)
  * For all load averages >= 1 and max p_estcpu of 255, sleeping for at
  * least six times the loadfactor will decay p_estcpu to zero.
  */
+/* 中文：进程睡眠一段时间后重新计算其优先级：按负载因子和睡眠时长衰减 p_estcpu，再重置优先级 */
+/* EN: Recalculate a process's priority after it has slept: decay p_estcpu by load factor and sleep time, then reset the priority */
 void
 updatepri(p)
 	register struct proc *p;
@@ -277,6 +283,8 @@ int safepri;
  * call should be restarted if possible, and EINTR is returned if the system
  * call should be interrupted by the signal (return EINTR).
  */
+/* 中文：通用睡眠原语：让当前进程在指定标识上睡眠，支持超时、优先级、PCATCH 信号检查，返回唤醒或超时状态 */
+/* EN: General sleep primitive: suspend the current process on an identifier with optional timeout, priority and PCATCH signal handling, returning wakeup or timeout status */
 int
 tsleep(ident, priority, wmesg, timo)
 	void *ident;
@@ -385,6 +393,8 @@ resume:
  * set timeout flag and undo the sleep.  If proc
  * is stopped, just unsleep so it will remain stopped.
  */
+/* 中文：实现 tsleep 的超时处理：若进程仍在睡眠则将其置为可运行或解除睡眠，并设置超时标志 */
+/* EN: Implement the timeout for tsleep: if the process is still asleep, make it runnable or unsleep it and set the timeout flag */
 void
 endtsleep(arg)
 	void *arg;
@@ -407,6 +417,8 @@ endtsleep(arg)
 /*
  * Short-term, non-interruptable sleep.
  */
+/* 中文：短期不可中断睡眠：让当前进程在指定标识上睡眠直至被 wakeup 唤醒 */
+/* EN: Short-term non-interruptible sleep: suspend the current process on an identifier until awakened by wakeup */
 void
 sleep(ident, priority)
 	void *ident;
@@ -468,6 +480,8 @@ sleep(ident, priority)
 /*
  * Remove a process from its wait queue
  */
+/* 中文：把一个进程从其等待队列中移除 */
+/* EN: Remove a process from its wait queue */
 void
 unsleep(p)
 	register struct proc *p;
@@ -492,6 +506,8 @@ unsleep(p)
 /*
  * Make all processes sleeping on the specified identifier runnable.
  */
+/* 中文：唤醒所有在指定标识上睡眠的进程，把它们置为可运行状态 */
+/* EN: Make all processes sleeping on the given identifier runnable */
 void
 wakeup(ident)
 	register void *ident;
@@ -543,6 +559,8 @@ restart:
  * The machine independent parts of mi_switch().
  * Must be called at splstatclock() or higher.
  */
+/* 中文：machine-independent 的进程切换：统计当前进程运行时间、处理虚拟定时器并在需要时切换上下文 */
+/* EN: Machine-independent part of process switching: account the current process's run time, handle virtual timers and switch context as needed */
 void
 mi_switch()
 {
@@ -604,6 +622,8 @@ mi_switch()
  * Initialize the (doubly-linked) run queues
  * to be empty.
  */
+/* 中文：初始化双向运行队列，把 NQS 个优先级队列置为空 */
+/* EN: Initialize the doubly linked run queues, emptying all NQS priority queues */
 void
 rqinit()
 {
@@ -618,6 +638,8 @@ rqinit()
  * placing it on the run queue if it is in memory,
  * and awakening the swapper if it isn't in memory.
  */
+/* 中文：把一个进程置为可运行状态：若其在内存中则放入运行队列，否则唤醒交换进程 */
+/* EN: Change a process state to runnable: put it on the run queue if resident, otherwise wake the swapper */
 void
 setrunnable(p)
 	register struct proc *p;
@@ -657,6 +679,8 @@ setrunnable(p)
  * Arrange to reschedule if the resulting priority is better
  * than that of the current process.
  */
+/* 中文：计算进程在用户态运行的优先级；若新优先级优于当前进程则请求重新调度 */
+/* EN: Compute a process's user-mode priority; request a reschedule if it is better than the current process's priority */
 void
 resetpriority(p)
 	register struct proc *p;

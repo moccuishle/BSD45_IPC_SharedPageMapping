@@ -46,6 +46,8 @@
 #include <sys/syslog.h>
 #include <sys/kernel.h>
 
+/* 中文：acct 系统调用入口：函数体已删除，直接返回 ENOSYS 表示不支持记账 */
+/* EN: The acct system-call entry point: its body has been removed, so it simply returns ENOSYS to report accounting unsupported */
 acct(a1, a2, a3)
 	struct proc *a1;
 	struct acct_args /* {
@@ -59,6 +61,8 @@ acct(a1, a2, a3)
 	return (ENOSYS);
 }
 
+/* 中文：进程退出时的记账处理：函数体已删除，为空操作 */
+/* EN: Accounting hook on process exit: its body has been removed, so it is a no-op */
 acct_process(a1)
 	struct proc *a1;
 {
@@ -90,6 +94,8 @@ struct	vnode *acctp;
 struct	vnode *savacctp;
 
 /* ARGSUSED */
+/* 中文：定时检查记账文件系统的剩余空间：空间不足时暂停记账、恢复时重新开启，并重新注册定时器 */
+/* EN: Periodically check free space on the accounting filesystem: suspend accounting when space is low, resume when it recovers, and re-arm the timer */
 void
 acctwatch(a)
 	void *a;

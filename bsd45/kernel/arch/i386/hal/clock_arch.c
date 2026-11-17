@@ -27,6 +27,8 @@
 extern void irq0_entry(void);
 extern void setidt(int idx, char *func, int typ, int dpl);
 
+/* 中文：向时钟中断控制器发送中断结束（EOI）信号。 */
+/* EN: Send an end-of-interrupt (EOI) signal to the clock interrupt controller. */
 void
 hal_clock_eoi(void)
 {
@@ -34,6 +36,8 @@ hal_clock_eoi(void)
 	hal_outb(PIC_EOI, 0x20);
 }
 
+/* 中文：初始化硬件抽象层的时钟设备与定时器。 */
+/* EN: Initialize the HAL clock device and timer. */
 void
 hal_clock_init(void)
 {

@@ -295,6 +295,8 @@ unsigned	cow_faults;
 unsigned	cow_copies;
 unsigned	cow_shared;
 
+/* 中文：把物理地址换算为 COW 引用计数表索引，超出表覆盖范围返回 0 */
+/* EN: Convert a physical address into an index in the COW reference-count table, returning 0 when out of range */
 static unsigned
 page_index(unsigned pa)
 {
@@ -303,6 +305,8 @@ page_index(unsigned pa)
 	return (i < MAX_PHYS_PAGES ? i : 0);
 }
 
+/* 中文：设置物理页的 COW 引用计数值，超出表范围则忽略 */
+/* EN: Set the COW reference count for a physical page, ignoring pages outside the table */
 static void
 page_ref_set(unsigned pa, unsigned v)
 {
@@ -312,6 +316,8 @@ page_ref_set(unsigned pa, unsigned v)
 		page_ref[i] = (unsigned char)v;
 }
 
+/* 中文：读取物理页的 COW 引用计数，超出表范围的页视作独占返回 1 */
+/* EN: Get the COW reference count of a physical page, returning 1 (treated as unshared) for pages outside the table */
 static unsigned
 page_ref_get(unsigned pa)
 {
@@ -320,6 +326,8 @@ page_ref_get(unsigned pa)
 	return (i != 0 ? page_ref[i] : 1);
 }
 
+/* 中文：递增物理页的 COW 引用计数，上限 255，超出表范围则忽略 */
+/* EN: Increment a physical page's COW reference count up to 255, ignoring pages outside the table */
 static void
 page_ref_inc(unsigned pa)
 {
@@ -329,6 +337,8 @@ page_ref_inc(unsigned pa)
 		page_ref[i]++;
 }
 
+/* 中文：释放对物理页的一次引用：引用计数大于 1 则递减，否则把页放回空闲链表 */
+/* EN: Release one reference to a physical page: decrement the count if greater than 1, otherwise return the page to the free list */
 static void
 page_put(unsigned pa)
 {
@@ -351,6 +361,8 @@ static unsigned cd_mapped;		/* bytes mapped at CD_IMAGE_VA */
  * ISO9660 root.  Physical pages come from the bump allocator, so they are
  * contiguous, but we map them one page at a time.
  */
+/* 中文：惰性映射一块内核窗口，用于容纳从 ISO9660 根读取的单个映像；超限返回 0，否则返回窗口虚拟地址 */
+/* EN: Lazily map a kernel window large enough for one image read from the ISO9660 root; returns 0 if too large, else the window VA */
 static unsigned char *
 cd_map(unsigned size)
 {
@@ -371,6 +383,8 @@ cd_map(unsigned size)
 }
 static unsigned umask_val = 022;
 
+/* 中文：VFS 物理页分配包装：分配一页并返回其物理地址 */
+/* EN: VFS physical page allocation wrapper: allocate one page and return its physical address */
 unsigned
 vfs_page_alloc(void)
 {
@@ -378,6 +392,8 @@ vfs_page_alloc(void)
 	return (page_alloc());
 }
 
+/* 中文：VFS 物理页释放包装：归还一页物理内存 */
+/* EN: VFS physical page free wrapper: return one physical page to the allocator */
 void
 vfs_page_free(unsigned pa)
 {
@@ -389,6 +405,8 @@ vfs_page_free(unsigned pa)
  * Drop a kernel-window mapping (TMPFS_VA / scratch style).  The PTE lives in
  * kernel_pmap, so clearing it and flushing the TLB is enough.
  */
+/* 中文：解除一个内核虚拟地址处的页映射：清 PTE 并刷新 TLB */
+/* EN: Unmap the page at a kernel virtual address: clear its PTE and flush the TLB */
 void
 vfs_page_unmap(unsigned va)
 {
@@ -400,6 +418,8 @@ vfs_page_unmap(unsigned va)
 	tlbflush();
 }
 
+/* 中文：返回页分配器的统计：已分配、已释放与当前在用页数 */
+/* EN: Return page allocator statistics: pages allocated, freed and currently in use */
 void
 vfs_page_stats(unsigned *nalloc, unsigned *nfreed, unsigned *ninuse)
 {
@@ -415,6 +435,8 @@ static int user_ok(unsigned p, unsigned len);
 static int user_ok_w(unsigned p, unsigned len);
 static void proc_sched(void);
 
+/* 中文：分配一页物理内存：内存紧张时先尝试压缩回收私有匿名页，否则从空闲链表取或推进 bump 指针 */
+/* EN: Allocate a physical page: under memory pressure first try to reclaim private anonymous pages via compression, then pop the free list or bump the pointer */
 static unsigned
 page_alloc(void)
 {
@@ -452,6 +474,8 @@ page_alloc(void)
 	return (pa);
 }
 
+/* 中文：释放一页物理内存：忽略非法地址，把页压入 LIFO 空闲链表并更新引用计数与统计 */
+/* EN: Free a physical page: ignore invalid addresses, push it on the LIFO free list and update refcount and statistics */
 static void
 page_free(unsigned pa)
 {
@@ -474,6 +498,8 @@ page_free(unsigned pa)
  * this directory first.  Entries at/above PPDROFF are kernel mappings and
  * are never touched.
  */
+/* 中文：释放整个用户地址空间：逐个释放用户页、压缩页槽、页表与页目录，内核映射区不碰；调用前须已切换 CR3 */
+/* EN: Release a whole user address space: free every user page, compressed-page slot, page table and the directory; kernel mappings untouched; caller must have switched CR3 away first */
 static void
 free_address_space(unsigned pdpa)
 {
@@ -500,6 +526,8 @@ free_address_space(unsigned pdpa)
 	page_free(pdpa);
 }
 
+/* 中文：把物理页 pa 映射可读写到内核临时虚拟地址 va，并返回该虚拟地址 */
+/* EN: Map physical page pa read-write at the kernel scratch virtual address va and return that address */
 static void *
 map_page(unsigned va, unsigned pa)
 {
@@ -509,6 +537,8 @@ map_page(unsigned va, unsigned pa)
 	return ((void *)va);
 }
 
+/* 中文：把物理页 pa 映射到临时窗口并整页清零 */
+/* EN: Map physical page pa into the scratch window and zero the entire page */
 static void
 zero_page(unsigned pa)
 {
@@ -519,6 +549,8 @@ zero_page(unsigned pa)
 		p[i] = 0;
 }
 
+/* 中文：创建用户页目录：分配一页并清零，仅共享内核高端与 proc0 内核栈映射，返回其物理地址 */
+/* EN: Create a user page directory: allocate and zero a page, share only the kernel high-half and proc0 stack mappings, return its physical address */
 static unsigned
 user_pd_create(void)
 {
@@ -539,6 +571,8 @@ user_pd_create(void)
  * directory because after a fork/exec SCRATCH_PD no longer points at the
  * process we are editing (that bug silently unmapped the parent's heap).
  */
+/* 中文：在指定页目录中把用户虚拟地址 va 映射到物理页 pa（始终可写、用户态可访问），必要时分配页表 */
+/* EN: Map user virtual address va to physical page pa in a specific page directory (always writable, user accessible), allocating a page table if needed */
 static void
 user_map(unsigned pdpa, unsigned va, unsigned pa)
 {
@@ -566,6 +600,8 @@ user_map(unsigned pdpa, unsigned va, unsigned pa)
  * inspect an existing PTE.  These are used by mmap()/munmap(); user_map()
  * above stays the "always writable" helper used by exec/brk/stack.
  */
+/* 中文：查出用户地址 va 对应页表项指针，通过 ptp 回传；无有效页表返回 0 并把 *ptp 置空 */
+/* EN: Look up the page-table entry pointer for user address va via ptp; returns 0 and sets *ptp to NULL when no page table exists */
 static unsigned
 user_pte_ptr(unsigned pdpa, unsigned va, unsigned **ptp)
 {
@@ -582,6 +618,8 @@ user_pte_ptr(unsigned pdpa, unsigned va, unsigned **ptp)
 	return (pti);
 }
 
+/* 中文：在指定页目录中把 va 映射到 pa 并按 prot 设置写权限，供 mmap 使用（区别于始终可写的 user_map） */
+/* EN: Map va to pa in a specific page directory with write permission per prot, used by mmap (unlike the always-writable user_map) */
 static void
 user_map_prot(unsigned pdpa, unsigned va, unsigned pa, int prot)
 {
@@ -605,6 +643,8 @@ user_map_prot(unsigned pdpa, unsigned va, unsigned pa, int prot)
 	    ((prot & PROT_WRITE) ? PG_RW : 0);
 }
 
+/* 中文：解除用户地址 va 的映射：清对应页表项并刷新 TLB，供 munmap 使用 */
+/* EN: Unmap user address va: clear its page-table entry and flush the TLB, used by munmap */
 static void
 user_unmap(unsigned pdpa, unsigned va)
 {
@@ -617,6 +657,8 @@ user_unmap(unsigned pdpa, unsigned va)
 	}
 }
 
+/* 中文：查出用户地址 va 当前映射的物理页，未映射或不存在返回 0 */
+/* EN: Return the physical page currently mapped at user address va, or 0 if unmapped/absent */
 static unsigned
 user_getpa(unsigned pdpa, unsigned va)
 {
@@ -630,6 +672,8 @@ user_getpa(unsigned pdpa, unsigned va)
 
 /* ---------------------------------------------------------------- mmap */
 
+/* 中文：为进程 p 分配一个空闲的 VMA 槽位，用完返回 0 */
+/* EN: Allocate a free VMA slot for process p, returning 0 when none is available */
 static struct vma *
 vma_alloc(struct uproc *p)
 {
@@ -641,6 +685,8 @@ vma_alloc(struct uproc *p)
 	return (0);
 }
 
+/* 中文：查找包含地址 addr 的 VMA 槽位，找到返回指针，否则返回 0 */
+/* EN: Find the VMA slot containing address addr, returning its pointer or 0 if none */
 static struct vma *
 vma_find(struct uproc *p, unsigned addr)
 {
@@ -653,6 +699,8 @@ vma_find(struct uproc *p, unsigned addr)
 	return (0);
 }
 
+/* 中文：检查 [start, start+len) 是否与进程 p 的任何已有 VMA 区间重叠 */
+/* EN: Check whether [start, start+len) overlaps any existing VMA of process p */
 static int
 vma_overlaps(struct uproc *p, unsigned start, unsigned len)
 {
@@ -672,6 +720,8 @@ vma_overlaps(struct uproc *p, unsigned start, unsigned len)
 /*
  * mmap(addr, len, prot, flags, fd): returns the user address or -errno.
  */
+/* 中文：mmap 核心实现：校验参数与文件描述符，确定映射起始地址并登记一个 VMA；页面在首次访问时才分配 */
+/* EN: mmap core: validate arguments and fd, choose the mapping start address and register a VMA; pages are allocated lazily on first touch */
 static int
 do_mmap(unsigned addr, unsigned len, int prot, int flags, int fd)
 {
@@ -744,6 +794,8 @@ do_mmap(unsigned addr, unsigned len, int prot, int flags, int fd)
 	return ((int)start);
 }
 
+/* 中文：按需填充 mmap 映射页：匿名映射分配零页，共享文件映射页缓存页本身，私有映射拷贝一份并解除页缓存引用 */
+/* EN: Demand-fill an mmap page: anonymous mappings get a zeroed page, shared file mappings map the cache page itself, private mappings copy it and drop the cache reference */
 static int
 mmap_fault(unsigned va)
 {
@@ -782,6 +834,8 @@ mmap_fault(unsigned va)
 	return (1);
 }
 
+/* 中文：压缩页缺页重填：把 PG_ZCOMP 压缩槽的页解压回物理页，重装 PTE 并激活地址空间；失败返回 0 */
+/* EN: Refill a compressed-page fault: decompress a PG_ZCOMP slot back into a physical page, reinstall the PTE and activate the address space; returns 0 on failure */
 static int
 zcomp_refault(unsigned va)
 {
@@ -876,6 +930,8 @@ static int		aio_next_token;
 
 static void aio_soft(void *arg);
 
+/* 中文：初始化用户态异步 I/O：清零 aio 槽、为每个槽分配并映射内核缓冲页，注册 IPL_AIO 软中断处理 */
+/* EN: Initialize userland async I/O: clear aio slots, allocate and map a kernel buffer page per slot, and register the IPL_AIO softirq handler */
 void
 aio_user_init(void)
 {
@@ -895,6 +951,8 @@ aio_user_init(void)
 	printf("aio: %d submission slots at %x\n", NAIO, AIO_VA);
 }
 
+/* 中文：异步 I/O 完成回调：记录结果，读操作把内核缓冲拷回用户，若来自 ring 则压 CQE 并唤醒，否则触发 aio_soft */
+/* EN: Async I/O completion callback: record the result, copy kernel buffer back to user for reads, push a CQE and wake if from a ring, else raise aio_soft */
 static void
 aio_complete_kiocb(struct kiocb *ki, int r)
 {
@@ -927,6 +985,8 @@ aio_complete_kiocb(struct kiocb *ki, int r)
 	softirq_raise(IPL_AIO, aio_soft, s);
 }
 
+/* 中文：aio 完成软中断：找到等待该 token 的进程，把结果写入其 regs.eax、置为可运行并释放槽位；ring 完成不走此路 */
+/* EN: aio completion softirq: find the process waiting on the token, write the result into regs.eax, make it runnable and free the slot; ring completions skip this */
 static void
 aio_soft(void *arg)
 {
@@ -954,6 +1014,8 @@ aio_soft(void *arg)
 	}
 }
 
+/* 中文：提交一次异步读写：校验 fd、长度与用户缓冲，占用一个 aio 槽，写时拷入用户数据并发起异步 VFS 读写，成功返回 token */
+/* EN: Submit one async read/write: validate fd, length and user buffer, reserve an aio slot, copy in user data for writes and start async VFS I/O, returning a token on success */
 static int
 aio_submit_sys(int fd, int op, unsigned ubuf, unsigned len, unsigned off)
 {
@@ -1020,6 +1082,8 @@ aio_submit_sys(int fd, int op, unsigned ubuf, unsigned len, unsigned off)
 	return (token);
 }
 
+/* 中文：等待异步 I/O token：已完成则立即返回结果并释放槽，否则保存上下文、阻塞进程并调度，由 aio_soft 唤醒 */
+/* EN: Wait for an async I/O token: return the result and free the slot if done, else save context, block the process and schedule, to be woken by aio_soft */
 static int
 aio_wait_sys(int token, struct sysregs *r)
 {
@@ -1051,6 +1115,8 @@ found:
 	return (0);
 }
 
+/* 中文：轮询异步 I/O token：完成则返回结果并释放槽，未完成返回 -EAGAIN，token 无效返回 -EINVAL */
+/* EN: Poll an async I/O token: return result and free the slot if done, -EAGAIN if still pending, -EINVAL for an invalid token */
 static int
 aio_poll_sys(int token)
 {
@@ -1070,6 +1136,8 @@ aio_poll_sys(int token)
 	return (-EINVAL);
 }
 
+/* 中文：向 io_uring 环的完成队列压入一个 CQE（user_data/result），队列满则增加 overflow 并返回 0 */
+/* EN: Push a CQE (user_data/result) onto an io_uring ring's completion queue; on overflow increment the counter and return 0 */
 static int
 uring_cqe_push(struct uring_ring *rg, unsigned user_data, int result)
 {
@@ -1087,6 +1155,8 @@ uring_cqe_push(struct uring_ring *rg, unsigned user_data, int result)
 	return (1);
 }
 
+/* 中文：唤醒等待 io_uring 的进程：当本批完成数达到期望值时把结果写入其 regs.eax 并置为可运行 */
+/* EN: Wake the process waiting on an io_uring ring: when this batch's completions reach the expected count, write the result into regs.eax and make it runnable */
 static void
 uring_wake(struct uring_ring *rg)
 {
@@ -1110,6 +1180,8 @@ uring_wake(struct uring_ring *rg)
 	rg->r_wait_pid = 0;
 }
 
+/* 中文：创建 io_uring 环：分配空闲环与一页共享内存，映射内核/用户视图，初始化 SQE/CQ 头并返回用户虚拟地址 */
+/* EN: Set up an io_uring ring: allocate a free ring and a shared page, map kernel/user views, initialize SQE/CQ headers and return the user VA */
 static int
 uring_setup_sys(unsigned entries)
 {
@@ -1159,6 +1231,8 @@ uring_setup_sys(unsigned entries)
 	return ((int)uva);
 }
 
+/* 中文：进入/提交 io_uring：取出提交队列中的 SQE 逐个发起 aio 操作并关联到环，可选阻塞等待本批完成，返回提交数 */
+/* EN: Enter/submit an io_uring: take SQEs from the submission queue, start aio operations tied to the ring, optionally block waiting for the batch, returning the submitted count */
 static int
 uring_enter_sys(unsigned to_submit, int wait, struct sysregs *r)
 {
@@ -1221,6 +1295,8 @@ uring_enter_sys(unsigned to_submit, int wait, struct sysregs *r)
 	return ((int)submitted);
 }
 
+/* 中文：拆除 io_uring 环：解除用户映射与内核映射、释放物理页并标记环空闲 */
+/* EN: Tear down an io_uring ring: unmap user and kernel views, free the physical page and mark the ring unused */
 static int
 uring_teardown_sys(void)
 {
@@ -1242,6 +1318,8 @@ uring_teardown_sys(void)
 	return (0);
 }
 
+/* 中文：回收最多 n 个当前进程的私有匿名页：把候选页压缩进 zcomp 池并以 PG_ZCOMP 项替换 PTE，释放原物理页 */
+/* EN: Reclaim up to n private anonymous pages of the current process: compress candidates into the zcomp pool, replace their PTEs with PG_ZCOMP entries and free the pages */
 static int
 zcomp_reclaim(int n)
 {
@@ -1290,6 +1368,8 @@ zcomp_reclaim(int n)
 	return (done);
 }
 
+/* 中文：munmap 核心：找到起始地址处的 VMA，逐页解除映射；共享页释放页缓存引用，私有页释放物理页，并收缩或清空 VMA */
+/* EN: munmap core: find the VMA at addr, unmap pages; shared pages drop page-cache references, private pages are freed, then shrink or clear the VMA */
 static int
 do_munmap(unsigned addr, unsigned len)
 {
@@ -1335,6 +1415,8 @@ do_munmap(unsigned addr, unsigned len)
  * msync(addr, len): write a MAP_SHARED file mapping back through the vnode.
  * The ISO9660 root is read-only, so only tmpfs mappings can succeed.
  */
+/* 中文：msync 核心：把 MAP_SHARED 文件映射的脏页经 vnode write 写回，仅 tmpfs 可写成功，ISO9660 只读则跳过 */
+/* EN: msync core: write back dirty MAP_SHARED file-mapping pages via vnode write; only tmpfs succeeds, read-only ISO9660 is skipped */
 static int
 do_msync(unsigned addr, unsigned len)
 {
@@ -1377,6 +1459,8 @@ do_msync(unsigned addr, unsigned len)
  * and drop the page reference.  Private pages are owned by the process and
  * are left for free_address_space().
  */
+/* 中文：地址空间销毁前清理所有映射：共享页解除映射并释放页缓存引用，私有页留给 free_address_space 处理 */
+/* EN: Drop all mappings before the address space goes away: unmap shared pages and drop cache references, leaving private pages to free_address_space */
 static void
 mmap_teardown(struct uproc *p)
 {
@@ -1404,6 +1488,8 @@ mmap_teardown(struct uproc *p)
 	p->p_mmap_base = MMAP_BASE;
 }
 
+/* 中文：把 ELF 映像的 PT_LOAD 段按程序头逐页映射到指定页目录，设置保护权限并回写入口地址 */
+/* EN: Map the ELF image's PT_LOAD segments page by page into a page directory with proper protections, writing back the entry address */
 static void
 load_elf(unsigned pdpa, const unsigned char *img, unsigned len, unsigned *entry)
 {
@@ -1462,6 +1548,8 @@ load_elf(unsigned pdpa, const unsigned char *img, unsigned len, unsigned *entry)
  * Lay out argc/argv/envp on a fresh page mapped at USER_ARG_PAGE.
  * Returns the user ESP to start with.
  */
+/* 中文：在新用户栈上布局 argc/argv/envp 与指针数组，映射参数页并返回初始 ESP */
+/* EN: Lay out argc/argv/envp and pointer arrays on a fresh user stack, map the argument page and return the initial ESP */
 static unsigned
 build_args(unsigned pdpa, char **argv, int argc, char **envp, int envc)
 {
@@ -1507,6 +1595,8 @@ build_args(unsigned pdpa, char **argv, int argc, char **envp, int envc)
 	return (esp);
 }
 
+/* 中文：从 ELF 映像构建可执行用户映像：创建页目录、加载 ELF 段、压入 argv/envp，返回页目录与入口/栈指针 */
+/* EN: Build an executable user image from an ELF blob: create a page directory, load ELF segments, push argv/envp, returning the PD and entry/stack pointers */
 static unsigned
 build_image(const unsigned char *img, unsigned len, unsigned *entry,
     char **argv, int argc, char **envp, int envc, unsigned *uesp)
@@ -1526,6 +1616,8 @@ build_image(const unsigned char *img, unsigned len, unsigned *entry,
 
 /* ------------------------------------------------------------------ ramfs */
 
+/* 中文：安全读取用户字符串到内核缓冲 dst：校验地址已映射并逐字节拷贝，遇 NUL 返回长度，越界或无映射返回 -1 */
+/* EN: Safely read a user string into kernel buffer dst: verify pages are mapped and copy bytes, return length at NUL or -1 if invalid */
 static int
 user_str(unsigned p, char *dst, int max)
 {
@@ -1544,6 +1636,8 @@ user_str(unsigned p, char *dst, int max)
 	return (-1);
 }
 
+/* 中文：从用户地址安全读取一个机器字到 vp，成功返回 0，失败返回 -1 */
+/* EN: Safely read one machine word from a user address into vp, returning 0 on success or -1 on failure */
 static int
 user_word(unsigned p, unsigned *vp)
 {
@@ -1553,6 +1647,8 @@ user_word(unsigned p, unsigned *vp)
 	return (0);
 }
 
+/* 中文：在只读 ramfs 表中按名字查找文件，找到返回 struct file 指针，否则 0 */
+/* EN: Look up a file by name in the read-only ramfs table, returning its struct file pointer or 0 */
 static struct file *
 fs_lookup(const char *name)
 {
@@ -1564,6 +1660,8 @@ fs_lookup(const char *name)
 	return (0);
 }
 
+/* 中文：判断 ISO9660 上是否存在给定路径的文件：已挂载且 iso_lookup 成功返回 1 */
+/* EN: Check whether a path exists on the ISO9660 image: returns 1 if mounted and iso_lookup succeeds */
 static int
 isofile_exists(const char *path)
 {
@@ -1572,6 +1670,8 @@ isofile_exists(const char *path)
 	return (iso_mounted() && iso_lookup(path, &lba, &size) == 0);
 }
 
+/* 中文：为 ramfs 文件 f 在当前进程分配一个 FD_FILE 描述符并初始化其数据/长度/偏移，返回 fd 号或 -1 */
+/* EN: Allocate an FD_FILE descriptor for ramfs file f in the current process and init its data/len/offset, returning the fd or -1 */
 static int
 fd_alloc(struct file *f)
 {
@@ -1596,6 +1696,8 @@ fd_alloc(struct file *f)
 	return (-1);
 }
 
+/* 中文：为 vnode vp 分配一个文件描述符（FD_FILE 或 FD_DIR），设置 rw 与偏移并增加引用，返回 fd 号或 -1 */
+/* EN: Allocate a file descriptor for vnode vp (FD_FILE or FD_DIR), set rw and offset and take a reference, returning the fd or -1 */
 static int
 fd_alloc_vnode(struct vnode *vp, int rw, unsigned off)
 {
@@ -1618,6 +1720,8 @@ fd_alloc_vnode(struct vnode *vp, int rw, unsigned off)
 	return (-1);
 }
 
+/* 中文：为 ISO9660 目录分配 FD_DIR 描述符，记录其起始 lba 与大小，返回 fd 号或 -1 */
+/* EN: Allocate an FD_DIR descriptor for an ISO9660 directory, recording its start lba and size, returning the fd or -1 */
 static int
 fd_alloc_dir(unsigned lba, unsigned size)
 {
@@ -1663,6 +1767,8 @@ struct tmpfs_node {
 
 static struct tmpfs_node tmpfs[NTMPFS];
 
+/* 中文：按名字查找 tmpfs 节点，找到返回节点指针，否则 0 */
+/* EN: Find a tmpfs node by name, returning its pointer or 0 */
 static struct tmpfs_node *
 tmpfs_find(const char *name)
 {
@@ -1674,6 +1780,8 @@ tmpfs_find(const char *name)
 	return (0);
 }
 
+/* 中文：按名字创建 tmpfs 文件/目录节点：已存在同名同类则返回它，否则分配槽位，文件则映射一页数据并清零 */
+/* EN: Create a tmpfs file/directory node by name: return an existing matching node, else allocate a slot and, for files, map and zero a data page */
 static struct tmpfs_node *
 tmpfs_create(const char *name, int isdir)
 {
@@ -1713,6 +1821,8 @@ tmpfs_create(const char *name, int isdir)
 	return (0);
 }
 
+/* 中文：删除 tmpfs 节点：清 used 标志、大小与数据指针 */
+/* EN: Remove a tmpfs node: clear its used flag, size and data pointer */
 static void
 tmpfs_remove(struct tmpfs_node *n)
 {
@@ -1726,6 +1836,8 @@ tmpfs_remove(struct tmpfs_node *n)
  * "/tmp" is the tmpfs root; "/tmp/name" is a node.  Anything deeper is not
  * supported (one flat level is enough for redirection and scratch files).
  */
+/* 中文：解析 /tmp 或 /tmp/name 路径：根路径返回 isdir=1、np=0，单层节点返回对应节点及类型，非法路径返回 -1 */
+/* EN: Parse a /tmp or /tmp/name path: the root yields isdir=1 and np=0, a single-level node returns its pointer and type, invalid paths return -1 */
 static int
 tmpfs_lookup(const char *path, struct tmpfs_node **np, int *isdir)
 {
@@ -1747,6 +1859,8 @@ tmpfs_lookup(const char *path, struct tmpfs_node **np, int *isdir)
 	return (0);
 }
 
+/* 中文：判断路径是否位于 tmpfs（/tmp、/tmp/ 或 /tmp/...），是则返回 1 */
+/* EN: Check whether a path is under tmpfs (/tmp, /tmp/ or /tmp/...), returning 1 if so */
 static int
 tmpfs_is_tmp(const char *path)
 {
@@ -1755,6 +1869,8 @@ tmpfs_is_tmp(const char *path)
 	    strncmp(path, "/tmp/", 5) == 0);
 }
 
+/* 中文：为 tmpfs 节点 n 分配 FD_TMPFILE 描述符，设置读写方式、偏移和长度，返回 fd 号或 -1 */
+/* EN: Allocate an FD_TMPFILE descriptor for tmpfs node n, set access mode, offset and length, returning the fd or -1 */
 static int
 fd_alloc_tmpfile(struct tmpfs_node *n, int rw, unsigned off)
 {
@@ -1776,6 +1892,8 @@ fd_alloc_tmpfile(struct tmpfs_node *n, int rw, unsigned off)
 	return (-1);
 }
 
+/* 中文：分配一个 FD_TMPDIR 描述符用于读取 tmpfs 根目录，返回 fd 号或 -1 */
+/* EN: Allocate an FD_TMPDIR descriptor for reading the tmpfs directory, returning the fd or -1 */
 static int
 fd_alloc_tmpdir(void)
 {
@@ -1815,6 +1933,8 @@ struct pipe {
 
 static struct pipe pipes[NPIPE];
 
+/* 中文：分配一个空闲管道槽位并清零，返回管道指针，无空闲则返回 0 */
+/* EN: Allocate and clear a free pipe slot, returning its pointer or 0 if none */
 static struct pipe *
 pipe_alloc(void)
 {
@@ -1830,6 +1950,8 @@ pipe_alloc(void)
 	return (0);
 }
 
+/* 中文：在指定进程页目录下在内核缓冲与用户地址 va 之间拷贝 n 字节，临时切换 CR3 后恢复 */
+/* EN: Copy n bytes between a kernel buffer and user address va under a given page directory, temporarily switching CR3 then restoring */
 static void
 pipe_copy(unsigned pd, unsigned va, const void *kbuf, unsigned n, int touser)
 {
@@ -1849,6 +1971,8 @@ pipe_copy(unsigned pd, unsigned va, const void *kbuf, unsigned n, int touser)
  * the writer's context, so the reader's page directory is installed for the
  * duration; the kernel is mapped in both.
  */
+/* 中文：把管道中待读数据交给阻塞的读者：在读者页目录上下文把数据拷入其缓冲，处理环形回绕，置结果并唤醒；eof 时返回 0 */
+/* EN: Hand pending pipe data to a blocked reader: copy into its buffer under its page directory handling ring wrap, set result and wake; EOF yields 0 */
 static void
 pipe_wake_reader(struct pipe *pp, int eof)
 {
@@ -1881,6 +2005,8 @@ pipe_wake_reader(struct pipe *pp, int eof)
 	p->state = P_RUN;
 }
 
+/* 中文：把管道数据在写者上下文拷入阻塞读者缓冲，处理环形回绕并置结果唤醒；epipe 时返回 -EPIPE */
+/* EN: Copy pipe data into a blocked writer's buffer in the writer's context handling ring wrap, set result and wake; epipe yields -EPIPE */
 static void
 pipe_wake_writer(struct pipe *pp, int epipe)
 {
@@ -1914,6 +2040,8 @@ pipe_wake_writer(struct pipe *pp, int epipe)
 	p->state = P_RUN;
 }
 
+/* 中文：关闭文件描述符：管道端减少读/写者计数并按需唤醒对端，释放 vnode 引用，最后标记 fd 空闲 */
+/* EN: Close a file descriptor: decrement pipe reader/writer counts and wake peers as needed, drop the vnode reference and mark the fd free */
 static void
 fd_close(int fd)
 {
@@ -1947,6 +2075,8 @@ fd_close(int fd)
 	fp->used = 0;
 }
 
+/* 中文：为 fd 结构持有的 vnode 增加一次引用计数 */
+/* EN: Increment the reference count of the vnode held by an fd structure */
 static void
 fd_ref(struct fd *fp)
 {
@@ -1970,6 +2100,8 @@ extern int vfs_absolutize(const char *, const char *, char *, unsigned);
  * and new pages with the same contents.  The kernel's high mappings are
  * shared, as usual.
  */
+/* 中文：深拷贝用户地址空间：新建页目录与页表并逐页复制内容，内核高端映射共享 */
+/* EN: Deep-copy a user address space: create new page directory and tables and copy each page, sharing kernel high mappings */
 static unsigned
 copy_address_space(unsigned srcpd)
 {
@@ -2014,6 +2146,8 @@ copy_address_space(unsigned srcpd)
  * page fault and gets a private copy.  Pages that were already read-only
  * (text) are shared read-only as before.
  */
+/* 中文：写时复制方式克隆用户地址空间：父子共享物理页并置 PG_COW、清 PG_RW，增加引用计数，首次写入再私有复制 */
+/* EN: Clone a user address space copy-on-write: parent and child share pages with PG_COW set and PG_RW cleared, bumping refcounts until first write */
 static unsigned
 copy_address_space_cow(unsigned srcpd)
 {
@@ -2059,6 +2193,8 @@ copy_address_space_cow(unsigned srcpd)
  * 按需零页：访问当前 brk 以下但尚未映射的地址时，分配并映射一个零页；
  * 堆范围之外的访问仍是非法访问，最终投递 SIGSEGV。
  */
+/* 中文：按需零页缺页处理：堆或栈范围内的未映射访问分配一个零页映射并激活地址空间，范围外返回 0 */
+/* EN: Handle demand-zero faults: map a fresh zeroed page for unmapped heap/stack accesses and activate the address space, returning 0 outside those ranges */
 static int
 demand_page(unsigned va)
 {
@@ -2085,6 +2221,8 @@ demand_page(unsigned va)
  * Write fault on a COW page: if we are the last user just make it
  * writable, otherwise allocate and copy.  Returns 1 when handled.
  */
+/* 中文：用户态缺页入口：非 present 页交给压缩重填/按需零页/mmap 缺页处理，COW 写故障则独占或复制页，返回是否处理成功 */
+/* EN: User page-fault entry: route not-present faults to zcomp/demand-zero/mmap handlers and handle COW write faults by taking ownership or copying, returning whether handled */
 int
 user_page_fault(unsigned va, unsigned err)
 {
@@ -2122,6 +2260,8 @@ user_page_fault(unsigned va, unsigned err)
 	return (1);
 }
 
+/* 中文：打印 COW 统计信息：共享页数、缺页次数与私有复制次数 */
+/* EN: Print copy-on-write statistics: shared pages, fault count and private copy count */
 void
 cow_print(void)
 {
@@ -2130,6 +2270,8 @@ cow_print(void)
 	    cow_shared, cow_faults, cow_copies);
 }
 
+/* 中文：为进程 p 生成用户态内核执行载体线程（主线程），初始化线程与线程链表指针 */
+/* EN: Spawn the main user-mode kernel thread for process p and initialize its thread list pointers */
 static struct kthread *
 proc_add_thread(struct uproc *p, int tid)
 {
@@ -2144,6 +2286,8 @@ proc_add_thread(struct uproc *p, int tid)
 	return (t);
 }
 
+/* 中文：分配一个空闲进程槽并初始化：设置 cwd、mmap 基址及 0/1/2 三个控制台 fd，返回进程指针或 0 */
+/* EN: Allocate and init a free process slot: set cwd, mmap base and console fds 0/1/2, returning its pointer or 0 */
 static struct uproc *
 proc_alloc(void)
 {
@@ -2173,6 +2317,8 @@ proc_alloc(void)
  * S15: remember a short process name for /dev/ps ("comm").  The kernel does
  * not keep argv around, so the executable's basename is the best we have.
  */
+/* 中文：记录进程的可执行文件基名到 p_comm（用于 /dev/ps），内核不保留 argv */
+/* EN: Record the executable basename of a path into p_comm for /dev/ps; the kernel does not keep argv */
 static void
 proc_setcomm(struct uproc *p, const char *path)
 {
@@ -2188,6 +2334,8 @@ proc_setcomm(struct uproc *p, const char *path)
 		p->p_comm[i] = base[i];
 }
 
+/* 中文：按 pid 查找进程：找到返回进程指针，否则 0 */
+/* EN: Find a process by pid, returning its pointer or 0 */
 static struct uproc *
 proc_find(int pid)
 {
@@ -2199,6 +2347,8 @@ proc_find(int pid)
 	return (0);
 }
 
+/* 中文：统计指定 pid 的子进程数量 */
+/* EN: Count the number of child processes of a given pid */
 static int
 proc_children(int pid)
 {
@@ -2214,6 +2364,8 @@ proc_children(int pid)
  * Pick the next runnable process and return to user mode.
  * Never returns.
  */
+/* 中文：进程调度器：循环运行内核线程与可运行用户线程（先投递信号再 resume_user），无任务时停机；永不返回 */
+/* EN: Process scheduler: loop running kernel threads and runnable user threads (deliver signals then resume_user), halting when idle; never returns */
 static void
 proc_sched(void)
 {
@@ -2293,6 +2445,8 @@ proc_sched(void)
 int	need_resched;
 unsigned sched_switches;
 
+/* 中文：时钟中断抢占处理：保存被中断用户线程的上下文，按轮转选中下一可运行线程并改写中断帧，iret 直接进入新线程 */
+/* EN: Clock-tick preemption: save the interrupted user context, round-robin pick the next runnable thread and rewrite the frame so iret enters it */
 void
 sched_tick(struct sysregs *r)
 {
@@ -2353,6 +2507,8 @@ sched_tick(struct sysregs *r)
 		me->t_regs = *r;
 }
 
+/* 中文：fork 实现：分配子进程、COW 克隆地址空间、继承 fd/管道/工作目录、复制上下文，子进程返回 0，父进程返回子 pid */
+/* EN: fork implementation: allocate a child, COW-clone its address space, inherit fds/pipes/cwd, copy context; child returns 0, parent returns child pid */
 static int
 do_fork(struct sysregs *r)
 {
@@ -2398,6 +2554,8 @@ do_fork(struct sysregs *r)
 	return (p->pid);
 }
 
+/* 中文：vfork 实现：用 COW 私有拷贝共享地址空间，父进程阻塞直到子进程 exec/exit，子进程返回 0 */
+/* EN: vfork implementation: use a COW private copy of the shared address space, block the parent until the child execs/exits, child returns 0 */
 static int
 do_vfork(struct sysregs *r)
 {
@@ -2441,6 +2599,8 @@ do_vfork(struct sysregs *r)
 	return (0);
 }
 
+/* 中文：进程退出：唤醒 vfork/wait4 等待者并写状态，关闭所有 fd、释放线程与 mmap 及地址空间，置为僵尸或空闲 */
+/* EN: Process exit: wake vfork/wait4 waiters with status, close all fds, free thread/mmap/address space, then mark zombie or free */
 static void
 proc_exit(int code)
 {
@@ -2520,6 +2680,8 @@ proc_exit(int code)
  * terminated with the signal recorded in p_termsig so wait4() reports
  * WIFSIGNALED; the scheduler then runs another thread.
  */
+/* 中文：用户态异常（SIGSEGV 等）处理：记录 p_termsig、终止该进程所有线程并调用 proc_exit，保证应用死而内核存活 */
+/* EN: Handle a user-mode exception: record p_termsig, terminate all threads and call proc_exit so the app dies but the kernel survives */
 void
 user_fault(int sig, unsigned eip, unsigned va)
 {
@@ -2564,6 +2726,8 @@ struct sigframe {
 #define	SIGTRAMP		8	/* movl $103,%eax ; int $0x80 ; hlt */
 
 /* 0 = ignore, 1 = terminate, 2 = stop */
+/* 中文：返回信号的默认动作：忽略、终止(1)或停止(2)，SIGCHLD/SIGCONT 等忽略，停止类信号返回 2 */
+/* EN: Return a signal's default action: ignore, terminate (1) or stop (2); SIGCHLD/SIGCONT are ignored, stop signals return 2 */
 static int
 sig_default(int sig)
 {
@@ -2578,6 +2742,8 @@ sig_default(int sig)
 	}
 }
 
+/* 中文：向进程 p 发送信号：SIGCONT 恢复停止进程，否则置挂起位；阻塞进程被置可运行并收到 -EINTR */
+/* EN: Send a signal to process p: SIGCONT resumes a stopped process, else set the pending bit; a blocked process becomes runnable with -EINTR */
 static void
 sig_send(struct uproc *p, int sig)
 {
@@ -2600,6 +2766,8 @@ sig_send(struct uproc *p, int sig)
 	}
 }
 
+/* 中文：向进程组 pgrp 的所有进程发送信号 */
+/* EN: Send a signal to every process in process group pgrp */
 static void
 sig_send_pgrp(int pgrp, int sig)
 {
@@ -2610,6 +2778,8 @@ sig_send_pgrp(int pgrp, int sig)
 			sig_send(&procs[i], sig);
 }
 
+/* 中文：按 pid 向单个进程发送信号，找不到则忽略 */
+/* EN: Send a signal to a single process by pid, ignoring it if not found */
 static void
 sig_send_pid(int pid, int sig)
 {
@@ -2620,6 +2790,8 @@ sig_send_pid(int pid, int sig)
 }
 
 /* push a sigframe + trampoline on the user stack and point the frame at it */
+/* 中文：在用户栈上压入 sigframe 与返回跳板（sigreturn 系统调用），把上下文改为信号处理入口；栈无效返回 -1 */
+/* EN: Push a sigframe and sigreturn trampoline on the user stack and redirect context to the handler; returns -1 for a bad stack */
 static int
 sig_setup(struct uproc *p, struct sysregs *r, int sig)
 {
@@ -2667,6 +2839,8 @@ sig_setup(struct uproc *p, struct sysregs *r, int sig)
 	return (0);
 }
 
+/* 中文：停止进程：置 P_STOPPED 与停止信号，并唤醒带 WUNTRACED 等待的父进程写入停止状态 */
+/* EN: Stop a process: set P_STOPPED and the stop signal, then wake a WUNTRACED-waiting parent with the stop status */
 static void
 sig_stop(struct uproc *p, int sig)
 {
@@ -2691,6 +2865,8 @@ sig_stop(struct uproc *p, int sig)
  * Deliver at most one signal per return to user mode.  The caller must run
  * with the target process's page directory loaded.
  */
+/* 中文：返回用户态前投递至多一个信号：处理 SIGCONT/忽略/捕获/默认动作，默认终止则退出或置僵尸；调用前须已加载目标页目录 */
+/* EN: Deliver at most one pending signal before returning to user mode: handle SIGCONT/ignore/catch/default, terminating or zombifying as needed; caller must have the target PD loaded */
 static void
 sig_deliver(struct uproc *p, struct sysregs *r)
 {
@@ -2745,6 +2921,8 @@ sig_deliver(struct uproc *p, struct sysregs *r)
 		return;
 	}
 }
+/* 中文：wait4 实现：回收指定（或任意）僵尸/停止子进程并写状态，无子进程返回 ECHILD，WNOHANG 立即返回，否则阻塞调度 */
+/* EN: wait4 implementation: reap a specific (or any) zombie/stopped child and write status; ECHILD if none, WNOHANG returns immediately, else block and schedule */
 static int
 do_wait4(int want, unsigned statusp, int options, struct sysregs *r)
 {
@@ -2796,6 +2974,8 @@ do_wait4(int want, unsigned statusp, int options, struct sysregs *r)
 
 /* ---- S13: render the process table for the /dev/ps pseudo file ---- */
 
+/* 中文：把字符串 s 追加到缓冲区 buf 的偏移 o 处（留一字节余量），返回新偏移 */
+/* EN: Append string s to buffer buf at offset o (leaving one byte of slack), returning the new offset */
 static unsigned
 ps_str(char *buf, unsigned o, unsigned len, const char *s)
 {
@@ -2805,6 +2985,8 @@ ps_str(char *buf, unsigned o, unsigned len, const char *s)
 	return (o);
 }
 
+/* 中文：把无符号数 v 以十进制追加到缓冲区 buf 的偏移 o 处，返回新偏移 */
+/* EN: Append unsigned value v in decimal to buffer buf at offset o, returning the new offset */
 static unsigned
 ps_num(char *buf, unsigned o, unsigned len, unsigned v)
 {
@@ -2822,6 +3004,8 @@ ps_num(char *buf, unsigned o, unsigned len, unsigned v)
 	return (o);
 }
 
+/* 中文：为 /dev/ps 生成进程表文本：逐进程列出 pid、ppid、pgrp、状态与 comm，NUL 结尾并返回长度 */
+/* EN: Render the process table text for /dev/ps: list pid, ppid, pgrp, state and comm per process, NUL-terminate and return the length */
 static int
 proc_list_text(char *buf, unsigned len)
 {
@@ -2858,6 +3042,8 @@ proc_list_text(char *buf, unsigned len)
 
 /* --------------------------------------------------------------- syscalls */
 /* Absolutize a path argument once, here in the syscall layer. */
+/* 中文：在系统调用层把用户路径参数 uptr 读入 rel 并用当前 cwd 绝对化到 buf，读取失败返回 -EFAULT */
+/* EN: Read a user path argument at uptr into rel and absolutize it against the current cwd into buf; returns -EFAULT on read failure */
 static int
 path_arg(unsigned uptr, char *buf, unsigned len)
 {
@@ -2870,6 +3056,8 @@ path_arg(unsigned uptr, char *buf, unsigned len)
 
 
 
+/* 中文：校验用户缓冲 [p,p+len) 可读：逐页检查映射，必要时补页/COW 私有化，全部有效返回 1，否则 0 */
+/* EN: Validate that user buffer [p,p+len) is readable: check each page's mapping, demand-fault/COW as needed, return 1 if all valid else 0 */
 static int
 user_ok(unsigned p, unsigned len)
 {
@@ -2919,6 +3107,8 @@ user_ok(unsigned p, unsigned len)
 }
 
 /* Like user_ok(), but the kernel is going to write: the PTE must be RW. */
+/* 中文：校验用户缓冲可写：在 user_ok 基础上额外要求每页 PTE 具 PG_RW，全部满足返回 1 */
+/* EN: Validate that a user buffer is writable: on top of user_ok, additionally require PG_RW on every page's PTE, returning 1 if all satisfied */
 static int
 user_ok_w(unsigned p, unsigned len)
 {
@@ -2941,6 +3131,8 @@ user_ok_w(unsigned p, unsigned len)
  * the 4.5BSD locore.s copyin/copyout assembly, which uses pcb_onfault and
  * is not wired into this port; the contract is the same: 0 or -EFAULT.
  */
+/* 中文：校验用户地址后从用户缓冲拷贝 len 字节到内核 kaddr，成功返回 0，否则 -EFAULT */
+/* EN: After validating the user address, copy len bytes from user buffer into kernel kaddr; returns 0 or -EFAULT */
 static int
 ucopyin(void *udaddr, void *kaddr, unsigned len)
 {
@@ -2951,6 +3143,8 @@ ucopyin(void *udaddr, void *kaddr, unsigned len)
 	return (0);
 }
 
+/* 中文：校验用户地址可写后从内核 kaddr 拷贝 len 字节到用户缓冲，成功返回 0，否则 -EFAULT */
+/* EN: After validating the user address is writable, copy len bytes from kernel kaddr into the user buffer; returns 0 or -EFAULT */
 static int
 ucopyout(void *kaddr, void *udaddr, unsigned len)
 {
@@ -2970,6 +3164,8 @@ ucopyout(void *kaddr, void *udaddr, unsigned len)
  */
 extern unsigned char rtcin(int);
 
+/* 中文：把 CMOS RTC 的 BCD 编码字节 v 转换为十进制整数 */
+/* EN: Convert a BCD-encoded CMOS RTC byte v into a decimal integer */
 static int
 rtc_bcd(int v)
 {
@@ -2977,6 +3173,8 @@ rtc_bcd(int v)
 	return ((v & 0xf) + (v >> 4) * 10);
 }
 
+/* 中文：把年月日 (y,m,d) 换算为自 1970-01-01 起的天数，考虑闰年 */
+/* EN: Convert a date (y,m,d) into days since 1970-01-01, accounting for leap years */
 static long
 rtc_days(int y, int m, int d)
 {
@@ -2996,6 +3194,8 @@ rtc_days(int y, int m, int d)
 	return (days);
 }
 
+/* 中文：直接从 CMOS RTC 读取当前时间并换算为 Unix 纪元秒数，处理 12/24 小时与 BCD/二进制格式，非法日期返回 0 */
+/* EN: Read the current time directly from the CMOS RTC and convert to Unix epoch seconds, handling 12/24-hour and BCD/binary formats; invalid dates return 0 */
 static long
 rtc_epoch(void)
 {
@@ -3038,6 +3238,8 @@ rtc_epoch(void)
  */
 #define	STAT_SIZE	96
 
+/* 中文：填充 4.4BSD i386 struct stat（96 字节）：清零后置 dev/ino/mode/nlink/size/blksize 等字段 */
+/* EN: Fill a 4.4BSD i386 struct stat (96 bytes): zero it then set dev/ino/mode/nlink/size/blksize fields */
 static void
 fill_stat(unsigned mode, unsigned size, unsigned *sb)
 {
@@ -3055,6 +3257,8 @@ fill_stat(unsigned mode, unsigned size, unsigned *sb)
 	*(unsigned *)(p + 64) = 4096;		/* st_blksize */
 }
 
+/* 中文：exec 核心：经 VFS 读取可执行文件到内核窗口，从用户态复制 argv/envp，构建新映像并切换地址空间与上下文；vfork 子进程唤醒父进程 */
+/* EN: exec core: read the executable via VFS into a kernel window, copy argv/envp from user, build a new image and switch address space and context; a vfork child wakes its parent */
 static int
 exec_image(const char *path, unsigned uargv, unsigned uenvp, struct sysregs *r)
 {
@@ -3145,6 +3349,8 @@ exec_image(const char *path, unsigned uargv, unsigned uenvp, struct sysregs *r)
  * Canonical console input for fd 0: echo, erase (BS/DEL), kill (^U),
  * word-erase (^W) and EOF (^D on an empty line).
  */
+/* 中文：控制台 fd 0 的规范输入：回显并处理退格、^U 清行、^W 清词、^D EOF，以及 ^C/^Z/^\ 向前台进程组发信号 */
+/* EN: Canonical console input for fd 0: echo with backspace, ^U kill-line, ^W kill-word, ^D EOF and ^C/^Z/^\ signals to the foreground pgrp */
 static int
 console_read(char *buf, unsigned len)
 {
@@ -3229,6 +3435,8 @@ console_read(char *buf, unsigned len)
  * console is always in canonical mode with echo, which is exactly what
  * isatty(3)/sh want to see.
  */
+/* 中文：控制台 termios 处理：get 时填充规范模式+回显的 termios 结构，set 时接受但忽略（标志固定） */
+/* EN: Console termios handling: on get fill a canonical+echo termios struct; on set accept but ignore since flags are fixed */
 static int
 console_termios(unsigned arg, int get)
 {
@@ -3266,6 +3474,8 @@ console_termios(unsigned arg, int get)
  * the existing fork/wait/pipe paths are unchanged); additional threads keep
  * their context in kthread.t_regs and are scheduled by the thread table.
  */
+/* 中文：创建用户级线程：分配 tid 与用户栈（或采用指定栈顶）、生成 kthread、设置入口/参数/上下文并置为可运行，返回 tid */
+/* EN: Create a user thread: allocate a tid and user stack (or use a given top), spawn a kthread, set entry/arg/context and mark runnable, returning the tid */
 static int
 thread_create(struct sysregs *r)
 {
@@ -3298,6 +3508,8 @@ thread_create(struct sysregs *r)
 	return (tid);
 }
 
+/* 中文：终止当前线程：主线程走 proc_exit，其余线程置僵尸、减少计数、唤醒 join 者，分离线程则释放，最后调度 */
+/* EN: Exit the current thread: main thread calls proc_exit; others become zombie, decrement count, wake joiners, free if detached, then schedule */
 static void
 thread_exit_current(int code)
 {
@@ -3340,6 +3552,8 @@ thread_exit_current(int code)
 	proc_sched();
 }
 
+/* 中文：分离线程 tid：找不到返回 ESRCH，已被 join 返回 EINVAL，否则置分离标志 */
+/* EN: Detach thread tid: ESRCH if not found, EINVAL if already joined, else set the detached flag */
 static int
 thread_detach(int tid)
 {
@@ -3354,6 +3568,8 @@ thread_detach(int tid)
 	return (0);
 }
 
+/* 中文：等待线程 tid：已僵尸则取退出码并释放，否则当前线程记录 join_tid、保存上下文、阻塞并调度 */
+/* EN: Join thread tid: if zombie take its exit code and free it, else record join_tid, save context, block and schedule */
 static int
 thread_join(int tid, struct sysregs *r)
 {
@@ -3383,6 +3599,8 @@ thread_join(int tid, struct sysregs *r)
 	return (0);
 }
 
+/* 中文：返回当前线程的 tid，无当前线程时返回进程 pid */
+/* EN: Return the current thread's tid, or the process pid when there is no current thread */
 static int
 thread_self(void)
 {
@@ -3390,6 +3608,8 @@ thread_self(void)
 	return (cur_thread != 0 ? cur_thread->t_tid : cur->pid);
 }
 
+/* 中文：线程让出 CPU：保存当前上下文并置为可运行，然后调度其它线程 */
+/* EN: Yield the CPU: save the current context and mark it runnable, then schedule another thread */
 static void
 thread_yield(struct sysregs *r)
 {
@@ -3406,6 +3626,8 @@ thread_yield(struct sysregs *r)
 	proc_sched();
 }
 
+/* 中文：原生 4.5BSD 系统调用分发器：按 eax 调用号分派到各系统调用实现，结果写回 r->eax */
+/* EN: Native 4.5BSD system-call dispatcher: dispatch on the eax call number to the various syscall implementations, writing the result back to r->eax */
 int
 bsd45_syscall(struct sysregs *r)
 {
@@ -4666,6 +4888,8 @@ bsd45_syscall(struct sysregs *r)
  * Trap entry point (called from usermode_asm.s).  The active personality
  * translates its API into bsd45_syscall(); the trap path never changes.
  */
+/* 中文：非原生 ABI 的陷阱入口：由当前 personality 把其 API 转换为 bsd45_syscall，陷阱路径本身不变 */
+/* EN: Trap entry for non-native ABIs: the active personality translates its API into bsd45_syscall; the trap path itself is unchanged */
 void
 syscall_dispatch(struct sysregs *r)
 {
@@ -4699,6 +4923,8 @@ syscall_dispatch(struct sysregs *r)
 	}
 }
 
+/* 中文：安装系统调用门：委托 HAL 的 hal_syscall_gate_init 完成 IDT 设置 */
+/* EN: Install the system-call gate: delegate to the HAL's hal_syscall_gate_init for IDT setup */
 void
 syscall_gate_init(void)
 {
@@ -4706,6 +4932,8 @@ syscall_gate_init(void)
 	hal_syscall_gate_init();
 }
 
+/* 中文：启动首个用户程序：经 VFS 读取并构建映像，初始化 pid 1 进程与主线程，安装系统调用门后经 enter_user 切到用户态 */
+/* EN: Start the first user program: read and build the image via VFS, init pid 1 and its main thread, install the syscall gate and switch to user mode via enter_user */
 void
 start_prog(const char *path, const char *script)
 {
@@ -4789,6 +5017,8 @@ start_prog(const char *path, const char *script)
 	enter_user(pd, entry, esp);
 }
 
+/* 中文：启动用户态入口：以 /sbin/init 和给定脚本调用 start_prog */
+/* EN: Userland startup entry: call start_prog with /sbin/init and the given script */
 void
 start_userland(const char *script)
 {

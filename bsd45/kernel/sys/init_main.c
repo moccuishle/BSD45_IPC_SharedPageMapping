@@ -100,6 +100,8 @@ static void start_init __P((struct proc *p, void *framep));
  * hard work is done in the lower-level initialization routines including
  * startup(), which does memory initialization and autoconfiguration.
  */
+/* 中文：系统主启动流程：初始化内存、进程 0、文件系统与网络协议，挂载根文件系统，fork 出 init 与 pagedaemon 后进入调度器 */
+/* EN: Main system startup: init memory, process 0, filesystems and network protocols, mount root, fork init and pagedaemon, then enter the scheduler */
 main(framep)
 	void *framep;
 {
@@ -313,6 +315,8 @@ static char *initpaths[] = {
  * Start the initial user process; try exec'ing each pathname in "initpaths".
  * The program is invoked with one argument containing the boot flags.
  */
+/* 中文：启动初始用户进程：伪造 execve 调用帧与参数，依次尝试执行 initpaths 中的 init 路径，全部失败则 panic */
+/* EN: Start the initial user process: forge the execve frame and arguments, try each init path in initpaths, and panic if none works */
 static void
 start_init(p, framep)
 	struct proc *p;

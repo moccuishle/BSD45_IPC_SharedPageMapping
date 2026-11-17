@@ -150,6 +150,8 @@ char const char_type[] = {
 /*
  * Initial open of tty, or (re)entry to standard tty line discipline.
  */
+/* 中文：首次打开 tty 或重新进入标准 tty 线路规程：初始化 tty 结构并调用设备与线路规程的 open 例程。 */
+/* EN: Perform the initial open of a tty or (re)entry to the standard tty line discipline: initialize the tty structure and invoke device and line-discipline open routines. */
 int
 ttyopen(device, tp)
 	dev_t device;
@@ -173,6 +175,8 @@ ttyopen(device, tp)
  * bumping generation number so that pending read/write calls
  * can detect recycling of the tty.
  */
+/* 中文：处理 tty 线路上的 close()：刷新并复位到初始状态，递增 generation 号使待处理的读写调用能察觉 tty 被回收重用。 */
+/* EN: Handle close() on a tty line: flush and reset it to the initial state, bumping the generation number so pending read/write calls can detect tty recycling. */
 int
 ttyclose(tp)
 	register struct tty *tp;
@@ -205,6 +209,8 @@ ttyclose(tp)
 /*
  * Process input of a single character received on a tty.
  */
+/* 中文：处理从 tty 接收到的单个字符的输入，经线路规程做规范、回显与信号等处理。 */
+/* EN: Process the input of a single character received on a tty, applying canonical, echo and signal processing through the line discipline. */
 int
 ttyinput(c, tp)
 	register int c;
@@ -525,6 +531,8 @@ startoutput:
  * Returns < 0 if succeeds, otherwise returns char to resend.
  * Must be recursive.
  */
+/* 中文：在 tty 上输出单个并按需要做输出处理（制表符展开、换行转换等）；成功返回负值，否则返回需重发的字符。 */
+/* EN: Output a single character on a tty with output processing (tab expansion, newline handling); returns a negative value on success, otherwise the character to resend. */
 int
 ttyoutput(c, tp)
 	register int c;
@@ -613,6 +621,8 @@ ttyoutput(c, tp)
  * of these ioctl commands.
  */
 /* ARGSUSED */
+/* 中文：处理 tty 设备的 ioctl 请求：设置/获取 termios 参数、窗口大小、流控及线路规程相关控制。 */
+/* EN: Handle ioctl requests on a tty device: get/set termios parameters, window size, flow control and line-discipline controls. */
 int
 ttioctl(tp, cmd, data, flag)
 	register struct tty *tp;
@@ -892,6 +902,8 @@ ttioctl(tp, cmd, data, flag)
 	return (0);
 }
 
+/* 中文：实现 tty 的 select/poll 就绪检查，判断读、写或异常条件是否满足。 */
+/* EN: Implement select/poll readiness checks for a tty, testing read, write or exceptional conditions. */
 int
 ttselect(device, rw, p)
 	dev_t device;
@@ -924,6 +936,8 @@ win:			splx(s);
 	return (0);
 }
 
+/* 中文：返回 tty 输入队列中当前可供读取的字符数。 */
+/* EN: Return the number of characters currently available to read from the tty input queue. */
 static int
 ttnread(tp)
 	struct tty *tp;
@@ -941,6 +955,8 @@ ttnread(tp)
 /*
  * Wait for output to drain.
  */
+/* 中文：等待 tty 输出队列排空。 */
+/* EN: Wait for the tty output queue to drain. */
 int
 ttywait(tp)
 	register struct tty *tp;
@@ -965,6 +981,8 @@ ttywait(tp)
 /*
  * Flush if successfully wait.
  */
+/* 中文：在成功等待输出排空后刷新 tty 的输出队列。 */
+/* EN: Flush the tty output queue after successfully waiting for output to drain. */
 int
 ttywflush(tp)
 	struct tty *tp;
@@ -979,6 +997,8 @@ ttywflush(tp)
 /*
  * Flush tty read and/or write queues, notifying anyone waiting.
  */
+/* 中文：刷新 tty 的读和/或写队列，并唤醒所有等待者。 */
+/* EN: Flush the tty read and/or write queues and notify anyone waiting. */
 void
 ttyflush(tp, rw)
 	register struct tty *tp;
@@ -1012,6 +1032,8 @@ ttyflush(tp, rw)
 /*
  * Copy in the default termios characters.
  */
+/* 中文：将默认的 termios 控制字符复制到 tty 中。 */
+/* EN: Copy the default termios control characters into the tty. */
 void
 ttychars(tp)
 	struct tty *tp;
@@ -1023,6 +1045,8 @@ ttychars(tp)
 /*
  * Send stop character on input overflow.
  */
+/* 中文：当 tty 输入溢出时发送停止（流控）字符。 */
+/* EN: Send the STOP (flow-control) character when the tty input queue overflows. */
 static void
 ttyblock(tp)
 	register struct tty *tp;
@@ -1049,6 +1073,8 @@ ttyblock(tp)
 	}
 }
 
+/* 中文：作为超时回调在延迟后重启 tty 输出。 */
+/* EN: Restart tty output from a timeout callback after a delayed start. */
 void
 ttrstrt(tp_arg)
 	void *tp_arg;
@@ -1069,6 +1095,8 @@ ttrstrt(tp_arg)
 	splx(s);
 }
 
+/* 中文：启动 tty 输出：在适当时机调用设备驱动的启动例程发送数据。 */
+/* EN: Start tty output by invoking the device driver's start routine when appropriate. */
 int
 ttstart(tp)
 	struct tty *tp;
@@ -1082,6 +1110,8 @@ ttstart(tp)
 /*
  * "close" a line discipline
  */
+/* 中文：关闭（断开）tty 当前绑定的线路规程。 */
+/* EN: Close (detach) the line discipline currently bound to the tty. */
 int
 ttylclose(tp, flag)
 	struct tty *tp;
@@ -1100,6 +1130,8 @@ ttylclose(tp, flag)
  * Flag indicates new state of carrier.
  * Returns 0 if the line should be turned off, otherwise 1.
  */
+/* 中文：处理 tty 上的调制解调器控制信号变化；flag 表示载波的新状态，返回 0 表示应关闭线路，否则返回 1。 */
+/* EN: Handle a modem-control transition on a tty; flag is the new carrier state; returns 0 if the line should be turned off, otherwise 1. */
 int
 ttymodem(tp, flag)
 	register struct tty *tp;
@@ -1147,6 +1179,8 @@ ttymodem(tp, flag)
  * Default modem control routine (for other line disciplines).
  * Return argument flag, to turn off device on carrier drop.
  */
+/* 中文：默认的调制解调器控制例程（供其他线路规程使用），直接返回传入的 flag 参数。 */
+/* EN: Default modem-control routine for other line disciplines; simply returns the passed-in flag. */
 int
 nullmodem(tp, flag)
 	register struct tty *tp;
@@ -1170,6 +1204,8 @@ nullmodem(tp, flag)
  * Reinput pending characters after state switch
  * call at spltty().
  */
+/* 中文：在 spltty() 级别完成状态切换后重新输入暂存的待处理字符。 */
+/* EN: Re-input pending characters after a state switch performed at spltty(). */
 void
 ttypend(tp)
 	register struct tty *tp;
@@ -1190,6 +1226,8 @@ ttypend(tp)
 /*
  * Process a read call on a tty device.
  */
+/* 中文：处理 tty 设备上的 read 调用，将数据从输入队列拷贝到用户缓冲区。 */
+/* EN: Process a read call on a tty device, copying data from the input queue to the user buffer. */
 int
 ttread(tp, uio, flag)
 	register struct tty *tp;
@@ -1324,6 +1362,8 @@ loop:	lflag = tp->t_lflag;
  * Sleeps here are not interruptible, but we return prematurely if new signals
  * arrive.
  */
+/* 中文：检查 tty 输出队列是否有空间容纳内核消息（来自 uprintf/tprintf）；允许略微超过高水位以免丢消息，但不能让队列失控。 */
+/* EN: Check the tty output queue for space for a kernel message (uprintf/tprintf); allows slightly exceeding the high-water mark to avoid losing messages without letting the tty run amok. */
 int
 ttycheckoutq(tp, wait)
 	register struct tty *tp;
@@ -1353,6 +1393,8 @@ ttycheckoutq(tp, wait)
 /*
  * Process a write call on a tty device.
  */
+/* 中文：处理 tty 设备上的 write 调用，将用户数据排入输出队列并启动发送。 */
+/* EN: Process a write call on a tty device, queueing user data for output and starting transmission. */
 int
 ttwrite(tp, uio, flag)
 	register struct tty *tp;
@@ -1532,6 +1574,8 @@ ovhiwat:
  * Rubout one character from the rawq of tp
  * as cleanly as possible.
  */
+/* 中文：尽可能干净地从 tty 的原始输入队列中擦除（退格）一个字符。 */
+/* EN: Rub out one character from the tty's raw input queue as cleanly as possible. */
 void
 ttyrub(c, tp)
 	register int c;
@@ -1617,6 +1661,8 @@ ttyrub(c, tp)
 /*
  * Back over cnt characters, erasing them.
  */
+/* 中文：回退 cnt 个字符并将它们擦除。 */
+/* EN: Back up over cnt characters, erasing them. */
 static void
 ttyrubo(tp, cnt)
 	register struct tty *tp;
@@ -1635,6 +1681,8 @@ ttyrubo(tp, cnt)
  *	Reprint the rawq line.  Note, it is assumed that c_cc has already
  *	been checked.
  */
+/* 中文：重新打印原始输入队列中的当前行（用于编辑重显）。 */
+/* EN: Reprint the current line from the raw input queue. */
 void
 ttyretype(tp)
 	register struct tty *tp;
@@ -1670,6 +1718,8 @@ ttyretype(tp)
 /*
  * Echo a typed character to the terminal.
  */
+/* 中文：将键入的字符回显到终端。 */
+/* EN: Echo a typed character to the terminal. */
 static void
 ttyecho(c, tp)
 	register int c;
@@ -1698,6 +1748,8 @@ ttyecho(c, tp)
 /*
  * Wake up any readers on a tty.
  */
+/* 中文：唤醒在该 tty 上等待输入的所有读者。 */
+/* EN: Wake up any readers sleeping on the tty. */
 void
 ttwakeup(tp)
 	register struct tty *tp;
@@ -1713,6 +1765,8 @@ ttwakeup(tp)
  * Look up a code for a specified speed in a conversion table;
  * used by drivers to map software speed values to hardware parameters.
  */
+/* 中文：在转换表中查找指定速率对应的编码，供驱动把软件速率值映射为硬件参数。 */
+/* EN: Look up the code for a given speed in a conversion table, used by drivers to map software speed values to hardware parameters. */
 int
 ttspeedtab(speed, table)
 	int speed;
@@ -1732,6 +1786,8 @@ ttspeedtab(speed, table)
  * from hi to low water.
  *
  */
+/* 中文：设置 tty 输出队列的高、低水位线，尽量使两者之间约有 1 秒的缓冲动态。 */
+/* EN: Set the tty high and low water marks, aiming for about one second of buffering between them. */
 void
 ttsetwater(tp)
 	struct tty *tp;
@@ -1751,6 +1807,8 @@ ttsetwater(tp)
 /*
  * Report on state of foreground process group.
  */
+/* 中文：报告前台进程组的状态（用于 tty 信息查询与信号）。 */
+/* EN: Report on the state of the foreground process group. */
 void
 ttyinfo(tp)
 	register struct tty *tp;
@@ -1827,6 +1885,8 @@ ttyinfo(tp)
 #define ONLYB   1
 #define BOTH    3
 
+/* 中文：比较两个进程，选出更适合作为 tty 信号/中断目标的进程（依据优先级与终端关联）。 */
+/* EN: Compare two processes to select the more suitable target for a tty signal/interrupt (based on priority and terminal association). */
 static int
 proc_compare(p1, p2)
 	register struct proc *p1, *p2;
@@ -1883,6 +1943,8 @@ proc_compare(p1, p2)
 /*
  * Output char to tty; console putchar style.
  */
+/* 中文：以控制台 putchar 风格向 tty 输出单个字符。 */
+/* EN: Output a single character to the tty in console putchar style. */
 int
 tputchar(c, tp)
 	int c;
@@ -1910,6 +1972,8 @@ tputchar(c, tp)
  * the tty is revoked, restarting a pending call will redo validation done
  * at the start of the call.
  */
+/* 中文：在 chan 上睡眠；若睡眠期间 tty 被替换则返回 ERESTART，并传递 tsleep 返回的错误（如 EINTR/ETIMEDOUT）。 */
+/* EN: Sleep on chan, returning ERESTART if the tty was revoked while asleep and propagating errors from tsleep (e.g. EINTR/ETIMEDOUT). */
 int
 ttysleep(tp, chan, pri, wmesg, timo)
 	struct tty *tp;

@@ -91,6 +91,8 @@ extern	struct ifnet loif;
  * packet leaves a multiple of 512 bytes of data in remainder.
  * Assumes that ifp is actually pointer to arpcom structure.
  */
+/* 中文：以太网输出例程：按目的地址族解析目的 MAC，封装以太网头，并把报文排入接口发送队列启动发送 */
+/* EN: Ethernet output routine: resolve the destination MAC by address family, prepend an Ethernet header and enqueue the packet on the interface for transmission */
 int
 ether_output(ifp, m0, dst, rt0)
 	register struct ifnet *ifp;
@@ -301,6 +303,8 @@ bad:
  * the packet is in the mbuf chain m without
  * the ether header, which is provided separately.
  */
+/* 中文：处理收到的以太网帧：识别广播/组播，按 ether_type 把 IP/ARP/NS/ISO/LLC 报文排入各协议输入队列 */
+/* EN: Process a received Ethernet frame: detect broadcast/multicast and queue IP/ARP/NS/ISO/LLC packets to their protocol input queues by ether_type */
 void
 ether_input(ifp, eh, m)
 	struct ifnet *ifp;
@@ -462,6 +466,8 @@ ether_input(ifp, eh, m)
  * Convert Ethernet address to printable (loggable) representation.
  */
 static char digits[] = "0123456789abcdef";
+/* 中文：把 6 字节以太网地址转换成冒号分隔的可打印十六进制字符串 */
+/* EN: Convert a 6-byte Ethernet address into a colon-separated printable hexadecimal string */
 char *
 ether_sprintf(ap)
 	register u_char *ap;
@@ -482,6 +488,8 @@ ether_sprintf(ap)
 /*
  * Perform common duties while attaching to interface list
  */
+/* 中文：接口挂接时的公共初始化：设置以太网类型、地址长度、MTU，并把 MAC 填入链路层 sockaddr */
+/* EN: Common setup when attaching an interface: set the Ethernet type, address length and MTU, and fill the MAC into the link-layer sockaddr */
 void
 ether_ifattach(ifp)
 	register struct ifnet *ifp;
@@ -510,6 +518,8 @@ u_char	ether_ipmulticast_max[6] = { 0x01, 0x00, 0x5e, 0x7f, 0xff, 0xff };
  * Add an Ethernet multicast address or range of addresses to the list for a
  * given interface.
  */
+/* 中文：为接口增加一个以太网组播地址或地址范围：已存在则增引用计数，否则新建记录并返回 ENETRESET */
+/* EN: Add an Ethernet multicast address or range to an interface: bump the refcount if present, otherwise create a record and return ENETRESET */
 int
 ether_addmulti(ifr, ac)
 	struct ifreq *ifr;
@@ -598,6 +608,8 @@ ether_addmulti(ifr, ac)
 /*
  * Delete a multicast address record.
  */
+/* 中文：从接口删除一个以太网组播地址记录：引用计数归零时解除链接并释放，返回 ENETRESET */
+/* EN: Delete an Ethernet multicast address record from an interface: unlink and free it when the refcount drops to zero, returning ENETRESET */
 int
 ether_delmulti(ifr, ac)
 	struct ifreq *ifr;

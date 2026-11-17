@@ -22,6 +22,8 @@
 #define	PIC2_CMD	0xA0
 #define	PIC2_DATA	0xA1
 
+/* 中文：向空端口 0x80 写一次以产生简短的 I/O 延迟，用于 8259 端口写操作间的时序等待 */
+/* EN: Produce a short I/O delay by writing to dummy port 0x80, used for timing between 8259 port writes */
 static void
 io_wait(void)
 {
@@ -35,6 +37,8 @@ io_wait(void)
  * IRQ 线 / IDT 向量 -> IPL。PC 的 IRQ 布局只在这里出现；换中断控制器时
  * 只需改这一张表。
  */
+/* 中文：把 IRQ 线/IDT 向量映射为对应的中断优先级 IPL，PC 的 IRQ 布局仅在此处编码 */
+/* EN: Map an IRQ line/IDT vector to its interrupt priority level IPL; the PC IRQ layout is encoded only here */
 int
 hal_irq_to_ipl(int vector)
 {
@@ -60,6 +64,8 @@ hal_irq_to_ipl(int vector)
 }
 
 /* A line whose IPL is <= current_ipl is masked. */
+/* 中文：计算中断屏蔽位图，把 IPL 不高于 current_ipl 的所有 IRQ 线对应的位设为 1 */
+/* EN: Compute the interrupt mask bitmap, setting a bit for every IRQ line whose IPL is not above current_ipl */
 static unsigned
 below_mask(int current_ipl)
 {
@@ -73,6 +79,8 @@ below_mask(int current_ipl)
 }
 
 /* Program both 8259 mask registers from the enabled set and current level. */
+/* 中文：根据当前 IPL 与使能掩码计算需屏蔽的中断线，并写入两片 8259 的屏蔽寄存器 */
+/* EN: Compute the lines to mask from the current IPL and enabled mask, then program both 8259 mask registers */
 void
 hal_ipl_apply(int current_ipl, unsigned enabled_mask)
 {
@@ -85,6 +93,8 @@ hal_ipl_apply(int current_ipl, unsigned enabled_mask)
 }
 
 /* Initialize master/slave 8259s to vectors 0x20-0x2f and mask every line. */
+/* 中文：初始化主/从两片 8259，把中断向量设置为 0x20-0x2f 并初始屏蔽所有中断线 */
+/* EN: Initialize the master and slave 8259 PICs, mapping vectors to 0x20-0x2f and initially masking all lines */
 void
 hal_ipl_init(void)
 {

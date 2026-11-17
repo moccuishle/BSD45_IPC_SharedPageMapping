@@ -85,6 +85,8 @@ u_long	sb_max = SB_MAX;		/* patchable */
  * cause software-interrupt process scheduling.
  */
 
+/* 中文：把 socket 状态切换为正在连接：清除已连接/正在断开标志并设置 SS_ISCONNECTING */
+/* EN: Mark a socket as connecting: clear connected/disconnecting flags and set SS_ISCONNECTING */
 void
 soisconnecting(so)
 	register struct socket *so;
@@ -94,6 +96,8 @@ soisconnecting(so)
 	so->so_state |= SS_ISCONNECTING;
 }
 
+/* 中文：把 socket 状态切换为已连接：更新状态位、把接受队列中的连接移入完成队列并唤醒相关等待者 */
+/* EN: Mark a socket as connected: update state bits, move a pending connection into the completed queue and wake waiters */
 void
 soisconnected(so)
 	register struct socket *so;
@@ -113,6 +117,8 @@ soisconnected(so)
 	}
 }
 
+/* 中文：把 socket 状态切换为正在断开：设置断开及不可收发标志，唤醒读写的等待者 */
+/* EN: Mark a socket as disconnecting: set disconnecting and cannot-send/receive flags and wake read/write waiters */
 void
 soisdisconnecting(so)
 	register struct socket *so;
@@ -125,6 +131,8 @@ soisdisconnecting(so)
 	sorwakeup(so);
 }
 
+/* 中文：把 socket 状态切换为已断开：清除连接相关标志，设置不可再收发并唤醒等待者 */
+/* EN: Mark a socket as disconnected: clear connection flags, set cannot-send/receive and wake waiters */
 void
 soisdisconnected(so)
 	register struct socket *so;
@@ -148,6 +156,8 @@ soisdisconnected(so)
  * Currently, sonewconn() is defined as sonewconn1() in socketvar.h
  * to catch calls that are missing the (new) second parameter.
  */
+/* 中文：在侦听 socket 上新建一个连接：检查队列长度限制，分配并初始化一个新的 socket 挂入接受队列 */
+/* EN: Create a new connection on a listening socket: check queue limits, allocate and initialize a socket and enqueue it for accept */
 struct socket *
 sonewconn1(head, connstatus)
 	register struct socket *head;
@@ -185,6 +195,8 @@ sonewconn1(head, connstatus)
 	return (so);
 }
 
+/* 中文：把一个新连接 socket 插入侦听 socket 的未完成或已完成接受队列 */
+/* EN: Insert a new connection socket into a listening socket's pending or completed accept queue */
 void
 soqinsque(head, so, q)
 	register struct socket *head, *so;
@@ -207,6 +219,8 @@ soqinsque(head, so, q)
 	*prev = so;
 }
 
+/* 中文：把一个 socket 从其侦听者的接受队列中移除 */
+/* EN: Remove a socket from its listener's accept queue */
 int
 soqremque(so, q)
 	register struct socket *so;
@@ -246,6 +260,8 @@ soqremque(so, q)
  * Data queued for reading in the socket may yet be read.
  */
 
+/* 中文：标记 socket 不能再发送数据并唤醒写等待者 */
+/* EN: Mark that a socket can no longer send data and wake write waiters */
 void
 socantsendmore(so)
 	struct socket *so;
@@ -255,6 +271,8 @@ socantsendmore(so)
 	sowwakeup(so);
 }
 
+/* 中文：标记 socket 不能再接收数据并唤醒读等待者 */
+/* EN: Mark that a socket can no longer receive data and wake read waiters */
 void
 socantrcvmore(so)
 	struct socket *so;
@@ -267,6 +285,8 @@ socantrcvmore(so)
 /*
  * Wait for data to arrive at/drain from a socket buffer.
  */
+/* 中文：等待 socket 缓冲区中有数据到达或排空：在 sb_cc 上调用 tsleep 并支持超时与可中断标志 */
+/* EN: Wait for data to arrive at or drain from a socket buffer: tsleep on sb_cc with timeout and interruptibility options */
 int
 sbwait(sb)
 	struct sockbuf *sb;
@@ -282,6 +302,8 @@ sbwait(sb)
  * Lock a sockbuf already known to be locked;
  * return any error returned from sleep (EINTR).
  */
+/* 中文：锁定 socket 缓冲区：若已被锁则设置 SB_WANT 并睡眠等待，返回睡眠可能产生的错误 */
+/* EN: Lock a socket buffer: if already locked, set SB_WANT and sleep until free, returning any sleep error */
 int
 sb_lock(sb)
 	register struct sockbuf *sb;
@@ -304,6 +326,8 @@ sb_lock(sb)
  * Do asynchronous notification via SIGIO
  * if the socket has the SS_ASYNC flag set.
  */
+/* 中文：唤醒等待 socket 缓冲区的进程，并在设置了 SS_ASYNC 时通过 SIGIO 进行异步通知 */
+/* EN: Wake processes waiting on a socket buffer and issue SIGIO asynchronous notification when SS_ASYNC is set */
 void
 sowakeup(so, sb)
 	register struct socket *so;
@@ -357,6 +381,8 @@ sowakeup(so, sb)
  * should be released by calling sbrelease() when the socket is destroyed.
  */
 
+/* 中文：为 socket 预留发送和接收缓冲区空间，并设置两者的低水位 */
+/* EN: Reserve send and receive buffer space for a socket and set their low-water marks */
 int
 soreserve(so, sndcc, rcvcc)
 	register struct socket *so;
@@ -385,6 +411,8 @@ bad:
  * Attempt to scale mbmax so that mbcnt doesn't become limiting
  * if buffering efficiency is near the normal case.
  */
+/* 中文：为一个 sockbuf 预留指定字节数的 mbuf 空间：设置高水位与 mbmax，并调整低水位 */
+/* EN: Reserve the given number of bytes of mbuf space in a sockbuf: set high-water and mbmax, adjusting the low-water mark */
 int
 sbreserve(sb, cc)
 	struct sockbuf *sb;
@@ -403,6 +431,8 @@ sbreserve(sb, cc)
 /*
  * Free mbufs held by a socket, and reserved mbuf space.
  */
+/* 中文：释放 socket 缓冲区中持有的所有 mbuf 并清零预留空间 */
+/* EN: Free all mbufs held by a socket buffer and zero its reserved space */
 void
 sbrelease(sb)
 	struct sockbuf *sb;
@@ -443,6 +473,8 @@ sbrelease(sb)
  * the mbuf chain is recorded in sb.  Empty mbufs are
  * discarded and mbufs are compacted where possible.
  */
+/* 中文：把 mbuf 链 m 追加到 socket 缓冲区 sb 的最后一条记录，丢弃空 mbuf 并在可能时压缩 */
+/* EN: Append mbuf chain m to the last record in socket buffer sb, discarding empty mbufs and compacting where possible */
 void
 sbappend(sb, m)
 	struct sockbuf *sb;
@@ -466,6 +498,8 @@ sbappend(sb, m)
 }
 
 #ifdef SOCKBUF_DEBUG
+/* 中文：校验 socket 缓冲区的一致性：重新统计长度与 mbuf 计数，与记录值不符则报错 */
+/* EN: Validate a socket buffer's consistency: recount length and mbuf usage, reporting a mismatch against stored counters */
 void
 sbcheck(sb)
 	register struct sockbuf *sb;
@@ -493,6 +527,8 @@ sbcheck(sb)
  * As above, except the mbuf chain
  * begins a new record.
  */
+/* 中文：把 mbuf 链作为一条新记录追加到 socket 缓冲区（与 sbappend 的区别是开启新记录） */
+/* EN: Append an mbuf chain to a socket buffer as a new record (differs from sbappend by starting a new record) */
 void
 sbappendrecord(sb, m0)
 	register struct sockbuf *sb;
@@ -528,6 +564,8 @@ sbappendrecord(sb, m0)
  * is inserted at the beginning of the sockbuf,
  * but after any other OOB data.
  */
+/* 中文：把带外数据 mbuf 链插入 socket 缓冲区开头，但放在已有带外/控制数据之后 */
+/* EN: Insert out-of-band mbuf data at the front of a socket buffer, after any existing OOB/control data */
 void
 sbinsertoob(sb, m0)
 	register struct sockbuf *sb;
@@ -573,6 +611,8 @@ sbinsertoob(sb, m0)
  * m0 must include a packet header with total length.
  * Returns 0 if no space in sockbuf or insufficient mbufs.
  */
+/* 中文：把地址、数据以及可选的辅助控制数据追加到 socket 的接收队列，空间不足时返回 0 */
+/* EN: Append an address, data and optional ancillary control data to a socket's receive queue, returning 0 if space is insufficient */
 int
 sbappendaddr(sb, asa, m0, control)
 	register struct sockbuf *sb;
@@ -616,6 +656,8 @@ panic("sbappendaddr");
 	return (1);
 }
 
+/* 中文：把控制（辅助）数据及其关联数据追加到 socket 缓冲区，空间不足时返回 0 */
+/* EN: Append control (ancillary) data with its associated data to a socket buffer, returning 0 if space is insufficient */
 int
 sbappendcontrol(sb, m0, control)
 	struct sockbuf *sb;
@@ -653,6 +695,8 @@ sbappendcontrol(sb, m0, control)
  * buffer sb following mbuf n.  If n
  * is null, the buffer is presumed empty.
  */
+/* 中文：把 mbuf 链 m 压缩合并到 socket 缓冲区中 n 之后的位置，丢弃空 mbuf 并尽量复用空间 */
+/* EN: Compress mbuf chain m into the socket buffer after mbuf n, discarding empty mbufs and reusing space */
 void
 sbcompress(sb, m, n)
 	register struct sockbuf *sb;
@@ -702,6 +746,8 @@ sbcompress(sb, m, n)
  * Free all mbufs in a sockbuf.
  * Check that all resources are reclaimed.
  */
+/* 中文：释放 socket 缓冲区中的所有 mbuf，并校验所有资源都已回收 */
+/* EN: Free all mbufs in a socket buffer and verify that all resources were reclaimed */
 void
 sbflush(sb)
 	register struct sockbuf *sb;
@@ -718,6 +764,8 @@ sbflush(sb)
 /*
  * Drop data from (the front of) a sockbuf.
  */
+/* 中文：从 socket 缓冲区头部丢弃指定长度的数据 */
+/* EN: Drop the given length of data from the front of a socket buffer */
 void
 sbdrop(sb, len)
 	register struct sockbuf *sb;
@@ -762,6 +810,8 @@ sbdrop(sb, len)
  * Drop a record off the front of a sockbuf
  * and move the next record to the front.
  */
+/* 中文：从 socket 缓冲区头部丢弃一条完整记录，并把下一条记录移到开头 */
+/* EN: Drop a whole record from the front of a socket buffer and move the next record to the front */
 void
 sbdroprecord(sb)
 	register struct sockbuf *sb;

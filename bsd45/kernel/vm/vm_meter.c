@@ -45,6 +45,8 @@ struct	loadavg averunnable;		/* load average, of runnable procs */
 int	maxslp = MAXSLP;
 int	saferss = SAFERSS;
 
+/* 中文：虚拟内存计量定时器回调：每隔 5 秒采样一次运行队列负载平均值，并在 proc0 睡眠过久时将其唤醒 */
+/* EN: Virtual memory metering timer callback: sample the run-queue load average every 5 seconds and wake proc0 if it has slept too long */
 void
 vmmeter()
 {
@@ -69,6 +71,8 @@ fixpt_t	cexp[3] = {
  * Compute a tenex style load average of a quantity on
  * 1, 5 and 15 minute intervals.
  */
+/* 中文：计算并更新运行队列的负载平均值：统计可运行进程数，并用指数加权公式刷新 1/5/15 分钟平均值 */
+/* EN: Compute and update the run-queue load averages: count runnable processes and refresh the 1/5/15-minute averages with an exponential weighting formula */
 void
 loadav(avg)
 	register struct loadavg *avg;
@@ -95,6 +99,8 @@ loadav(avg)
 /*
  * Attributes associated with virtual memory.
  */
+/* 中文：处理虚拟内存子系统的 sysctl 请求：返回负载平均值与 vmtotal 内存统计等信息 */
+/* EN: Handle sysctl requests for the virtual memory subsystem: return the load average and vmtotal memory statistics */
 vm_sysctl(name, namelen, oldp, oldlenp, newp, newlen, p)
 	int *name;
 	u_int namelen;
@@ -129,6 +135,8 @@ vm_sysctl(name, namelen, oldp, oldlenp, newp, newlen, p)
  * Calculate the current state of the system.
  * Done on demand from getkerninfo().
  */
+/* 中文：收集系统整体虚拟内存统计信息：遍历所有进程与 vm 对象，统计常驻、共享、私有及分页中的页数并填入 vmtotal */
+/* EN: Collect overall virtual memory statistics: walk all processes and vm objects, count resident, shared, private and paging pages, and fill in a vmtotal structure */
 void
 vmtotal(totalp)
 	register struct vmtotal *totalp;

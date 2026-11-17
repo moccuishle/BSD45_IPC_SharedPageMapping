@@ -128,6 +128,8 @@ extern char		all_es_snpa[], all_is_snpa[];
  *
  * NOTES:			
  */
+/* 中文：初始化 ESIS 协议的内核部分。 */
+/* EN: Initialize the kernel portion of the ESIS protocol. */
 esis_init()
 {
 	extern struct clnl_protosw clnl_protox[256];
@@ -160,6 +162,8 @@ esis_init()
  *
  */
 /*ARGSUSED*/
+/* 中文：处理 ESIS 协议的用户请求（PRU_* 操作，如绑定、连接、发送与接收）。 */
+/* EN: Handle ESIS protocol user requests (PRU_* operations such as bind, connect, send and receive). */
 esis_usrreq(so, req, m, nam, control)
 struct socket	*so;		/* socket: used only to get to this code */
 int				req;		/* request */
@@ -242,6 +246,8 @@ release:
  *
  * NOTES:			
  */
+/* 中文：处理收到的 ESIS 报文，按类型分派给相应的输入处理例程。 */
+/* EN: Process an incoming ESIS packet, dispatching by type to the appropriate input routine. */
 esis_input(m0, shp)
 struct mbuf		*m0;		/* ptr to first mbuf of pkt */
 struct snpa_hdr	*shp;	/* subnetwork header */
@@ -299,6 +305,8 @@ bad:
  * NOTES:			Assumes there is enough space for fixed part of header,
  *					DA, BSNPA and NET in first mbuf.
  */
+/* 中文：发送一个重定向（RD）协议数据单元。 */
+/* EN: Transmit a redirect (RD) protocol data unit. */
 esis_rdoutput(inbound_shp, inbound_m, inbound_oidx, rd_dstnsap, rt)
 struct snpa_hdr		*inbound_shp;	/* snpa hdr from incoming packet */
 struct mbuf			*inbound_m;		/* incoming pkt itself */
@@ -457,6 +465,8 @@ struct rtentry		*rt;			/* snpa cache info regarding next hop of
  *
  * NOTES:			Plus 1 here is for length byte
  */
+/* 中文：把一个 ISO 地址插入缓冲区，缓冲区足够大时返回真，并按地址长度推进 buf 与 len。 */
+/* EN: Insert an ISO address into a buffer, returning true if it fits and advancing buf and len by the address size. */
 esis_insert_addr(buf, len, isoa, m, nsellen)
 register caddr_t			*buf;		/* ptr to buffer to put address into */
 int							*len;		/* ptr to length of buffer so far */
@@ -497,6 +507,8 @@ int ESHonly = 0;
  *
  * NOTES:			
  */
+/* 中文：处理收到的 ESH（端系统 Hello）协议数据单元。 */
+/* EN: Process an incoming ESH (End System Hello) protocol data unit. */
 esis_eshinput(m, shp)
 struct mbuf		*m;	/* esh pdu */
 struct snpa_hdr	*shp;	/* subnetwork header */
@@ -581,6 +593,8 @@ bad:
  *
  * NOTES:			
  */
+/* 中文：处理收到的 ISH（中间系统 Hello）协议数据单元。 */
+/* EN: Process an incoming ISH (Intermediate System Hello) protocol data unit. */
 esis_ishinput(m, shp)
 struct mbuf		*m;	/* esh pdu */
 struct snpa_hdr	*shp;	/* subnetwork header */
@@ -648,6 +662,8 @@ bad:
  *
  * NOTES:			
  */
+/* 中文：处理收到的 RD（重定向）协议数据单元。 */
+/* EN: Process an incoming RD (redirect) protocol data unit. */
 esis_rdinput(m0, shp)
 struct mbuf		*m0;	/* esh pdu */
 struct snpa_hdr	*shp;	/* subnetwork header */
@@ -743,6 +759,8 @@ bad: ;    /* Needed by ESIS_NEXT_OPTION */
  *
  * NOTES:			Called every esis_config_time seconds
  */
+/* 中文：定期（每 esis_config_time 秒）报告 ESIS 协议的配置与状态信息。 */
+/* EN: Report ESIS configuration and status information periodically (every esis_config_time seconds). */
 void
 esis_config()
 {
@@ -793,6 +811,8 @@ esis_config()
  *
  * NOTES:			
  */
+/* 中文：发送一个 ESH 或 ISH 协议数据单元。 */
+/* EN: Transmit an ESH or ISH protocol data unit. */
 esis_shoutput(ifp, type, ht, sn_addr, sn_len, isoa)
 struct ifnet	*ifp;
 int				type;
@@ -935,6 +955,8 @@ struct	iso_addr *isoa;
  *
  * NOTES:			
  */
+/* 中文：处理收到的 IS-IS 报文。 */
+/* EN: Process an incoming IS-IS packet. */
 isis_input(m0, shp)
 struct mbuf		*m0;		/* ptr to first mbuf of pkt */
 struct snpa_hdr	*shp;	/* subnetwork header */
@@ -987,6 +1009,8 @@ struct snpa_hdr	*shp;	/* subnetwork header */
 	m_freem(m0);
 }
 
+/* 中文：构造并发送 IS-IS 报文。 */
+/* EN: Construct and transmit an IS-IS packet. */
 isis_output(sdl, m)
 register struct sockaddr_dl	*sdl;
 struct mbuf *m;
@@ -1050,6 +1074,8 @@ release:
  *					The loop through iso_ifaddr is stupid because
  *					back in if_down, we knew the ifp...
  */
+/* 中文：处理 PRC_IFDOWN 控制事件，对指定接口调用 snpac_flush 清理缓存的 SNPA 地址。 */
+/* EN: Handle the PRC_IFDOWN control event, calling snpac_flush to purge cached SNPAs for the interface. */
 esis_ctlinput(req, siso)
 int						req;		/* request: we handle only PRC_IFDOWN */
 struct sockaddr_iso		*siso;		/* address of ifp */

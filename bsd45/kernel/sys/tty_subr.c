@@ -46,6 +46,8 @@ char cwaiting;
 struct cblock *cfree, *cfreelist;
 int cfreecount, nclist;
 
+/* 中文：初始化字符列表（clist）子系统，当前实现为空操作 */
+/* EN: Initialize the clist subsystem; currently a no-op with the body deleted */
 void
 clist_init()
 {
@@ -56,6 +58,8 @@ clist_init()
 	return;
 }
 
+/* 中文：从字符列表取一个字符，当前为空实现并返回 0 */
+/* EN: Get a character from a clist; currently a stub returning 0 */
 getc(a1)
 	struct clist *a1;
 {
@@ -66,6 +70,8 @@ getc(a1)
 	return ((char)0);
 }
 
+/* 中文：把字符列表中的内容取出到缓冲区，当前为空实现并返回 0 */
+/* EN: Move characters from a clist to a buffer; currently a stub returning 0 */
 q_to_b(a1, a2, a3)
 	struct clist *a1;
 	char *a2;
@@ -78,6 +84,8 @@ q_to_b(a1, a2, a3)
 	return (0);
 }
 
+/* 中文：不消耗字符地查看/读取字符列表，当前为空实现并返回 0 */
+/* EN: Non-destructively peek at a clist; currently a stub returning 0 */
 ndqb(a1, a2)
 	struct clist *a1;
 	int a2;
@@ -89,6 +97,8 @@ ndqb(a1, a2)
 	return (0);
 }
 
+/* 中文：按数量刷新/丢弃字符列表内容，当前为空实现 */
+/* EN: Flush a given number of characters from a clist; currently a no-op stub */
 void
 ndflush(a1, a2)
 	struct clist *a1;
@@ -101,6 +111,8 @@ ndflush(a1, a2)
 	return;
 }
 
+/* 中文：把一个字符放入字符列表，当前为空实现并返回 0 */
+/* EN: Put a character into a clist; currently a stub returning 0 */
 putc(a1, a2)
 	char a1;
 	struct clist *a2;
@@ -112,6 +124,8 @@ putc(a1, a2)
 	return (0);
 }
 
+/* 中文：把缓冲区中的字符放入字符列表，当前为空实现并返回 0 */
+/* EN: Move characters from a buffer into a clist; currently a stub returning 0 */
 b_to_q(a1, a2, a3)
 	char *a1;
 	int a2;
@@ -124,6 +138,8 @@ b_to_q(a1, a2, a3)
 	return (0);
 }
 
+/* 中文：返回指向字符列表中下一个字符的指针，当前为空实现并返回 NULL */
+/* EN: Return a pointer to the next character in a clist; currently a stub returning NULL */
 char *
 nextc(a1, a2, a3)
 	struct clist *a1;
@@ -137,6 +153,8 @@ nextc(a1, a2, a3)
 	return ((char *)0);
 }
 
+/* 中文：把一个字符放回字符列表，当前为空实现并返回 0 */
+/* EN: Push a character back onto a clist; currently a stub returning 0 */
 unputc(a1)
 	struct clist *a1;
 {
@@ -147,6 +165,8 @@ unputc(a1)
 	return ((char)0);
 }
 
+/* 中文：把一个字符列表拼接（追加）到另一个之后，当前为空实现 */
+/* EN: Concatenate one clist onto another; currently a no-op stub */
 void
 catq(a1, a2)
 	struct clist *a1, *a2;

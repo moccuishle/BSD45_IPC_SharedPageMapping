@@ -68,6 +68,8 @@ static void checkdirs __P((struct vnode *olddp));
  * Mount a file system.
  */
 /* ARGSUSED */
+/* 中文：挂载文件系统：解析路径取得被覆盖的 vnode，分配并初始化 mount 结构，检查权限后调用 VFS_MOUNT 完成挂载 */
+/* EN: Mount a file system: resolve the path to the covered vnode, allocate and init a mount structure, check permissions and call VFS_MOUNT */
 int
 mount(p, uap, retval)
 	struct proc *p;
@@ -274,6 +276,8 @@ update:
  * or root directory onto which the new filesystem has just been
  * mounted. If so, replace them with the new mount point.
  */
+/* 中文：扫描所有活动进程，把当前目录或根目录指向刚被挂载的旧 vnode 替换为新挂载点 */
+/* EN: Scan all processes and replace their current/root directory that points at the just-mounted vnode with the new mount point */
 static void
 checkdirs(olddp)
 	struct vnode *olddp;
@@ -314,6 +318,8 @@ checkdirs(olddp)
  * not special file (as before).
  */
 /* ARGSUSED */
+/* 中文：卸载文件系统：校验调用者权限与挂载点合法性后，调用 dounmount 执行实际卸载 */
+/* EN: Unmount a file system: verify caller privileges and mount point validity, then call dounmount to do the real work */
 int
 unmount(p, uap, retval)
 	struct proc *p;
@@ -367,6 +373,8 @@ unmount(p, uap, retval)
 /*
  * Do the actual file system unmount.
  */
+/* 中文：执行实际的文件系统卸载：排空挂载锁、同步并调用 VFS_UNMOUNT，清理缓存并从挂载链表移除 */
+/* EN: Perform the actual unmount: drain the mount lock, sync, call VFS_UNMOUNT, purge caches and remove the mount from the list */
 int
 dounmount(mp, flags, p)
 	register struct mount *mp;
@@ -417,6 +425,8 @@ struct ctldebug debug0 = { "syncprt", &syncprt };
 #endif
 
 /* ARGSUSED */
+/* 中文：同步所有已挂载文件系统，对可写文件系统调用 VFS_SYNC 刷写数据 */
+/* EN: Sync every mounted file system, calling VFS_SYNC on all writable mounts */
 int
 sync(p, uap, retval)
 	struct proc *p;
@@ -455,6 +465,8 @@ sync(p, uap, retval)
  * Change filesystem quotas.
  */
 /* ARGSUSED */
+/* 中文：改变文件系统配额：解析路径取得所属挂载点并调用 VFS_QUOTACTL */
+/* EN: Change file system quotas: resolve the path to its mount point and call VFS_QUOTACTL */
 int
 quotactl(p, uap, retval)
 	struct proc *p;
@@ -483,6 +495,8 @@ quotactl(p, uap, retval)
  * Get filesystem statistics.
  */
 /* ARGSUSED */
+/* 中文：按路径名获取文件系统统计信息，调用 VFS_STATFS 并把结果拷贝回用户空间 */
+/* EN: Get file system statistics by path name via VFS_STATFS and copy the result to user space */
 int
 statfs(p, uap, retval)
 	struct proc *p;
@@ -513,6 +527,8 @@ statfs(p, uap, retval)
  * Get filesystem statistics.
  */
 /* ARGSUSED */
+/* 中文：按文件描述符获取文件系统统计信息，经 vnode 找到挂载点后调用 VFS_STATFS */
+/* EN: Get file system statistics by file descriptor, locate the mount via the vnode and call VFS_STATFS */
 int
 fstatfs(p, uap, retval)
 	struct proc *p;
@@ -540,6 +556,8 @@ fstatfs(p, uap, retval)
 /*
  * Get statistics on all filesystems.
  */
+/* 中文：遍历挂载链表获取所有文件系统的统计信息并写入用户缓冲区 */
+/* EN: Get statistics on all mounted file systems by walking the mount list and writing into the user buffer */
 int
 getfsstat(p, uap, retval)
 	struct proc *p;
@@ -600,6 +618,8 @@ getfsstat(p, uap, retval)
  * Change current working directory to a given file descriptor.
  */
 /* ARGSUSED */
+/* 中文：将当前工作目录改为给定文件描述符所指的目录，并跟随其上的挂载点 */
+/* EN: Change the current working directory to the one referenced by a file descriptor, following any mount points */
 int
 fchdir(p, uap, retval)
 	struct proc *p;
@@ -647,6 +667,8 @@ fchdir(p, uap, retval)
  * Change current working directory (``.'').
  */
 /* ARGSUSED */
+/* 中文：把当前工作目录改为路径参数指定的目录 */
+/* EN: Change the current working directory to the directory named by the path argument */
 int
 chdir(p, uap, retval)
 	struct proc *p;
@@ -672,6 +694,8 @@ chdir(p, uap, retval)
  * Change notion of root (``/'') directory.
  */
 /* ARGSUSED */
+/* 中文：改变进程视角的根目录（chroot），仅超级用户可调用 */
+/* EN: Change the notion of root directory (chroot); reserved for the superuser */
 int
 chroot(p, uap, retval)
 	struct proc *p;
@@ -699,6 +723,8 @@ chroot(p, uap, retval)
 /*
  * Common routine for chroot and chdir.
  */
+/* 中文：chroot 与 chdir 的公共例程：解析路径并校验目标确为可执行的目录 */
+/* EN: Common routine for chroot and chdir: resolve the path and verify the target is an executable directory */
 static int
 change_dir(ndp, p)
 	register struct nameidata *ndp;
@@ -725,6 +751,8 @@ change_dir(ndp, p)
  * Check permissions, allocate an open file structure,
  * and call the device open routine if any.
  */
+/* 中文：打开文件或设备：检查权限、分配文件描述符、调用 vn_open 并根据加锁标志设置记录锁 */
+/* EN: Open a file or device: check permissions, allocate a descriptor, call vn_open and apply advisory locks when requested */
 int
 open(p, uap, retval)
 	struct proc *p;
@@ -802,6 +830,8 @@ open(p, uap, retval)
 /*
  * Create a file.
  */
+/* 中文：4.3BSD 兼容的 creat 系统调用，以 O_WRONLY|O_CREAT|O_TRUNC 方式调用 open */
+/* EN: 4.3BSD compatibility creat system call, implemented by calling open with O_WRONLY|O_CREAT|O_TRUNC */
 int
 compat_43_creat(p, uap, retval)
 	struct proc *p;
@@ -828,6 +858,8 @@ compat_43_creat(p, uap, retval)
  * Create a special file.
  */
 /* ARGSUSED */
+/* 中文：创建特殊文件：按 mode 建立字符/块设备、whiteout 或坏扇区节点，仅超级用户可用 */
+/* EN: Create a special file: make a character/block device, whiteout or bad-sector node according to mode; superuser only */
 int
 mknod(p, uap, retval)
 	struct proc *p;
@@ -903,6 +935,8 @@ mknod(p, uap, retval)
  * Create a named pipe.
  */
 /* ARGSUSED */
+/* 中文：创建命名管道（FIFO），在父目录中建立 VFIFO 类型的 vnode */
+/* EN: Create a named pipe (FIFO) by making a VFIFO-type vnode in the parent directory */
 int
 mkfifo(p, uap, retval)
 	struct proc *p;
@@ -943,6 +977,8 @@ mkfifo(p, uap, retval)
  * Make a hard file link.
  */
 /* ARGSUSED */
+/* 中文：创建硬链接：解析源与目标路径，校验权限后调用 VOP_LINK */
+/* EN: Create a hard file link: resolve source and target paths, check permissions and call VOP_LINK */
 int
 link(p, uap, retval)
 	struct proc *p;
@@ -992,6 +1028,8 @@ link(p, uap, retval)
  * Make a symbolic link.
  */
 /* ARGSUSED */
+/* 中文：创建符号链接：把用户提供的目标字符串写入新链接 vnode */
+/* EN: Create a symbolic link: store the user-supplied target string into a new link vnode */
 int
 symlink(p, uap, retval)
 	struct proc *p;
@@ -1035,6 +1073,8 @@ out:
  * Delete a whiteout from the filesystem.
  */
 /* ARGSUSED */
+/* 中文：从文件系统删除一个 whiteout 项，用于撤销白out标记 */
+/* EN: Delete a whiteout entry from the file system, used to remove a whiteout marker */
 int
 undelete(p, uap, retval)
 	struct proc *p;
@@ -1074,6 +1114,8 @@ undelete(p, uap, retval)
  * Delete a name from the filesystem.
  */
 /* ARGSUSED */
+/* 中文：从文件系统删除一个名字（取消链接），禁止删除挂载根目录 */
+/* EN: Delete a name from the file system (unlink), refusing to remove a mounted root directory */
 int
 unlink(p, uap, retval)
 	struct proc *p;
@@ -1122,6 +1164,8 @@ unlink(p, uap, retval)
 /*
  * Reposition read/write file offset.
  */
+/* 中文：重新定位文件描述符的读写偏移，支持相对、绝对和基于文件末尾三种 whence */
+/* EN: Reposition the read/write offset of a descriptor, supporting relative, absolute and end-of-file whence values */
 int
 lseek(p, uap, retval)
 	struct proc *p;
@@ -1168,6 +1212,8 @@ lseek(p, uap, retval)
 /*
  * Reposition read/write file offset.
  */
+/* 中文：4.3BSD 兼容的 lseek 系统调用，转换参数后调用新的 lseek 并返回 long 结果 */
+/* EN: 4.3BSD compatibility lseek system call: translate arguments, call the new lseek and return a long result */
 int
 compat_43_lseek(p, uap, retval)
 	struct proc *p;
@@ -1199,6 +1245,8 @@ compat_43_lseek(p, uap, retval)
 /*
  * Check access permissions.
  */
+/* 中文：检查用户对文件的访问权限，使用真实 uid/gid 并按 R_OK/W_OK/X_OK 映射到 VNODE 权限 */
+/* EN: Check a user's access permissions on a file using the real uid/gid, mapping R_OK/W_OK/X_OK to vnode permissions */
 int
 access(p, uap, retval)
 	struct proc *p;
@@ -1247,6 +1295,8 @@ out1:
  * Get file status; this version follows links.
  */
 /* ARGSUSED */
+/* 中文：4.3BSD 兼容的 stat 系统调用（跟随符号链接），转换结构后拷贝回用户空间 */
+/* EN: 4.3BSD compatibility stat system call (follows links), converting the stat structure before copying out */
 int
 compat_43_stat(p, uap, retval)
 	struct proc *p;
@@ -1278,6 +1328,8 @@ compat_43_stat(p, uap, retval)
  * Get file status; this version does not follow links.
  */
 /* ARGSUSED */
+/* 中文：4.3BSD 兼容的 lstat 系统调用（不跟随符号链接），对链接返回其包含目录的属性 */
+/* EN: 4.3BSD compatibility lstat system call (does not follow links), returning containing-directory attributes for links */
 int
 compat_43_lstat(p, uap, retval)
 	struct proc *p;
@@ -1337,6 +1389,8 @@ compat_43_lstat(p, uap, retval)
 /*
  * Convert from an old to a new stat structure.
  */
+/* 中文：把当前 stat 结构的各字段转换为老的 ostat 结构格式 */
+/* EN: Convert the fields of a current stat structure into the older ostat format */
 void
 cvtstat(st, ost)
 	struct stat *st;
@@ -1368,6 +1422,8 @@ cvtstat(st, ost)
  * Get file status; this version follows links.
  */
 /* ARGSUSED */
+/* 中文：获取文件状态（跟随符号链接），经 vn_stat 取得属性后拷贝回用户空间 */
+/* EN: Get file status following symbolic links, obtain attributes via vn_stat and copy them to user space */
 int
 stat(p, uap, retval)
 	struct proc *p;
@@ -1397,6 +1453,8 @@ stat(p, uap, retval)
  * Get file status; this version does not follow links.
  */
 /* ARGSUSED */
+/* 中文：获取文件状态（不跟随符号链接），对链接返回包含目录的属性但保留链接自身的模式与大小 */
+/* EN: Get file status without following symbolic links, using containing-directory attributes for links but keeping link mode/size */
 int
 lstat(p, uap, retval)
 	struct proc *p;
@@ -1456,6 +1514,8 @@ lstat(p, uap, retval)
  * Get configurable pathname variables.
  */
 /* ARGSUSED */
+/* 中文：获取与路径名相关的可配置系统变量，调用 VOP_PATHCONF */
+/* EN: Get configurable pathname-related system variables by calling VOP_PATHCONF */
 int
 pathconf(p, uap, retval)
 	struct proc *p;
@@ -1481,6 +1541,8 @@ pathconf(p, uap, retval)
  * Return target name of a symbolic link.
  */
 /* ARGSUSED */
+/* 中文：读取并返回符号链接的目标字符串，通过 VOP_READLINK 写入用户缓冲区 */
+/* EN: Read and return the target string of a symbolic link via VOP_READLINK into the user buffer */
 int
 readlink(p, uap, retval)
 	struct proc *p;
@@ -1525,6 +1587,8 @@ readlink(p, uap, retval)
  * Change flags of a file given a path name.
  */
 /* ARGSUSED */
+/* 中文：按路径名设置文件的 flags 属性（chflags） */
+/* EN: Set a file's flags attribute given its path name (chflags) */
 int
 chflags(p, uap, retval)
 	struct proc *p;
@@ -1556,6 +1620,8 @@ chflags(p, uap, retval)
  * Change flags of a file given a file descriptor.
  */
 /* ARGSUSED */
+/* 中文：按文件描述符设置文件的 flags 属性（fchflags） */
+/* EN: Set a file's flags attribute given its file descriptor (fchflags) */
 int
 fchflags(p, uap, retval)
 	struct proc *p;
@@ -1586,6 +1652,8 @@ fchflags(p, uap, retval)
  * Change mode of a file given path name.
  */
 /* ARGSUSED */
+/* 中文：按路径名改变文件的权限模式（chmod） */
+/* EN: Change a file's permission mode given its path name (chmod) */
 int
 chmod(p, uap, retval)
 	struct proc *p;
@@ -1617,6 +1685,8 @@ chmod(p, uap, retval)
  * Change mode of a file given a file descriptor.
  */
 /* ARGSUSED */
+/* 中文：按文件描述符改变文件的权限模式（fchmod） */
+/* EN: Change a file's permission mode given its file descriptor (fchmod) */
 int
 fchmod(p, uap, retval)
 	struct proc *p;
@@ -1647,6 +1717,8 @@ fchmod(p, uap, retval)
  * Set ownership given a path name.
  */
 /* ARGSUSED */
+/* 中文：按路径名设置文件的属主 uid 和 gid（chown） */
+/* EN: Set a file's owner uid and gid given its path name (chown) */
 int
 chown(p, uap, retval)
 	struct proc *p;
@@ -1680,6 +1752,8 @@ chown(p, uap, retval)
  * Set ownership given a file descriptor.
  */
 /* ARGSUSED */
+/* 中文：按文件描述符设置文件的属主 uid 和 gid（fchown） */
+/* EN: Set a file's owner uid and gid given its file descriptor (fchown) */
 int
 fchown(p, uap, retval)
 	struct proc *p;
@@ -1712,6 +1786,8 @@ fchown(p, uap, retval)
  * Set the access and modification times of a file.
  */
 /* ARGSUSED */
+/* 中文：设置文件的访问与修改时间（utimes），参数为 NULL 时使用当前时间 */
+/* EN: Set a file's access and modification times (utimes), using the current time when the pointer is NULL */
 int
 utimes(p, uap, retval)
 	struct proc *p;
@@ -1754,6 +1830,8 @@ utimes(p, uap, retval)
  * Truncate a file given its path name.
  */
 /* ARGSUSED */
+/* 中文：按路径名把文件截断到指定长度（truncate） */
+/* EN: Truncate a file to the given length by path name (truncate) */
 int
 truncate(p, uap, retval)
 	struct proc *p;
@@ -1791,6 +1869,8 @@ truncate(p, uap, retval)
  * Truncate a file given a file descriptor.
  */
 /* ARGSUSED */
+/* 中文：按文件描述符把文件截断到指定长度（ftruncate），要求描述符可写 */
+/* EN: Truncate a file to the given length by file descriptor (ftruncate), requiring a writable descriptor */
 int
 ftruncate(p, uap, retval)
 	struct proc *p;
@@ -1829,6 +1909,8 @@ ftruncate(p, uap, retval)
  * Truncate a file given its path name.
  */
 /* ARGSUSED */
+/* 中文：4.3BSD 兼容的 truncate 系统调用，转换参数后调用新的 truncate */
+/* EN: 4.3BSD compatibility truncate system call that translates arguments and calls the new truncate */
 int
 compat_43_truncate(p, uap, retval)
 	struct proc *p;
@@ -1853,6 +1935,8 @@ compat_43_truncate(p, uap, retval)
  * Truncate a file given a file descriptor.
  */
 /* ARGSUSED */
+/* 中文：4.3BSD 兼容的 ftruncate 系统调用，转换参数后调用新的 ftruncate */
+/* EN: 4.3BSD compatibility ftruncate system call that translates arguments and calls the new ftruncate */
 int
 compat_43_ftruncate(p, uap, retval)
 	struct proc *p;
@@ -1878,6 +1962,8 @@ compat_43_ftruncate(p, uap, retval)
  * Sync an open file.
  */
 /* ARGSUSED */
+/* 中文：同步一个打开文件的所有修改到存储设备（fsync） */
+/* EN: Sync all modifications of an open file to storage (fsync) */
 int
 fsync(p, uap, retval)
 	struct proc *p;
@@ -1904,6 +1990,8 @@ fsync(p, uap, retval)
  * or both not be directories.  If target is a directory, it must be empty.
  */
 /* ARGSUSED */
+/* 中文：重命名文件或目录，校验源与目标类型一致及非同目录同名等情况后调用 VOP_RENAME */
+/* EN: Rename a file or directory, validating type consistency and same-name cases before calling VOP_RENAME */
 int
 rename(p, uap, retval)
 	struct proc *p;
@@ -1989,6 +2077,8 @@ out1:
  * Make a directory file.
  */
 /* ARGSUSED */
+/* 中文：创建目录：在父目录中建立 VDIR 类型 vnode 并应用创建模式掩码 */
+/* EN: Create a directory by making a VDIR-type vnode in the parent directory with the creation mode mask applied */
 int
 mkdir(p, uap, retval)
 	struct proc *p;
@@ -2030,6 +2120,8 @@ mkdir(p, uap, retval)
  * Remove a directory file.
  */
 /* ARGSUSED */
+/* 中文：删除空目录（rmdir），拒绝删除 '.'、非空目录及挂载根 */
+/* EN: Remove an empty directory (rmdir), refusing '.', non-empty directories and mount roots */
 int
 rmdir(p, uap, retval)
 	struct proc *p;
@@ -2083,6 +2175,8 @@ out:
 /*
  * Read a block of directory entries in a file system independent format.
  */
+/* 中文：4.3BSD 兼容的 getdirentries：以文件系统无关格式读取目录项并兼容 union 挂载与字节序转换 */
+/* EN: 4.3BSD compatibility getdirentries: read directory entries in an FS-independent format with union-mount and endianness handling */
 int
 compat_43_getdirentries(p, uap, retval)
 	struct proc *p;
@@ -2240,6 +2334,8 @@ unionread:
 /*
  * Read a block of directory entries in a file system independent format.
  */
+/* 中文：以文件系统无关格式从目录文件描述符读取一块目录项（getdirentries），支持 union 挂载回退 */
+/* EN: Read a block of directory entries in an FS-independent format (getdirentries), with union-mount fallback */
 int
 getdirentries(p, uap, retval)
 	struct proc *p;
@@ -2346,6 +2442,8 @@ unionread:
 /*
  * Set the mode mask for creation of filesystem nodes.
  */
+/* 中文：获取并设置创建文件系统节点时的模式掩码（umask） */
+/* EN: Get and set the mode mask used when creating file system nodes (umask) */
 int
 umask(p, uap, retval)
 	struct proc *p;
@@ -2367,6 +2465,8 @@ umask(p, uap, retval)
  * away from vnode.
  */
 /* ARGSUSED */
+/* 中文：撤销对文件的所有引用：调用 VOP_REVOKE 使该 vnode 上的所有打开实例失效 */
+/* EN: Revoke all references to a file by calling VOP_REVOKE to invalidate all open instances of the vnode */
 int
 revoke(p, uap, retval)
 	struct proc *p;
@@ -2399,6 +2499,8 @@ out:
 /*
  * Convert a user file descriptor to a kernel file entry.
  */
+/* 中文：检查文件描述符有效性并把用户描述符转换为对应的内核 file 结构 */
+/* EN: Validate a file descriptor and convert the user descriptor into its kernel file structure */
 int
 getvnode(fdp, fd, fpp)
 	struct filedesc *fdp;

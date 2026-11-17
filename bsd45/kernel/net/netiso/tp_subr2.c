@@ -137,6 +137,8 @@ void tp_rsyset();
  *  But for debugging, we call this and that allows us to add
  *  debugging messages easily here.
  */
+/* 中文：计算本地信用量并存到 tp_lcredit，供调试时打印与跟踪相关参数 */
+/* EN: Compute the local credit and store it in tp_lcredit, with debug printing and tracing of the related parameters */
 void
 tp_local_credit(tpcb)
 	struct tp_pcb *tpcb;
@@ -175,6 +177,8 @@ tp_local_credit(tpcb)
  *
  * NOTES:
  */
+/* 中文：当状态机遇到无法处理的事件/状态/谓词组合时打印协议错误并返回 EIO */
+/* EN: Print a protocol error when the state machine hits an unhandled event/state/predicate combination and return EIO */
 int
 tp_protocol_error(e,tpcb)
 	struct tp_event	*e;
@@ -191,6 +195,8 @@ tp_protocol_error(e,tpcb)
 
 
 /* Not used at the moment */
+/* 中文：空的占位函数，当前未使用，仅返回 0 */
+/* EN: No-op placeholder function, currently unused, that simply returns 0 */
 ProtoHook
 tp_drain()
 {
@@ -218,6 +224,8 @@ tp_drain()
  *
  * NOTES:
  */
+/* 中文：向用户进程发出断开或带外数据等指示：设置 socket 错误、附加断开原因并触发 SIGURG */
+/* EN: Deliver indications such as disconnect or out-of-band data to the user process: set the socket error, attach the disconnect reason and raise SIGURG */
 void
 tp_indicate(ind, tpcb, error)
 	int				ind; 
@@ -291,6 +299,8 @@ tp_indicate(ind, tpcb, error)
  *
  * NOTES:
  */
+/* 中文：进入 OPEN 状态时根据协商的序号格式与选项设置 tpcb 的序号掩码、时序参数并配置重组队列 */
+/* EN: When entering the OPEN state, set the tpcb's sequence masks and timing parameters from the negotiated format and configure the reassembly queue */
 void
 tp_getoptions(tpcb)
 struct tp_pcb *tpcb;
@@ -321,6 +331,8 @@ struct tp_pcb *tpcb;
  *
  * NOTES:
  */
+/* 中文：清空本地与对端传输后缀并置零其长度，使传输引用可被复用，并调用网络层回收后缀 */
+/* EN: Clear the local and remote transport suffixes and zero their lengths so the reference can be reused, and ask the network layer to recycle its suffix */
 void
 tp_recycle_tsuffix(tpcb)
 	struct tp_pcb	*tpcb;
@@ -359,6 +371,8 @@ tp_recycle_tsuffix(tpcb)
  * 
  * NOTES:
  */
+/* 中文：处理 ICMP 源抑制或目的抑制（decbit）：把拥塞窗口降回一个 TPDU 并复位 decbit 计数 */
+/* EN: Handle ICMP source quench or destination quench (decbit) by cutting the congestion window back to one TPDU and resetting the decbit counter */
 void
 tp_quench( tpcb, cmd )
 	struct tp_pcb *tpcb;
@@ -397,6 +411,8 @@ tp_quench( tpcb, cmd )
  *
  * NOTES:			
  */
+/* 中文：处理底层网络控制命令（连接关闭/拒绝），对 CONS/X.25 提前释放逻辑通道 */
+/* EN: Handle low-level network control commands (connection close/refuse), releasing the X.25 logical channel early for CONS */
 tp_netcmd( tpcb, cmd )
 	struct tp_pcb *tpcb;
 	int cmd;
@@ -441,6 +457,8 @@ tp_netcmd( tpcb, cmd )
  * 	Convert a class mask to the highest numeric value it represents.
  */
 
+/* 中文：把类别掩码转换为它所代表的最高类别编号（最高置位的位号） */
+/* EN: Convert a class mask to the highest class number it represents (the highest set bit) */
 int
 tp_mask_to_num(x)
 	u_char x;
@@ -465,6 +483,8 @@ tp_mask_to_num(x)
 	return j;
 }
 
+/* 中文：把连接参数结构从 src 复制到 dst，包括末尾的 tpdusize、ack_strat 和 rx_strat 字段 */
+/* EN: Copy the connection parameter structure from src to dst, including the trailing tpdusize, ack_strat and rx_strat fields */
 static 
 copyQOSparms(src, dst)
 	struct tp_conn_param *src, *dst;
@@ -486,6 +506,8 @@ copyQOSparms(src, dst)
  * While looking at the routing entry, we also initialize other path-dependent
  * parameters from pre-set or cached values in the routing entry.
  */
+/* 中文：根据路由 MTU 和对端请求确定合理的最大 TPDU 大小，并初始化拥塞窗口、慢启动阈值与重组队列 */
+/* EN: Determine a reasonable maximum TPDU size from the route MTU and the peer's request, and initialize the congestion window, slow-start threshold and reassembly queue */
 void
 tp_mss(tpcb, nhdr_size)
 	register struct tp_pcb *tpcb;
@@ -613,6 +635,8 @@ punt_route:
  *   Determines recommended tpdusize, buffering and intial delays
  *	 based on information cached on the route.
  */
+/* 中文：根据对端网络地址为连接选定网络服务、配置网络层 PCB 与路由，并计算 MSS 等路径参数 */
+/* EN: Select the network service for a connection from the peer address, configure the network-layer PCB and route, and compute path parameters such as MSS */
 int
 tp_route_to( m, tpcb, channel)
 	struct mbuf					*m;
@@ -713,6 +737,8 @@ done:
 
 
 /* class zero version */
+/* 中文：TP0 类专用接收：把 DT TPDU 数据直接追加到接收缓冲，并在 CONS 上施加 X.25 流控 */
+/* EN: TP0-specific receive: append DT TPDU data directly to the receive buffer and apply X.25 flow control over CONS */
 void
 tp0_stash( tpcb, e )
 	register struct tp_pcb		*tpcb;
@@ -760,6 +786,8 @@ tp0_stash( tpcb, e )
 	}
 } 
 
+/* 中文：TP0 类：在 X.25 连接上解除 RNR（接收未就绪）状态，恢复数据流 */
+/* EN: TP0-specific: clear the X.25 RNR (receiver-not-ready) condition on the connection to resume data flow */
 void
 tp0_openflow(tpcb)
 register struct tp_pcb *tpcb;
@@ -774,6 +802,8 @@ register struct tp_pcb *tpcb;
 	}
 }
 #ifndef TPCONS
+/* 中文：未配置 TPCONS 时 X.25 流控函数的空实现占位 */
+/* EN: No-op stub for the X.25 flow-control function when TPCONS is not configured */
 static
 pk_flowcontrol() {}
 #endif
@@ -791,6 +821,8 @@ pk_flowcontrol() {}
  *  ENOBUFS if it cannot get a cluster mbuf.
  */
 
+/* 中文：为 tpcb 分配并清零一个 tp_pmeas 结构以保存性能测量数据，启用性能统计 */
+/* EN: Allocate and zero a tp_pmeas structure for the tpcb to hold performance data, enabling performance measurement */
 int 
 tp_setup_perf(tpcb)
 	register struct tp_pcb *tpcb;
@@ -823,6 +855,8 @@ tp_setup_perf(tpcb)
 #endif /* TP_PERF_MEAS */
 
 #ifdef ARGO_DEBUG
+/* 中文：按地址族把 sockaddr（inet/iso）打印为可读信息 */
+/* EN: Print a readable representation of a sockaddr (inet/iso) according to its address family */
 dump_addr (addr)
 	register struct sockaddr *addr;
 {
@@ -849,6 +883,8 @@ dump_addr (addr)
  *		columns of hex/dec numbers will be printed, followed by the
  *		character representations (if printable).
  */
+/* 中文：以十六进制/十进制数值加可打印字符的行格式把缓冲区内容转储输出 */
+/* EN: Dump a buffer's contents in readable rows of hex/decimal values plus printable characters */
 Dump_buf(buf, len)
 caddr_t	buf;
 int		len;

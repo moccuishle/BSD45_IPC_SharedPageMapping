@@ -884,6 +884,8 @@ badopen:
 	du->dk_state = OPENRAW;
 	return(1);
 }
+/* 中文：按 dk_dd 中的磁盘几何（柱面数、磁头数、扇区数）对 WD 控制器编程并发出设置参数命令 0x91，等待就绪后返回错误寄存器值 */
+/* EN: Program the WD controller with the drive geometry from dk_dd (cylinders, heads, sectors), issue the 0x91 set-parameters command and return the error register value after waiting for ready */
 
 wdsetctlr(dev, du) dev_t dev; struct disk *du; {
 	int stat;

@@ -191,6 +191,8 @@ Static	struct pklcd *cons_chan_to_pcb();
  * 	LOW_NIBBLE (0) if rightmost 4 bits/ least significant nibble
  * RETURNS: VOID
  */
+/* 中文：从源字节的指定半字节开始拷贝 len 个半字节到目标字节的指定半字节 */
+/* EN: copy len nibbles starting at the given source nibble into the destination nibble */
 void
 nibble_copy(src_octet, src_nibble, dst_octet, dst_nibble, len)
 	register char  	*src_octet;
@@ -237,6 +239,8 @@ nibble_copy(src_octet, src_nibble, dst_octet, dst_nibble, len)
  * 	compares src_octet/src_nibble and dst_octet/dst_nibble  for len nibbles.
  * RETURNS: 0 if they differ, 1 if they are the same.
  */
+/* 中文：比较源字节与目标字节从指定半字节开始的 len 个半字节，相同返回 1 否则 0 */
+/* EN: compare len nibbles from the given source and destination nibbles, returning 1 if equal else 0 */
 int
 nibble_match( src_octet, src_nibble, dst_octet, dst_nibble, len)
 	register char  	*src_octet;
@@ -288,6 +292,8 @@ nibble_match( src_octet, src_nibble, dst_octet, dst_nibble, len)
  * FUNCTION:
  *	initialize the protocol
  */
+/* 中文：初始化 CONS 协议：查找 CLNP、X.25、TP 的协议交换结构指针 */
+/* EN: initialize the CONS protocol by looking up protosw pointers for CLNP, X.25 and TP */
 cons_init()
 {
 	int tp_incoming(), clnp_incoming();
@@ -308,6 +314,8 @@ cons_init()
 #endif
 }
 
+/* 中文：处理到达的 X.25 呼叫：分配 isopcb、绑定上层处理函数并解析设施字段 */
+/* EN: handle an incoming X.25 call: allocate an isopcb, bind the upper-layer handler and parse facilities */
 tp_incoming(lcp, m)
 struct pklcd *lcp;
 register struct mbuf *m;
@@ -332,6 +340,8 @@ register struct mbuf *m;
 		m->m_pkthdr.len - PKHEADERLN);
 }
 
+/* 中文：CONS 到 TP 的输入回调：按 X.25 包类型转交数据或向下层通报控制事件 */
+/* EN: CONS-to-TP input callback: dispatch data or control events to the lower layer based on X.25 packet type */
 cons_tpinput(lcp, m0)
 struct mbuf *m0;
 struct pklcd *lcp;
@@ -389,6 +399,8 @@ struct pklcd *lcp;
  * RETURN VALUE:
  *  returns E*
  */
+/* 中文：建立 CONS 连接：把 NSAP 转成 DTE 地址、构造部分 X.25 呼叫报文并调用 pk_connect */
+/* EN: establish a CONS connection: map NSAP to a DTE address, build a partial X.25 call packet and call pk_connect */
 cons_connect(isop)
 	register struct isopcb *isop;
 {
@@ -436,6 +448,8 @@ cons_connect(isop)
  * NOTE: this takes 3rd arg. because cons uses it to inform itself
  *  of things (timeouts, etc) but has a pcb instead of an address.
  */
+/* 中文：CONS 控制输入处理（当前为空实现），由下层通过 protosw 调用上层服务 */
+/* EN: CONS control-input handler (currently empty), invoked by the lower layer via protosw */
 cons_ctlinput(cmd, sa, copcb)
 	int cmd;
 	struct sockaddr *sa;
@@ -444,6 +458,8 @@ cons_ctlinput(cmd, sa, copcb)
 }
 
 
+/* 中文：从 X.25 包的清除原因/诊断字段解析出对应的 CONL 错误码 */
+/* EN: derive a CONL error code from the clear cause/diagnostic field of an X.25 packet */
 find_error_reason( xp )
 	register struct x25_packet *xp;
 {
@@ -548,6 +564,8 @@ int cons_use_facils = 0;
 
 int cons_use_udata = 1; /* KLUDGE FOR DEBUGGING */
 
+/* 中文：构造 X.25 呼叫报文的部分内容（设施字段与用户数据），存入 X.25 控制块供连接例程使用 */
+/* EN: build the partial X.25 call packet (facilities and user data) and store it in the X.25 control block */
 Static int
 make_partial_x25_packet(isop, lcp)
 	struct isopcb *isop;
@@ -688,6 +706,8 @@ make_partial_x25_packet(isop, lcp)
  *  # significant digits in the DTE address, -1 if error.
  */
 
+/* 中文：把 NSAP 地址中的 DTE 部分转换为 ASCII 数字形式的 X.25 DTE 地址，返回有效位数 */
+/* EN: convert the DTE portion of an NSAP to an ASCII-digit X.25 address, returning the digit count */
 Static int
 NSAPtoDTE(siso, sx25)
 	register struct sockaddr_iso *siso;
@@ -751,6 +771,8 @@ NSAPtoDTE(siso, sx25)
  *  0 if ok, -1 if error.
  */
 
+/* 中文：从 X.25 设施字段构造 sockaddr_iso 中的 NSAP 地址，成功返回 0 失败返回 -1 */
+/* EN: build an NSAP in sockaddr_iso from an X.25 facility field, returning 0 or -1 */
 Static int
 FACILtoNSAP(addr, buf)
 	register u_char 		*buf;
@@ -789,6 +811,8 @@ FACILtoNSAP(addr, buf)
 	return 0;
 }
 
+/* 中文：把一个 sockaddr_iso 初始化为 type 37 NSAP 的默认结构 */
+/* EN: initialize a sockaddr_iso to the default type-37 NSAP layout */
 Static
 init_siso(siso)
 register struct sockaddr_iso *siso;
@@ -811,6 +835,8 @@ register struct sockaddr_iso *siso;
  *  0 if ok; E* otherwise.
  */
 
+/* 中文：从 sockaddr_x25 的 DTE 地址构造 type 37 NSAP，成功返回 0 */
+/* EN: build a type-37 NSAP from the DTE address in a sockaddr_x25, returning 0 on success */
 Static  int
 DTEtoNSAP(addr, sx)
 	struct sockaddr_iso *addr;
@@ -853,6 +879,8 @@ DTEtoNSAP(addr, sx)
  *  0 if ok, E* otherwise.
  */
 
+/* 中文：解析 X.25 呼叫的设施字段，取出主叫/被叫 NSAP 并存入对应的 isopcb 地址 */
+/* EN: parse X.25 call facilities, extracting calling/called NSAPs into the isopcb addresses */
 Static int
 parse_facil(lcp, isop, buf, buf_len)
 	caddr_t 		buf;

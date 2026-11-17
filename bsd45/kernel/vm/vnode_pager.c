@@ -96,6 +96,8 @@ struct pagerops vnodepagerops = {
 	vnode_pager_cluster
 };
 
+/* 中文：初始化 vnode 分页器：建立受管理分页器链表的头 */
+/* EN: Initialize the vnode pager by setting up the head of the managed-pager list */
 static void
 vnode_pager_init()
 {
@@ -110,6 +112,8 @@ vnode_pager_init()
  * Allocate (or lookup) pager for a vnode.
  * Handle is a vnode pointer.
  */
+/* 中文：为 vnode 分配或查找分页器：新建 pager 与 vn_pager 结构及对应 vm_object，或查找已存在的对象 */
+/* EN: Allocate or look up a pager for a vnode: create the pager and vn_pager structures plus a vm_object, or find the existing object */
 static vm_pager_t
 vnode_pager_alloc(handle, size, prot, foff)
 	caddr_t handle;
@@ -196,6 +200,8 @@ vnode_pager_alloc(handle, size, prot, foff)
 	return(pager);
 }
 
+/* 中文：释放 vnode 分页器：断开 vnode 关联、释放引用、从链表移除并释放相关结构 */
+/* EN: Deallocate a vnode pager: detach the vnode, release its reference, remove it from the list and free the structures */
 static void
 vnode_pager_dealloc(pager)
 	vm_pager_t pager;
@@ -224,6 +230,8 @@ vnode_pager_dealloc(pager)
 	free((caddr_t)pager, M_VMPAGER);
 }
 
+/* 中文：从 vnode 读入页面：以 UIO_READ 调用 vnode_pager_io 把文件数据读到内存页 */
+/* EN: Read pages in from the vnode by calling vnode_pager_io with UIO_READ */
 static int
 vnode_pager_getpage(pager, mlist, npages, sync)
 	vm_pager_t pager;
@@ -241,6 +249,8 @@ vnode_pager_getpage(pager, mlist, npages, sync)
 			      mlist, npages, sync, UIO_READ));
 }
 
+/* 中文：把页面写回 vnode：以 UIO_WRITE 调用 vnode_pager_io，成功后将页标记为干净并清除修改位 */
+/* EN: Write pages back to the vnode via vnode_pager_io with UIO_WRITE, marking them clean on success */
 static boolean_t
 vnode_pager_putpage(pager, mlist, npages, sync)
 	vm_pager_t pager;
@@ -272,6 +282,8 @@ vnode_pager_putpage(pager, mlist, npages, sync)
 	return(err);
 }
 
+/* 中文：判断 vnode 在给定偏移处是否有数据页：先查偏移是否越界，再用 VOP_BMAP 确定磁盘块是否存在 */
+/* EN: Determine whether the vnode has a page at a given offset by checking bounds and using VOP_BMAP to see if a disk block exists */
 static boolean_t
 vnode_pager_haspage(pager, offset)
 	vm_pager_t pager;
@@ -325,6 +337,8 @@ vnode_pager_haspage(pager, offset)
 	return((long)bn < 0 ? FALSE : TRUE);
 }
 
+/* 中文：计算给定偏移所在页簇的起止偏移范围，供 VM 系统聚类读操作 */
+/* EN: Compute the low/high offset range of the page cluster containing a given offset, for VM read clustering */
 static void
 vnode_pager_cluster(pager, offset, loffset, hoffset)
 	vm_pager_t	pager;
@@ -367,6 +381,8 @@ vnode_pager_cluster(pager, offset, loffset, hoffset)
  * Note: this routine may be invoked as a result of a pager put
  * operation (possibly at object termination time), so we must be careful.
  */
+/* 中文：通知 VM 系统文件大小变化：调整内部记录的大小，并在文件缩小时丢弃新 EOF 之外的缓存页 */
+/* EN: Inform the VM system that a file's size changed: adjust the recorded size and discard cached pages beyond the new EOF when the file shrinks */
 void
 vnode_pager_setsize(vp, nsize)
 	struct vnode *vp;
@@ -419,6 +435,8 @@ vnode_pager_setsize(vp, nsize)
 	vm_object_deallocate(object);
 }
 
+/* 中文：卸载文件系统时对该挂载点上的所有 vnode 取消缓存并释放其分页器 */
+/* EN: On unmount, uncache and release the pagers of all vnodes belonging to the given mount */
 void
 vnode_pager_umount(mp)
 	register struct mount *mp;
@@ -450,6 +468,8 @@ vnode_pager_umount(mp)
  * destruction which may initiate paging activity which may necessitate
  * re-locking the vnode.
  */
+/* 中文：把 vnode 关联的对象从对象缓存中移除；必要时先解锁 vnode 以便对象销毁时的分页操作能重新加锁 */
+/* EN: Remove a vnode's associated object from the object cache, unlocking the vnode if needed so paging during destruction can re-lock it */
 boolean_t
 vnode_pager_uncache(vp)
 	register struct vnode *vp;
@@ -487,6 +507,8 @@ vnode_pager_uncache(vp)
 	return(uncached);
 }
 
+/* 中文：vnode 分页的核心 I/O：把内存页映射到内核虚地址，经 VOP_READ/VOP_WRITE 在文件与页之间传输数据 */
+/* EN: Core I/O routine for vnode paging: map pages into kernel virtual space and transfer data between the file and pages via VOP_READ/VOP_WRITE */
 static int
 vnode_pager_io(vnp, mlist, npages, sync, rw)
 	register vn_pager_t vnp;

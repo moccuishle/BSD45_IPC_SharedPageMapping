@@ -94,6 +94,8 @@ static char *rn_zeros, *rn_ones;
  * that governs a subtree.
  */
 
+/* 中文：在 radix 树中按键查找（忽略掩码），沿 rn_b 位测试下行直到叶子并返回它 */
+/* EN: Search the radix tree for a key ignoring masks, walking bit tests down to a leaf and returning it */
 struct radix_node *
 rn_search(v_arg, head)
 	void *v_arg;
@@ -111,6 +113,8 @@ rn_search(v_arg, head)
 	return (x);
 };
 
+/* 中文：在 radix 树中同时用 key 与 mask 的位做测试查找匹配的叶子节点 */
+/* EN: Search the radix tree using bits of both the key and the mask to reach the matching leaf node */
 struct radix_node *
 rn_search_m(v_arg, head, m_arg)
 	struct radix_node *head;
@@ -129,6 +133,8 @@ rn_search_m(v_arg, head, m_arg)
 	return x;
 };
 
+/* 中文：判断掩码 m 是否比掩码 n 更精确（细化），用于路由的优先级排序 */
+/* EN: Determine whether mask m refines (is more specific than) mask n, used for ordering routes by specificity */
 int
 rn_refines(m_arg, n_arg)
 	void *m_arg, *n_arg;
@@ -156,6 +162,8 @@ rn_refines(m_arg, n_arg)
 	return (!masks_are_equal);
 }
 
+/* 中文：用给定 key 和可选 mask 在 radix 树中精确查找路由，返回匹配的节点 */
+/* EN: Look up a route by key and optional mask in the radix tree, returning the matching node */
 struct radix_node *
 rn_lookup(v_arg, m_arg, head)
 	void *v_arg, *m_arg;
@@ -177,6 +185,8 @@ rn_lookup(v_arg, m_arg, head)
 	return x;
 }
 
+/* 中文：从 skip 字节起按掩码逐位比较，判断 trial key 是否满足某个叶子代表的路由 */
+/* EN: Compare a trial key against a leaf's route from byte skip onward under the mask, returning whether it is satisfied */
 static int
 rn_satsifies_leaf(trial, leaf, skip)
 	char *trial;
@@ -198,6 +208,8 @@ rn_satsifies_leaf(trial, leaf, skip)
 	return 1;
 }
 
+/* 中文：在 radix 树中为给定地址查找最佳（最长前缀）匹配路由，必要时沿树向上回溯候选掩码 */
+/* EN: Find the best (longest-prefix) matching route for an address in the radix tree, walking upward to consider attached masks */
 struct radix_node *
 rn_match(v_arg, head)
 	void *v_arg;
@@ -307,6 +319,8 @@ int	rn_saveinfo;
 int	rn_debug =  1;
 #endif
 
+/* 中文：用给定 key 和位号 b 初始化一对 radix 节点（内节点与叶子），返回内节点 */
+/* EN: Initialize a pair of radix nodes (internal node and leaf) for a key at bit position b, returning the internal node */
 struct radix_node *
 rn_newpair(v, b, nodes)
 	void *v;
@@ -325,6 +339,8 @@ rn_newpair(v, b, nodes)
 	return t;
 }
 
+/* 中文：把一个 key 插入 radix 树，必要时新建内节点拆分路径，返回叶子并通过 dupentry 报告 key 是否重复 */
+/* EN: Insert a key into the radix tree, creating an internal node to split the path when needed, returning the leaf and reporting duplicate keys via dupentry */
 struct radix_node *
 rn_insert(v_arg, head, dupentry, nodes)
 	void *v_arg;
@@ -390,6 +406,8 @@ on1:
 	return (tt);
 }
 
+/* 中文：把网络掩码加入掩码 radix 树：去掉尾部 0、判断是否为 normal 掩码；search 为真时只查找不插入 */
+/* EN: Add a network mask to the mask radix tree, trimming trailing zeros and detecting normal masks; when search is set only look it up */
 struct radix_node *
 rn_addmask(n_arg, search, skip)
 	int search, skip;
@@ -463,6 +481,8 @@ rn_addmask(n_arg, search, skip)
 	return (x);
 }
 
+/* 中文：按字节序比较两个掩码，判断 m 是否在字典序上优于 n（用于非连续掩码的排序） */
+/* EN: Compare two masks byte-wise, returning whether m is lexicographically better than n (for ordering non-contiguous masks) */
 static int	/* XXX: arbitrary ordering for non-contiguous masks */
 rn_lexobetter(m_arg, n_arg)
 	void *m_arg, *n_arg;
@@ -478,6 +498,8 @@ rn_lexobetter(m_arg, n_arg)
 	return 0;
 }
 
+/* 中文：为叶子 tt 分配一个 radix_mask 节点，记录位号与标志并挂到 tt 的掩码链表头 */
+/* EN: Allocate a radix_mask node for leaf tt, recording its bit position and flags and linking it at the head of tt's mask list */
 static struct radix_mask *
 rn_new_radix_mask(tt, next)
 	register struct radix_node *tt;
@@ -502,6 +524,8 @@ rn_new_radix_mask(tt, next)
 	return m;
 }
 
+/* 中文：向 radix 树添加一条 (key, mask) 路由：处理重复 key 与掩码链表，并把掩码挂到尽量高的祖先节点 */
+/* EN: Add a (key, mask) route to the radix tree: handle duplicate keys and mask lists, lifting the mask to the highest possible ancestor */
 struct radix_node *
 rn_addroute(v_arg, n_arg, head, treenodes)
 	void *v_arg, *n_arg;
@@ -653,6 +677,8 @@ on2:
 	return tt;
 }
 
+/* 中文：从 radix 树删除指定的 (key, mask) 路由：清理掩码链表引用并摘除或替换树中节点 */
+/* EN: Delete a (key, mask) route from the radix tree: clean up mask-list references and unlink or replace nodes in the tree */
 struct radix_node *
 rn_delete(v_arg, netmask_arg, head)
 	void *v_arg, *netmask_arg;
@@ -812,6 +838,8 @@ out:
 	return (tt);
 }
 
+/* 中文：遍历 radix 树的所有叶子并对每个节点调用函数 f，预先算出后继节点以便遍历中安全删除 */
+/* EN: Walk all leaves of the radix tree calling function f on each, precomputing successors so deletion during traversal is safe */
 int
 rn_walktree(h, f, w)
 	struct radix_node_head *h;
@@ -851,6 +879,8 @@ rn_walktree(h, f, w)
 	/* NOTREACHED */
 }
 
+/* 中文：分配并初始化一个 radix_node_head：建立根与哨兵节点并注册 add/del/match/lookup/walk 操作函数 */
+/* EN: Allocate and initialize a radix_node_head: set up root and sentinel nodes and register the add/del/match/lookup/walk operations */
 int
 rn_inithead(head, off)
 	void **head;
@@ -883,6 +913,8 @@ rn_inithead(head, off)
 	return (1);
 }
 
+/* 中文：初始化 radix 全局状态：确定 max_keylen、分配全 0 与全 1 的键缓冲区并初始化掩码树头 */
+/* EN: Initialize radix globals: determine max_keylen, allocate all-zero and all-one key buffers and initialize the mask tree head */
 void
 rn_init()
 {

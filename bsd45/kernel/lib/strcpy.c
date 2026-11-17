@@ -38,6 +38,8 @@ static char sccsid[] = "@(#)strcpy.c	8.1 (Berkeley) 6/4/93";
 #include <sys/cdefs.h>
 #include <string.h>
 
+/* 中文：将以 NUL 结尾的源字符串 from 复制到目标缓冲区 to，返回指向目标起始位置的指针。 */
+/* EN: Copy the NUL-terminated source string from into the destination buffer to, returning a pointer to the start of the destination. */
 char *
 strcpy(to, from)
 	register char *to;

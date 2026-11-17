@@ -93,6 +93,8 @@ SOFTWARE.
  *
  * NOTES:			If source routing has been terminated, do nothing.
  */
+/* 中文：处理 CLNP 数据报的源路由选项：若当前地址是本机则把源路由指针前移到下一个地址，源路由已终止则不做处理 */
+/* EN: Process the source-routing option of a CLNP datagram: advance the source-route pointer when our address is current, doing nothing if routing has terminated */
 clnp_update_srcrt(options, oidx)
 struct mbuf			*options;	/* ptr to options mbuf */
 struct clnp_optidx	*oidx;		/* ptr to option index */
@@ -140,6 +142,8 @@ struct clnp_optidx	*oidx;		/* ptr to option index */
  *
  * NOTES:			
  */
+/* 中文：处理 CLNP 数据报选项：若指定记录路由则把本机出接口地址写入选项的记录路由字段，空间不足时终止记录 */
+/* EN: Process CLNP datagram options: if record-route is requested, record this interface's address in the option, terminating recording when out of space */
 clnp_dooptions(options, oidx, ifp, isoa)
 struct mbuf			*options;	/* ptr to options mbuf */
 struct clnp_optidx	*oidx;		/* ptr to option index */
@@ -214,6 +218,8 @@ struct iso_addr		*isoa;		/* ptr to our address for this ifp */
  *
  * NOTES:			
  */
+/* 中文：设置 CLNP 选项：先释放旧选项，再对 data 做合法性检查，通过则接管为选项（安全/优先/ER 选项不支持），否则返回 EINVAL */
+/* EN: Set CLNP options: free old options, sanity-check data and adopt it as options if valid (security/priority/ER options unsupported), else return EINVAL */
 clnp_set_opts(options, data)
 struct mbuf	**options;	/* target for option information */
 struct mbuf	**data;		/* source of option information */
@@ -268,6 +274,8 @@ struct mbuf	**data;		/* source of option information */
  *					the offset from the beginning of the mbuf data, not the
  *					actual address.
  */
+/* 中文：检查 CLNP 选项缓冲的合法性并填写选项索引：逐项解析填充/安全/源路由/记录路由/QOS/优先/ER 原因，重复或格式错返回 ER 错误码 */
+/* EN: Sanity-check a CLNP options buffer and fill the option index: parse pad/security/source-route/record-route/QOS/priority/ER-reason, returning ER error codes on duplicates or bad syntax */
 clnp_opt_sanity(m, opts, len, oidx)
 struct mbuf 		*m;		/* mbuf options reside in */
 caddr_t				opts;	/* ptr to buffer containing options */

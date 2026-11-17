@@ -112,6 +112,16 @@ C:/msys64/ucrt64/bin/ld.exe --version
 ### 坑 4：长任务用 shell `&` 放后台会随命令结束被杀
 - **对策**：用持久后台任务机制跑 pacman，输出保留下来便于检查
 
+### 坑 5：bison / flex 装完在 `ucrt64\bin` 里找不到
+- **现象**：`C:\msys64\ucrt64\bin\bison.exe`、`flex.exe` 不存在，`pacman -S mingw-w64-ucrt-x86_64-bison ...` 报找不到包
+- **原因**：官方仓库根本没有 bison / flex 的 ucrt64 变体（ucrt64 下只有 `flexdll`，那是另一个东西），bison / flex 只提供 msys 版
+- **对策**：直接装 msys 版 `pacman -S --noconfirm --needed bison flex`，可执行文件在 `C:\msys64\usr\bin\`（bison 3.8.2、flex 2.6.4，m4 作为依赖自动装）。在 `C:\msys64\ucrt64.exe` 终端里 `/usr/bin` 已在 PATH 中，可直接调用；不要在 `ucrt64\bin` 里白找
+
+### 坑 6：普通 PowerShell/cmd 里直接调 gcc.exe 编译静默失败
+- **现象**：`gcc.exe --version` 正常，但真编译 hello.c 时退出码 1、无任何输出，像是 gcc 坏了
+- **原因**：`cc1.exe` 找不到依赖 DLL（`libgmp-10.dll`、`libisl-23.dll`、`libmpc-3.dll`、`libmpfr-6.dll`、`libz-1.dll` 等，文件都齐全，只是不在 DLL 搜索路径）；`--version` 不走 cc1，所以不受影响，极具迷惑性
+- **对策**：日常直接用 `C:\msys64\ucrt64.exe` 终端操作（PATH 已配好，最省事）；若必须在普通终端调 gcc，先 `$env:PATH = 'C:\msys64\ucrt64\bin;' + $env:PATH` 把该目录加到 PATH 最前面再编译
+
 ## 排查卡住命令的通用流程
 
 1. **输出落盘**：`命令 > log 2>&1 &`，然后 `tail` 看它在等什么

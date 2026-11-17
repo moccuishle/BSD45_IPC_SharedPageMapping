@@ -98,6 +98,8 @@ struct tp_Meas tp_Meas[TPMEASN];
  *
  * NOTES:			
  */
+/* 中文：把一个性能测量事件存入循环缓冲区 tp_Meas，记录引用、类型、时间、序号、窗口与大小等信息 */
+/* EN: Store a performance measurement event into the circular buffer tp_Meas, recording reference, kind, time, sequence, window and size */
 void
 Tpmeas(ref, kind, timev, seq, win, size)
 	u_int 	ref;

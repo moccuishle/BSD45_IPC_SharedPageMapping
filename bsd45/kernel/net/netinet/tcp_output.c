@@ -68,6 +68,8 @@ extern struct mbuf *m_copypack();
 /*
  * Tcp output routine: figure out what should be sent and send it.
  */
+/* 中文：TCP 输出主例程：根据拥塞窗口、接收方窗口与重传/ACK 状态决定发送什么并发送报文段。 */
+/* EN: Main TCP output routine: decide what to send based on congestion and receive windows, retransmission and ACK state, then transmit segments. */
 int
 tcp_output(tp)
 	register struct tcpcb *tp;
@@ -584,6 +586,8 @@ out:
 	return (0);
 }
 
+/* 中文：启动 TCP 持续定时器，在对方零窗口时定期发送窗口探测报文。 */
+/* EN: Start the TCP persist timer to periodically probe a peer's zero receive window. */
 void
 tcp_setpersist(tp)
 	register struct tcpcb *tp;

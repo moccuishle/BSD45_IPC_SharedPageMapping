@@ -57,6 +57,8 @@
 
 struct	in_addr zeroin_addr;
 
+/* 中文：为套接字分配并初始化一个 inpcb 结构，挂入指定协议控制块链表并关联到套接字 */
+/* EN: Allocate and initialize an inpcb for a socket, enqueue it on the given pcb list and associate it with the socket */
 int
 in_pcballoc(so, head)
 	struct socket *so;
@@ -75,6 +77,8 @@ in_pcballoc(so, head)
 	return (0);
 }
 
+/* 中文：把本地地址与端口绑定到 inpcb，校验端口冲突与权限，未指定端口时自动分配一个空闲端口 */
+/* EN: Bind a local address and port to an inpcb, checking conflicts and privileges and auto-assigning a free port when none is given */
 int
 in_pcbbind(inp, nam)
 	register struct inpcb *inp;
@@ -156,6 +160,8 @@ in_pcbbind(inp, nam)
  * If don't have a local address for this socket yet,
  * then pick one.
  */
+/* 中文：把 inpcb 连接到指定对端地址与端口，必要时查找路由选择本地地址并校验连接唯一性 */
+/* EN: Connect an inpcb to a specified peer address and port, selecting a local address via routing if needed and checking connection uniqueness */
 int
 in_pcbconnect(inp, nam)
 	register struct inpcb *inp;
@@ -274,6 +280,8 @@ in_pcbconnect(inp, nam)
 	return (0);
 }
 
+/* 中文：清除 inpcb 的对端地址与端口使其断开，无文件描述符时分离控制块 */
+/* EN: Clear an inpcb's peer address and port to disconnect it, detaching the pcb when there is no file descriptor */
 int
 in_pcbdisconnect(inp)
 	struct inpcb *inp;
@@ -285,6 +293,8 @@ in_pcbdisconnect(inp)
 		in_pcbdetach(inp);
 }
 
+/* 中文：把 inpcb 与套接字分离，释放其选项、路由缓存、组播选项并从链表摘除后释放控制块 */
+/* EN: Detach an inpcb from its socket, freeing its options, route cache and multicast options, then dequeueing and freeing the pcb */
 int
 in_pcbdetach(inp)
 	struct inpcb *inp;
@@ -302,6 +312,8 @@ in_pcbdetach(inp)
 	FREE(inp, M_PCB);
 }
 
+/* 中文：把 inpcb 的本地地址与端口填入 sockaddr_in 写入 nam，供 getsockname 使用 */
+/* EN: Fill nam with a sockaddr_in containing the inpcb's local address and port, for getsockname */
 int
 in_setsockaddr(inp, nam)
 	register struct inpcb *inp;
@@ -318,6 +330,8 @@ in_setsockaddr(inp, nam)
 	sin->sin_addr = inp->inp_laddr;
 }
 
+/* 中文：把 inpcb 的对端地址与端口填入 sockaddr_in 写入 nam，供 getpeername 使用 */
+/* EN: Fill nam with a sockaddr_in containing the inpcb's peer address and port, for getpeername */
 int
 in_setpeeraddr(inp, nam)
 	struct inpcb *inp;
@@ -345,6 +359,8 @@ in_setpeeraddr(inp, nam)
  *
  * Must be called at splnet.
  */
+/* 中文：在 splnet 下向与目的地址 dst 关联的所有连接通报控制命令，按本地/端口条件筛选后调用协议通知回调 */
+/* EN: Under splnet, notify all connections associated with destination dst of a control command, filtering by local address/port and invoking the protocol callback */
 int
 in_pcbnotify(head, dst, fport_arg, laddr, lport_arg, cmd, notify)
 	struct inpcb *head;
@@ -403,6 +419,8 @@ in_pcbnotify(head, dst, fport_arg, laddr, lport_arg, cmd, notify)
  * routing information.  If the route was created dynamically
  * (by a redirect), time to try a default gateway again.
  */
+/* 中文：当上层报告连接服务问题时，使 inpcb 缓存路由失效，动态路由则删除，否则释放等待下次重新分配 */
+/* EN: Invalidate an inpcb's cached route when the upper layer reports service problems, deleting dynamic routes or freeing others for later reallocation */
 int
 in_losing(inp)
 	struct inpcb *inp;
@@ -435,6 +453,8 @@ in_losing(inp)
  * After a routing change, flush old routing
  * and allocate a (hopefully) better one.
  */
+/* 中文：路由变化后释放 inpcb 的旧缓存路由，以便下次输出时重新分配更好的路由 */
+/* EN: Flush an inpcb's old cached route after a routing change so a better one can be allocated on next output */
 void
 in_rtchange(inp, errno)
 	register struct inpcb *inp;
@@ -450,6 +470,8 @@ in_rtchange(inp, errno)
 	}
 }
 
+/* 中文：按本地/对端地址与端口在链表中查找最匹配的 inpcb，允许通配符匹配并优先最精确者 */
+/* EN: Look up the best-matching inpcb by local/peer address and port, allowing wildcards and preferring the most specific match */
 struct inpcb *
 in_pcblookup(head, faddr, fport_arg, laddr, lport_arg, flags)
 	struct inpcb *head;

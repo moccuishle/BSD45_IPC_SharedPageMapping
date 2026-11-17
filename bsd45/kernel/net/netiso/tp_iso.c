@@ -117,6 +117,8 @@ SOFTWARE.
  * 	The argument (which) takes the value TP_LOCAL or TP_FOREIGN.
  */
 
+/* 中文：从 isopcb 取出本地或远端的传输后缀（TSEL），写入 data_out 并返回其长度 */
+/* EN: Extract the local or foreign transport suffix (TSEL) from an isopcb into data_out and return its length */
 iso_getsufx(isop, lenp, data_out, which)
 	struct isopcb *isop;
 	u_short *lenp;
@@ -145,6 +147,8 @@ iso_getsufx(isop, lenp, data_out, which)
  * 	Put a transport suffix (found in name) into an isopcb structure (isop).
  * 	The argument (which) takes the value TP_LOCAL or TP_FOREIGN.
  */
+/* 中文：把传输后缀写入 isopcb 的本地或远端地址，必要时扩展地址缓冲区 */
+/* EN: Put a transport suffix into an isopcb's local or foreign address, growing the buffer if needed */
 void
 iso_putsufx(isop, sufxloc, sufxlen, which)
 	struct isopcb *isop;
@@ -204,6 +208,8 @@ iso_putsufx(isop, sufxloc, sufxlen, which)
  * 	The alternative is to have the port unusable until the reference
  * 	timer goes off.
  */
+/* 中文：引用冻结时把 isopcb 的本地和远端传输后缀长度清零以便复用 */
+/* EN: Clear local and foreign transport-suffix lengths in an isopcb so they can be reused */
 void
 iso_recycle_tsuffix(isop)
 	struct isopcb	*isop;
@@ -221,6 +227,8 @@ iso_recycle_tsuffix(isop)
  * 	into an isopcb (isop).
  * 	The argument (which) takes values TP_LOCAL or TP_FOREIGN
  */ 
+/* 中文：把完整的网络地址从 sockaddr 拷贝到 isopcb 的本地或远端地址 */
+/* EN: Copy a whole network address from a sockaddr into an isopcb's local or foreign address */
 void
 iso_putnetaddr(isop, name, which)
 	register struct isopcb	*isop;
@@ -260,6 +268,8 @@ iso_putnetaddr(isop, name, which)
  * 	with that implicitly stored in an isopcb (isop).
  * 	The argument (which) takes values TP_LOCAL or TP_FOREIGN.
  */ 
+/* 中文：比较给定网络地址与 isopcb 中保存的本地或远端地址是否相同 */
+/* EN: Compare a given network address with the one stored in an isopcb (local or foreign) */
 iso_cmpnetaddr(isop, name, which)
 	register struct isopcb	*isop;
 	register struct sockaddr_iso	*name;
@@ -300,6 +310,8 @@ iso_cmpnetaddr(isop, name, which)
  * 	The argument (which) takes values TP_LOCAL or TP_FOREIGN.
  */ 
 
+/* 中文：把 isopcb 中的完整网络地址拷贝到 mbuf name 中 */
+/* EN: Copy a whole network address from an isopcb into the mbuf name */
 void
 iso_getnetaddr( isop, name, which)
 	struct isopcb *isop;
@@ -332,6 +344,8 @@ iso_getnetaddr( isop, name, which)
  *
  * NOTES:
  */
+/* 中文：确定 CLNP 子网相关的 MTU：设置路由指针并返回 clnp 头部开销（CONS 返回 0） */
+/* EN: Determine CLNP subnet-dependent MTU: set the route pointer and return the clnp header size (0 for CONS) */
 tpclnp_mtu(tpcb)
 register struct tp_pcb *tpcb;
 {
@@ -362,6 +376,8 @@ register struct tp_pcb *tpcb;
  *  whatever (E*) is returned form the net layer output routine.
  */
 
+/* 中文：把 TP 发出的包封装成 clnp 可接受的格式，添加 clnp 头部后交给 clnp_output 发送 */
+/* EN: Package a TP packet for clnp and hand it to clnp_output, honoring the no-checksum flag */
 int
 tpclnp_output(isop, m0, datalen, nochksum)
 	struct isopcb		*isop;
@@ -401,6 +417,8 @@ tpclnp_output(isop, m0, datalen, nochksum)
  *  whatever (E*) is returned form the net layer output routine.
  */
 
+/* 中文：用给定的本地/远端地址（而非 pcb）封装并发送单个 CLNP 包，用于错误报文 */
+/* EN: Package and send a single CLNP packet using explicit local/foreign addresses (for error packets) */
 int
 tpclnp_output_dg(laddr, faddr, m0, datalen, ro, nochksum)
 	struct iso_addr		*laddr, *faddr;
@@ -460,6 +478,8 @@ tpclnp_output_dg(laddr, faddr, m0, datalen, ro, nochksum)
  * Take a packet (m) from clnp, strip off the clnp header and give it to tp
  * No return value.  
  */
+/* 中文：CLNP 输入处理：剥离 clnp 头部并预处理后交给 tp_input 或 cltp_input */
+/* EN: CLNP input handler: strip the clnp header, preprocess, then deliver to tp_input or cltp_input */
 ProtoHook
 tpclnp_input(m, src, dst, clnp_len, ce_bit)
 	register struct mbuf *m;
@@ -534,6 +554,8 @@ tpclnp_input(m, src, dst, clnp_len, ce_bit)
 	return 0;
 }
 
+/* 中文：路由变化通知回调，当前为空实现并返回 0 */
+/* EN: Route-change notification callback; currently a no-op returning 0 */
 ProtoHook
 iso_rtchange()
 {
@@ -546,6 +568,8 @@ iso_rtchange()
  * FUNCTION and ARGUMENTS:
  *  find the tpcb pointer and pass it to tp_quench
  */
+/* 中文：从 isopcb 找到 tpcb 并以 PRC_QUENCH2 调用 tp_quench 调整拥塞窗口 */
+/* EN: Find the tpcb from an isopcb and call tp_quench with PRC_QUENCH2 */
 void
 tpiso_decbit(isop)
 	struct isopcb *isop;
@@ -558,6 +582,8 @@ tpiso_decbit(isop)
  * FUNCTION and ARGUMENTS:
  *  find the tpcb pointer and pass it to tp_quench
  */
+/* 中文：从 isopcb 找到 tpcb 并以 PRC_QUENCH 调用 tp_quench 处理拥塞 */
+/* EN: Find the tpcb from an isopcb and call tp_quench with PRC_QUENCH */
 void
 tpiso_quench(isop)
 	struct isopcb *isop;
@@ -576,6 +602,8 @@ tpiso_quench(isop)
  *	(cmd) is the type of ICMP error.   
  * 	(siso) is the address of the guy who sent the ER CLNPDU
  */
+/* 中文：CLNP 控制输入（类 ICMP 错误）：按 cmd 通知相关连接进行拥塞处理、复位或中止 */
+/* EN: CLNP control input (ICMP-like): notify affected connections for quench, reset or abort based on cmd */
 ProtoHook
 tpclnp_ctlinput(cmd, siso)
 	int cmd;
@@ -645,6 +673,8 @@ tpclnp_ctlinput(cmd, siso)
  */
 
 static struct sockaddr_iso siso = {sizeof(siso), AF_ISO};
+/* 中文：tpclnp_ctlinput 的变体：把 iso_addr 包装成 sockaddr_iso 后调用 tpclnp_ctlinput */
+/* EN: Variant of tpclnp_ctlinput that wraps an iso_addr into a sockaddr_iso before calling tpclnp_ctlinput */
 tpclnp_ctlinput1(cmd, isoa)
 	int cmd;
 	struct iso_addr *isoa;
@@ -666,6 +696,8 @@ tpclnp_ctlinput1(cmd, isoa)
  *  abort always aborts the TP connection.
  *  reset may or may not, depending on the TP class that's in use.
  */
+/* 中文：伪造 ER TPDU 事件（原因为 ECONNABORTED）驱动 tp_driver 中止连接 */
+/* EN: Fake an ER TPDU event (ECONNABORTED) to drive tp_driver into aborting the connection */
 ProtoHook
 tpiso_abort(isop)
 	struct isopcb *isop;
@@ -680,6 +712,8 @@ tpiso_abort(isop)
 	return  tp_driver((struct tp_pcb *)isop->isop_socket->so_pcb, &e);
 }
 
+/* 中文：伪造 T_NETRESET 事件驱动 tp_driver 复位连接（是否断连取决于 TP 类别） */
+/* EN: Fake a T_NETRESET event to drive tp_driver into resetting the connection */
 ProtoHook
 tpiso_reset(isop)
 	struct isopcb *isop;

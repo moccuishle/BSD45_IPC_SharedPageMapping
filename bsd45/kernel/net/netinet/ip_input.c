@@ -104,6 +104,8 @@ static void save_rte __P((u_char *, struct in_addr));
  * IP initialization: fill in IP protocol switch table.
  * All protocols not implemented in kernel go to raw IP protocol handler.
  */
+/* 中文：IP 初始化：填充 IP 协议交换表，未实现的协议统一指向原始 IP 处理例程，并初始化分片重组队列与 ip_id */
+/* EN: IP initialization: fill in the IP protocol switch table with the raw-IP handler for unimplemented protocols, and initialize the fragment queue and ip_id */
 void
 ip_init()
 {
@@ -137,6 +139,8 @@ struct	route ipforward_rt;
  * Ip input routine.  Checksum and byte swap header.  If fragmented
  * try to reassemble.  Process options.  Pass to next level.
  */
+/* 中文：IP 输入主例程：从输入队列取下数据报，校验首部与字节序，重组分片，处理选项后交给上层协议 */
+/* EN: Main IP input routine: dequeue a datagram, validate and byte-swap the header, reassemble fragments, process options and hand it to the upper protocol */
 void
 ipintr()
 {
@@ -402,6 +406,8 @@ bad:
  * reassembly of this datagram already exists, then it
  * is given as fp; otherwise have to make a chain.
  */
+/* 中文：把一个到达的 IP 分片尝试重组为完整数据报；若已有对应重组链则复用，否则新建一条 */
+/* EN: Try to reassemble an incoming IP fragment into a whole datagram, reusing an existing reassembly chain or creating a new one */
 struct ip *
 ip_reass(ip, fp)
 	register struct ipasfrag *ip;
@@ -543,6 +549,8 @@ dropfrag:
  * Free a fragment reassembly header and all
  * associated datagrams.
  */
+/* 中文：释放分片重组头以及属于它的所有分片数据报 */
+/* EN: Free a fragment reassembly header and all datagrams associated with it */
 void
 ip_freef(fp)
 	struct ipq *fp;
@@ -562,6 +570,8 @@ ip_freef(fp)
  * Put an ip fragment on a reassembly chain.
  * Like insque, but pointers in middle of structure.
  */
+/* 中文：把一个 IP 分片插入到重组链中（类似 insque，但链表指针位于结构中部） */
+/* EN: Insert an IP fragment into a reassembly chain (like insque, but with list pointers in the middle of the structure) */
 void
 ip_enq(p, prev)
 	register struct ipasfrag *p, *prev;
@@ -576,6 +586,8 @@ ip_enq(p, prev)
 /*
  * To ip_enq as remque is to insque.
  */
+/* 中文：从重组链中摘下一个 IP 分片（对应 ip_enq 的移除操作） */
+/* EN: Remove an IP fragment from a reassembly chain (the inverse of ip_enq) */
 void
 ip_deq(p)
 	register struct ipasfrag *p;
@@ -590,6 +602,8 @@ ip_deq(p)
  * if a timer expires on a reassembly
  * queue, discard it.
  */
+/* 中文：IP 定时处理：递减各重组队列的生存计时器，超时的队列将被丢弃并计入统计 */
+/* EN: IP timer processing: decrement the TTL of each reassembly queue and discard timed-out queues with statistics */
 void
 ip_slowtimo()
 {
@@ -615,6 +629,8 @@ ip_slowtimo()
 /*
  * Drain off all datagram fragments.
  */
+/* 中文：清空所有未完成重组的数据报分片 */
+/* EN: Drain all outstanding datagram fragments */
 void
 ip_drain()
 {
@@ -632,6 +648,8 @@ ip_drain()
  * Returns 1 if packet has been forwarded/freed,
  * 0 if the packet should be processed further.
  */
+/* 中文：处理 IP 数据报中的选项：遇到非法选项时丢弃，源路由时转发；返回 1 表示报文已被转发或释放 */
+/* EN: Process IP options in a datagram, discarding bad options or forwarding source-routed packets; returns 1 if the packet was forwarded or freed */
 int
 ip_dooptions(m)
 	struct mbuf *m;
@@ -824,6 +842,8 @@ bad:
  * Given address of next destination (final or next hop),
  * return internet address info of interface to be used to get there.
  */
+/* 中文：根据下一跳目的地址返回用于到达该地址的接口的 Internet 地址信息 */
+/* EN: Return the Internet address information of the interface used to reach the given next-hop destination */
 struct in_ifaddr *
 ip_rtaddr(dst)
 	 struct in_addr dst;
@@ -852,6 +872,8 @@ ip_rtaddr(dst)
  * Save incoming source route for use in replies,
  * to be picked up later by ip_srcroute if the receiver is interested.
  */
+/* 中文：保存收到的源路由选项，供 ip_srcroute 在回复报文中重建源路由使用 */
+/* EN: Save the incoming source route for later use by ip_srcroute when building a reply */
 void
 save_rte(option, dst)
 	u_char *option;
@@ -876,6 +898,8 @@ save_rte(option, dst)
  * in the same form used by setsockopt.
  * The first hop is placed before the options, will be removed later.
  */
+/* 中文：取出已保存的源路由并构造为 setsockopt 所用格式的 mbuf，供回复报文使用 */
+/* EN: Retrieve the saved source route and build it as an mbuf in the form used by setsockopt, for use in replies */
 struct mbuf *
 ip_srcroute()
 {
@@ -947,6 +971,8 @@ ip_srcroute()
  * will be moved, and return value is their length.
  * XXX should be deleted; last arg currently ignored.
  */
+/* 中文：从数据报中剥离 IP 选项，把选项移到 mopt 缓冲区并返回其长度（上层协议调用） */
+/* EN: Strip IP options from a datagram, moving them into the mopt buffer and returning their length */
 void
 ip_stripoptions(m, mopt)
 	register struct mbuf *m;
@@ -990,6 +1016,8 @@ u_char inetctlerrmap[PRC_NCMDS] = {
  * The srcrt parameter indicates whether the packet is being forwarded
  * via a source route.
  */
+/* 中文：转发一个 IP 报文：查路由、递减 TTL 并发送；出错时按情况向源端回送 ICMP，不转发时直接丢弃 */
+/* EN: Forward an IP packet: look up the route, decrement the TTL and transmit; on error send ICMP back to the source, otherwise drop the packet */
 void
 ip_forward(m, srcrt)
 	struct mbuf *m;
@@ -1134,6 +1162,8 @@ ip_forward(m, srcrt)
 	icmp_error(mcopy, type, code, dest, destifp);
 }
 
+/* 中文：处理 IP 子系统的 sysctl 请求：读写转发、重定向、TTL 等 IP 全局选项 */
+/* EN: Handle sysctl requests for the IP subsystem: read or write global IP options such as forwarding, redirects and TTL */
 int
 ip_sysctl(name, namelen, oldp, oldlenp, newp, newlen)
 	int *name;

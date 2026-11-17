@@ -54,6 +54,8 @@
  * switching out to the protocol specific routines.
  */
 /*ARGSUSED*/
+/* 中文：创建 socket：按域/类型/协议查找 protosw，分配并初始化 socket 结构，设置特权标志后调用 PRU_ATTACH */
+/* EN: Create a socket: find the protosw by domain/type/protocol, allocate and init a socket, set the privilege flag and call PRU_ATTACH */
 int
 socreate(dom, aso, type, proto)
 	int dom;
@@ -91,6 +93,8 @@ socreate(dom, aso, type, proto)
 	return (0);
 }
 
+/* 中文：把本地地址绑定到 socket，在 splnet 下调用协议的 PRU_BIND 并返回结果 */
+/* EN: Bind a local address to a socket by calling the protocol's PRU_BIND at splnet */
 int
 sobind(so, nam)
 	struct socket *so;
@@ -106,6 +110,8 @@ sobind(so, nam)
 	return (error);
 }
 
+/* 中文：使 socket 进入监听状态：调用 PRU_LISTEN，置 SO_ACCEPTCONN 并限定待连接队列长度 */
+/* EN: Put a socket into the listening state: call PRU_LISTEN, set SO_ACCEPTCONN and limit the pending-connection queue length */
 int
 solisten(so, backlog)
 	register struct socket *so;
@@ -129,6 +135,8 @@ solisten(so, backlog)
 	return (0);
 }
 
+/* 中文：释放 socket 结构及其发送/接收缓冲资源，仅在无 pcb 且无文件引用时真正回收 */
+/* EN: Free a socket structure and its send/receive buffers, only when it has no pcb and no remaining file references */
 int
 sofree(so)
 	register struct socket *so;
@@ -151,6 +159,8 @@ sofree(so)
  * Initiate disconnect if connected.
  * Free socket when disconnect complete.
  */
+/* 中文：在最后一个文件引用移除时关闭 socket：中止监听队列上的连接、按 LINGER 等待断开、调用 PRU_DETACH 后释放 */
+/* EN: Close a socket on last file reference removal: abort queued connections, honor LINGER while disconnecting, call PRU_DETACH and free it */
 int
 soclose(so)
 	register struct socket *so;
@@ -202,6 +212,8 @@ discard:
 /*
  * Must be called at splnet...
  */
+/* 中文：中止一个连接（如监听队列溢出时），在 splnet 下调用协议的 PRU_ABORT */
+/* EN: Abort a connection (e.g. on listen-queue overflow) by calling the protocol's PRU_ABORT at splnet */
 int
 soabort(so)
 	struct socket *so;
@@ -212,6 +224,8 @@ soabort(so)
 		(struct mbuf *)0, (struct mbuf *)0, (struct mbuf *)0));
 }
 
+/* 中文：接受一个待处理连接，清除 SS_NOFDREF 并调用 PRU_ACCEPT 取得对端地址 */
+/* EN: Accept a pending connection, clear SS_NOFDREF and call PRU_ACCEPT to obtain the peer address */
 int
 soaccept(so, nam)
 	register struct socket *so;
@@ -229,6 +243,8 @@ soaccept(so, nam)
 	return (error);
 }
 
+/* 中文：把 socket 连接到指定地址，处理已连接/连接中的情形后调用 PRU_CONNECT */
+/* EN: Connect a socket to the given address, handling the already-connected/connecting cases before calling PRU_CONNECT */
 int
 soconnect(so, nam)
 	register struct socket *so;
@@ -257,6 +273,8 @@ soconnect(so, nam)
 	return (error);
 }
 
+/* 中文：在两个 socket 之间建立连接，调用第一个 socket 协议的 PRU_CONNECT2 */
+/* EN: Connect two sockets together by calling the first socket's protocol PRU_CONNECT2 */
 int
 soconnect2(so1, so2)
 	register struct socket *so1;
@@ -271,6 +289,8 @@ soconnect2(so1, so2)
 	return (error);
 }
 
+/* 中文：断开 socket 的连接：校验已连接且未正在断开后调用 PRU_DISCONNECT */
+/* EN: Disconnect a socket: verify it is connected and not already disconnecting, then call PRU_DISCONNECT */
 int
 sodisconnect(so)
 	register struct socket *so;
@@ -311,6 +331,8 @@ bad:
  * must check for short counts if EINTR/ERESTART are returned.
  * Data and control buffers are freed on return.
  */
+/* 中文：在 socket 上发送数据：处理阻塞/非阻塞、原子发送与缓冲空间，把数据封装成 mbuf 链并通过 PRU_SEND 交给协议 */
+/* EN: Send data on a socket: handle blocking/atomicity and buffer space, package data into an mbuf chain and pass it to the protocol via PRU_SEND */
 int
 sosend(so, addr, uio, top, control, flags)
 	register struct socket *so;
@@ -487,6 +509,8 @@ out:
  * an mbuf **mp0 for use in returning the chain.  The uio is then used
  * only for the count in uio_resid.
  */
+/* 中文：在 socket 上接收数据：处理阻塞、带外/控制/地址数据，把 mbuf 数据拷回用户空间或返回 mbuf 链 */
+/* EN: Receive data from a socket: handle blocking, out-of-band/control/address data, copy mbuf data to user space or return the mbuf chain */
 int
 soreceive(so, paddr, uio, mp0, controlp, flagsp)
 	register struct socket *so;
@@ -786,6 +810,8 @@ release:
 	return (error);
 }
 
+/* 中文：关闭 socket 的读和/或写方向：按 how 刷新接收缓冲并调用协议 PRU_SHUTDOWN */
+/* EN: Shut down the read and/or write side of a socket: flush the receive buffer as needed and call PRU_SHUTDOWN */
 int
 soshutdown(so, how)
 	register struct socket *so;
@@ -802,6 +828,8 @@ soshutdown(so, how)
 	return (0);
 }
 
+/* 中文：刷新接收缓冲，通知协议不能再接收数据并释放排空的数据 */
+/* EN: Flush the receive buffer, inform the protocol that no more data can be received and release the drained data */
 void
 sorflush(so)
 	register struct socket *so;
@@ -824,6 +852,8 @@ sorflush(so)
 	sbrelease(&asb);
 }
 
+/* 中文：设置 socket 选项：处理 SOL_SOCKET 层的各类选项（超时、缓冲区、标志等），其余转发给协议层 */
+/* EN: Set socket options: handle the SOL_SOCKET-level options (timeouts, buffers, flags) and forward others to the protocol layer */
 int
 sosetopt(so, level, optname, m0)
 	register struct socket *so;
@@ -941,6 +971,8 @@ bad:
 	return (error);
 }
 
+/* 中文：获取 socket 选项：从 socket 状态构造结果 mbuf，非 SOL_SOCKET 层则转发给协议层查询 */
+/* EN: Get socket options: build a result mbuf from socket state, or forward the query to the protocol layer for non-SOL_SOCKET levels */
 int
 sogetopt(so, level, optname, mp)
 	register struct socket *so;
@@ -1026,6 +1058,8 @@ sogetopt(so, level, optname, mp)
 	}
 }
 
+/* 中文：通知进程 socket 上有带外数据到达：向进程组或进程发 SIGURG 并唤醒 select 等待者 */
+/* EN: Notify the process of out-of-band data on a socket: send SIGURG to the process group or process and wake up select waiters */
 void
 sohasoutofband(so)
 	register struct socket *so;

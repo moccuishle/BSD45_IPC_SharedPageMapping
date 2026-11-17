@@ -96,6 +96,8 @@ int	arpinit_done = 0;
  * Timeout routine.  Age arp_tab entries periodically.
  */
 /* ARGSUSED */
+/* 中文：ARP 定时处理：遍历 ARP 表，对过期表项进行老化与删除。 */
+/* EN: ARP timer processing: walk the ARP table and age out expired entries. */
 static void
 arptimer(ignored_arg)
 	void *ignored_arg;
@@ -116,6 +118,8 @@ arptimer(ignored_arg)
 /*
  * Parallel to llc_rtrequest.
  */
+/* 中文：与 llc_rtrequest 对应的 ARP 路由请求处理：为路由项解析并填充网关的以太网地址。 */
+/* EN: ARP counterpart of llc_rtrequest: resolve and fill in the gateway's Ethernet address for a route entry. */
 void
 arp_rtrequest(req, rt, sa)
 	int req;
@@ -224,6 +228,8 @@ arp_rtrequest(req, rt, sa)
 /*
  * Broadcast an ARP packet, asking who has addr on interface ac.
  */
+/* 中文：在指定接口上广播 ARP 请求，询问谁拥有给定的协议地址。 */
+/* EN: Broadcast an ARP request on an interface asking who has the given protocol address. */
 void
 arpwhohas(ac, addr)
 	register struct arpcom *ac;
@@ -238,6 +244,8 @@ arpwhohas(ac, addr)
  *	- arp header target ip address
  *	- arp header source ethernet address
  */
+/* 中文：广播一个 ARP 请求报文，调用者指定源/目的 IP 地址及源以太网地址。 */
+/* EN: Broadcast an ARP request; the caller specifies the source/target IP addresses and the source Ethernet address. */
 static void
 arprequest(ac, sip, tip, enaddr)
 	register struct arpcom *ac;
@@ -283,6 +291,8 @@ arprequest(ac, sip, tip, enaddr)
  * normally; a 0 return indicates that the packet has been
  * taken over here, either now or for later transmission.
  */
+/* 中文：将 IP 地址解析为以太网地址：命中则填充 desten 返回 1；未命中则建立表项、广播请求并暂存报文等待解析，返回 0。 */
+/* EN: Resolve an IP address to an Ethernet address: fill desten and return 1 on success; on a miss create an entry, broadcast a request and hold the mbuf for later transmission, returning 0. */
 int
 arpresolve(ac, rt, m, dst, desten)
 	register struct arpcom *ac;
@@ -353,6 +363,8 @@ arpresolve(ac, rt, m, dst, desten)
  * Common length and type checks are done here,
  * then the protocol-specific routine is called.
  */
+/* 中文：ARP 输入处理：先做通用的长度与类型检查，再调用协议相关的处理例程。 */
+/* EN: ARP input handling: perform common length and type checks, then call the protocol-specific routine. */
 void
 arpintr()
 {
@@ -397,6 +409,8 @@ arpintr()
  * We no longer reply to requests for ETHERTYPE_TRAIL protocol either,
  * but formerly didn't normally send requests.
  */
+/* 中文：按 RFC 826 处理以太网上 IPv4 的 ARP 报文，并对发送方协议地址做合法性检查以防范伪装。 */
+/* EN: Handle ARP for IPv4 on Ethernet per RFC 826, with a sanity check on the sender's protocol address to catch impersonators. */
 static void
 in_arpinput(m)
 	struct mbuf *m;
@@ -501,6 +515,8 @@ reply:
 /*
  * Free an arp entry.
  */
+/* 中文：释放一个 ARP 表项。 */
+/* EN: Free an ARP table entry. */
 static void
 arptfree(la)
 	register struct llinfo_arp *la;
@@ -522,6 +538,8 @@ arptfree(la)
 /*
  * Lookup or enter a new address in arptab.
  */
+/* 中文：在 ARP 表中查找或新建指定地址对应的表项。 */
+/* EN: Look up or create a new entry in the ARP table for an address. */
 static struct llinfo_arp *
 arplookup(addr, create, proxy)
 	u_long addr;
@@ -546,6 +564,8 @@ arplookup(addr, create, proxy)
 	return ((struct llinfo_arp *)rt->rt_llinfo);
 }
 
+/* 中文：处理 ARP 的 ioctl 请求（查询、删除、刷新表项及代理 ARP 设置）。 */
+/* EN: Handle ARP ioctl requests (query, delete, flush entries and proxy ARP configuration). */
 int
 arpioctl(cmd, data)
 	int cmd;

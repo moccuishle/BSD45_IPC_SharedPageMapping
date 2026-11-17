@@ -94,6 +94,8 @@ const char *panicstr;
 volatile void boot(int flags);	/* boot() does not return */
 volatile			/* panic() does not return */
 #endif
+/* 中文：内核致命错误处理：设置 panicstr 与重启选项，打印 panic 消息，按配置进入调试器并最终调用 boot 重启 */
+/* EN: Kernel fatal-error handler: set panicstr and reboot options, print the panic message, optionally enter the debugger and finally call boot to reboot */
 void
 #ifdef __STDC__
 panic(const char *fmt, ...)
@@ -128,6 +130,8 @@ panic(fmt, va_alist)
 /*
  * Warn that a system table is full.
  */
+/* 中文：告警系统表已满：以 LOG_ERR 级别记录表名并输出 "table is full" 日志 */
+/* EN: Warn that a kernel system table is full: log the table name at LOG_ERR with a "table is full" message */
 void
 tablefull(tab)
 	const char *tab;
@@ -141,6 +145,8 @@ tablefull(tab)
  * It may block if the tty queue is overfull.  No message is printed if
  * the queue does not clear in a reasonable time.
  */
+/* 中文：向当前进程的控制终端打印格式化消息，若终端队列满则可能阻塞，且无控制终端时不输出 */
+/* EN: Print a formatted message to the current process's controlling terminal, may block if the tty queue is full, prints nothing without a controlling terminal */
 void
 #ifdef __STDC__
 uprintf(const char *fmt, ...)
@@ -159,6 +165,8 @@ uprintf(fmt, va_alist)
 	}
 }
 
+/* 中文：为 tprintf 打开会话引用：若进程有控制终端则持有该会话并返回句柄，否则返回 NULL */
+/* EN: Open a session reference for tprintf: hold the session and return a handle if the process has a controlling tty, else return NULL */
 tpr_t
 tprintf_open(p)
 	register struct proc *p;
@@ -171,6 +179,8 @@ tprintf_open(p)
 	return ((tpr_t) NULL);
 }
 
+/* 中文：关闭 tprintf 会话引用：若句柄非空则释放对应 session */
+/* EN: Close a tprintf session reference: release the session if the handle is non-NULL */
 void
 tprintf_close(sess)
 	tpr_t sess;
@@ -184,6 +194,8 @@ tprintf_close(sess)
  * tprintf prints on the controlling terminal associated
  * with the given session.
  */
+/* 中文：向给定会话的控制终端打印格式化消息，同时以 LOG_INFO 级别写入日志 */
+/* EN: Print a formatted message to the controlling terminal of the given session, also logging it at LOG_INFO */
 void
 #ifdef __STDC__
 tprintf(tpr_t tpr, const char *fmt, ...)
@@ -214,6 +226,8 @@ tprintf(tpr, fmt, va_alist)
  * the tty driver, or anything that knows the underlying tty will not
  * be revoke(2)'d away.  Other callers should use tprintf.
  */
+/* 中文：直接向指定 tty 打印格式化消息，仅供 tty 驱动或确保 tty 不会被 revoke 的调用者使用 */
+/* EN: Print a formatted message directly to a given tty; only for tty drivers or callers sure the tty will not be revoked */
 void
 #ifdef __STDC__
 ttyprintf(struct tty *tp, const char *fmt, ...)
@@ -237,6 +251,8 @@ extern	int log_open;
  * called by interrupt routines).  If there is no process reading the
  * log yet, it writes to the console also.
  */
+/* 中文：以指定日志级别写日志缓冲区且保证不睡眠（可用于中断），无读者时同时输出到控制台 */
+/* EN: Write to the log buffer at the given level without sleeping (safe in interrupts), also echoing to console when no reader is open */
 void
 #ifdef __STDC__
 log(int level, const char *fmt, ...)
@@ -263,6 +279,8 @@ log(level, fmt, va_alist)
 	logwakeup();
 }
 
+/* 中文：向日志写入级别前缀：<level>，供 log 使用 */
+/* EN: Write the level prefix "<level>" into the log, used by log */
 void
 logpri(level)
 	int level;
@@ -276,6 +294,8 @@ logpri(level)
 	putchar('>', TOLOG, NULL);
 }
 
+/* 中文：向日志缓冲区追加格式化消息（不加级别前缀），无读者时同时输出到控制台 */
+/* EN: Append a formatted message to the log buffer without a level prefix, echoing to console when no reader is open */
 void
 #ifdef __STDC__
 addlog(const char *fmt, ...)
@@ -300,6 +320,8 @@ addlog(fmt, va_alist)
 	logwakeup();
 }
 
+/* 中文：内核 printf：临时禁止控制台中断，把格式化消息输出到控制台和日志，结束后恢复中断状态 */
+/* EN: Kernel printf: temporarily disable console interrupts, emit a formatted message to console and log, then restore the interrupt state */
 void
 #ifdef __STDC__
 printf(const char *fmt, ...)
@@ -357,6 +379,8 @@ printf(fmt, va_alist)
  * Space or zero padding and a field width are supported for the numeric
  * formats only.
  */
+/* 中文：核心格式化输出例程：解析 printf 风格格式（支持 %b 位域解码、%r 递归格式串与宽度/补零），按 flags 把结果送往控制台、tty 或日志 */
+/* EN: Core formatted-output routine: parse printf-style formats (including %b bitfield decoding, %r recursive format and width/zero-pad), routing output to console, tty or log per flags */
 void
 kprintf(fmt, flags, tp, ap)
 	register const char *fmt;
@@ -471,6 +495,8 @@ number:			p = ksprintn(ul, base, &tmp);
  * the console then the last MSGBUFS characters are saved in msgbuf for
  * inspection later.
  */
+/* 中文：把一个字符按 flags 输出到控制台、tty 或日志缓冲：输出到控制台时把最近的字符存入 msgbuf 以便事后查看 */
+/* EN: Output one character to console, tty or the log buffer per flags; when writing to console, save recent characters in msgbuf for later inspection */
 static void
 putchar(c, flags, tp)
 	register int c;
@@ -512,6 +538,8 @@ putchar(c, flags, tp)
 /*
  * Scaled down version of sprintf(3).
  */
+/* 中文：精简版 sprintf：把格式化结果写入给定缓冲区并返回写入字符数，支持 %c/%s/%d/%o/%u/%x 与长度修饰符 */
+/* EN: Scaled-down sprintf: format into a given buffer and return the character count, supporting %c/%s/%d/%o/%u/%x and length modifiers */
 #ifdef __STDC__
 sprintf(char *buf, const char *cfmt, ...)
 #else
@@ -588,6 +616,8 @@ number:			for (p = ksprintn(ul, base, NULL); ch = *p--;)
  * optional length and a pointer to the NULL terminated (preceded?)
  * buffer.
  */
+/* 中文：把无符号数按指定进制（<=16）逆序写入静态缓冲，返回指向字符串首部的指针并可选输出长度；供格式化例程复用 */
+/* EN: Write an unsigned number in the given base (<=16) into a static buffer in reverse, return a pointer to the string and optionally its length; shared by the formatting routines */
 static char *
 ksprintn(ul, base, lenp)
 	register u_long ul;

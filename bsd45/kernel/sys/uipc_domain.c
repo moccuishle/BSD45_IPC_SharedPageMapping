@@ -54,6 +54,8 @@ void	pfslowtimo __P((void *));
 	domains = &__CONCAT(x,domain); \
 }
 
+/* 中文：初始化所有协议域：注册各 domain 并调用其域初始化与各协议初始化例程，设置链路层头部空间并启动快/慢定时器 */
+/* EN: Initialize all protocol domains: register each domain, call its domain and per-protocol init routines, set link-header sizes and start the fast/slow timers */
 void
 domaininit()
 {
@@ -98,6 +100,8 @@ max_linkhdr = 16;
 	timeout(pfslowtimo, NULL, 1);
 }
 
+/* 中文：在指定协议族中查找类型与 type 匹配的协议交换结构 protosw */
+/* EN: Find the protocol switch structure (protosw) whose type matches type within the given address family */
 struct protosw *
 pffindtype(family, type)
 	int family, type;
@@ -116,6 +120,8 @@ found:
 	return (0);
 }
 
+/* 中文：在指定协议族中查找协议号与类型都匹配的 protosw，SOCK_RAW 且无精确匹配时返回一个通配原始协议 */
+/* EN: Find a protosw matching both protocol number and type in a family; for SOCK_RAW without an exact match, return a wildcard raw protocol */
 struct protosw *
 pffindproto(family, protocol, type)
 	int family, protocol, type;
@@ -142,6 +148,8 @@ found:
 	return (maybe);
 }
 
+/* 中文：网络子系统的 sysctl 入口，按名字数组中的协议族与协议号把请求转发给对应协议的 pr_sysctl 处理 */
+/* EN: Sysctl handler for the net subtree that dispatches the request to the matching protocol's pr_sysctl using family and protocol from the name array */
 int
 net_sysctl(name, namelen, oldp, oldlenp, newp, newlen, p)
 	int *name;
@@ -180,6 +188,8 @@ found:
 	return (ENOPROTOOPT);
 }
 
+/* 中文：向所有协议域中的每个协议广播控制输入命令 cmd 及其 sockaddr sa */
+/* EN: Broadcast a control-input command cmd and its sockaddr sa to every protocol in every domain */
 void
 pfctlinput(cmd, sa)
 	int cmd;
@@ -194,6 +204,8 @@ pfctlinput(cmd, sa)
 				(*pr->pr_ctlinput)(cmd, sa, (caddr_t)0);
 }
 
+/* 中文：慢速协议定时器，遍历所有协议调用其 pr_slowtimo，并以 hz/2 为周期重新调度自身 */
+/* EN: Slow protocol timer that calls each protocol's pr_slowtimo and reschedules itself at hz/2 intervals */
 void
 pfslowtimo(arg)
 	void *arg;
@@ -208,6 +220,8 @@ pfslowtimo(arg)
 	timeout(pfslowtimo, NULL, hz/2);
 }
 
+/* 中文：快速协议定时器，遍历所有协议调用其 pr_fasttimo，并以 hz/5 为周期重新调度自身 */
+/* EN: Fast protocol timer that calls each protocol's pr_fasttimo and reschedules itself at hz/5 intervals */
 void
 pffasttimo(arg)
 	void *arg;

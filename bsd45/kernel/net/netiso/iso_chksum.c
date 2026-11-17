@@ -110,6 +110,8 @@ SOFTWARE.
  *				 a horrible thing to fiddle with anyway, it probably
  *				 isn't worth it.
  */
+/* 中文：校验 OSI 报文的校验和：遍历 mbuf 链中的 len 字节并按 16 位累加求和，返回校验和累加结果 */
+/* EN: Check the checksum of an OSI packet: walk len bytes across the mbuf chain and accumulate a 16-bit sum, returning the checksum accumulator */
 int 
 iso_check_csum(m, len)
 	struct mbuf *m;
@@ -179,6 +181,8 @@ iso_check_csum(m, len)
  * NOTES:		Ditto the note for iso_check_csum().
  */
 
+/* 中文：为 OSI 报文生成校验和：从指定偏移 n 开始将计算出的校验和写入报文的两个校验和字节，跨越 mbuf 链处理 */
+/* EN: Generate the checksum for an OSI packet: write the computed checksum into the two checksum bytes starting at offset n, handling data across the mbuf chain */
 void
 iso_gen_csum(m,n,l)
 	struct mbuf *m;
@@ -267,6 +271,8 @@ iso_gen_csum(m,n,l)
  * NOTES:		
  */
 
+/* 中文：计算 mbuf 链中所有数据块的总字节长度 */
+/* EN: Compute the total byte length of all data segments in an mbuf chain */
 int
 m_datalen (m)
 	register struct mbuf *m;
@@ -278,6 +284,8 @@ m_datalen (m)
 	return datalen;
 }
 
+/* 中文：把多块的 mbuf 链压缩合并为单个连续的 mbuf，若只有一个 mbuf 则直接返回原链 */
+/* EN: Compress a multi-mbuf chain into a single contiguous mbuf; if the chain has only one mbuf, return it unchanged */
 int
 m_compress(in, out)
 	register struct mbuf *in, **out;

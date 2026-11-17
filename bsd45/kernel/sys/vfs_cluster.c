@@ -96,6 +96,8 @@ int	doclusterraz = 0;
  *	rbp is the read-ahead block.
  *	If either is NULL, then you don't have to do the I/O.
  */
+/* 中文：替代 bread 的簇读：在顺序访问时预读多个连续块，按缓存命中情况采用同步或异步读，提升 FFS 顺序读性能。 */
+/* EN: Replace bread with clustered reads: read ahead consecutive blocks on sequential access using sync/async I/O depending on cache hits, improving FFS sequential read performance. */
 cluster_read(vp, filesize, lblkno, size, cred, bpp)
 	struct vnode *vp;
 	u_quad_t filesize;
@@ -264,6 +266,8 @@ skip_readahead:
  * read ahead.  We will read as many blocks as possible sequentially
  * and then parcel them up into logical blocks in the buffer hash table.
  */
+/* 中文：当磁盘上块连续时构建簇预读：一次读入尽可能多的连续块，再拆分封装到缓冲区哈希表中。 */
+/* EN: Build clustered read-ahead when blocks are contiguous on disk: read as many sequential blocks as possible and parcel them into the buffer hash table. */
 struct buf *
 cluster_rbuild(vp, filesize, bp, lbn, blkno, size, run, flags)
 	struct vnode *vp;
@@ -381,6 +385,8 @@ cluster_rbuild(vp, filesize, bp, lbn, blkno, size, run, flags)
 /*
  * Either get a new buffer or grow the existing one.
  */
+/* 中文：为簇操作获取一个新缓冲区，或扩展已有缓冲区。 */
+/* EN: Get a new buffer for a cluster operation or grow an existing one. */
 struct buf *
 cluster_newbuf(vp, bp, flags, blkno, lblkno, size, run)
 	struct vnode *vp;
@@ -411,6 +417,8 @@ cluster_newbuf(vp, bp, flags, blkno, lblkno, size, run)
  * extra memory (if there were no empty buffer headers at allocbuf time)
  * that we will need to shift around.
  */
+/* 中文：簇读/写完成后的清理回调：处理缓冲区可能带有的额外内存并重新归位。 */
+/* EN: Cleanup callback after a clustered read/write: handle and relocate extra memory that buffers may carry. */
 void
 cluster_callback(bp)
 	struct buf *bp;
@@ -479,6 +487,8 @@ cluster_callback(bp)
  *	3.	middle of a cluster - add to cluster
  *	4.	end of a cluster - asynchronously write cluster
  */
+/* 中文：为 FFS 执行簇写：按非顺序、簇首、簇中、簇尾分别采用异步写或累积策略写入。 */
+/* EN: Perform clustered writes for FFS: handle non-sequential, cluster-start, middle and end cases with async writes or accumulation. */
 void
 cluster_write(bp, filesize)
         struct buf *bp;
@@ -592,6 +602,8 @@ cluster_write(bp, filesize)
  * performed.  Check to see that it doesn't fall in the middle of
  * the current block (if last_bp == NULL).
  */
+/* 中文：构建簇写：把当前块合并进已有簇，校验块位置并在簇满时写出。 */
+/* EN: Build a write cluster: merge the current block into an existing cluster, validating block positions and writing out full clusters. */
 void
 cluster_wbuild(vp, last_bp, size, start_lbn, len, lbn)
 	struct vnode *vp;
@@ -733,6 +745,8 @@ redo:
  * Collect together all the buffers in a cluster.
  * Plus add one additional buffer.
  */
+/* 中文：收集一个簇中的所有缓冲区，并额外加入一个缓冲区。 */
+/* EN: Collect all buffers in a cluster plus one additional buffer. */
 struct cluster_save *
 cluster_collectbufs(vp, last_bp)
 	struct vnode *vp;

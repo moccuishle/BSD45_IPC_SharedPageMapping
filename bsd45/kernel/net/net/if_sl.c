@@ -182,6 +182,8 @@ static struct mbuf *sl_btom __P((struct sl_softc *, int));
 /*
  * Called from boot code to establish sl interfaces.
  */
+/* 中文：引导时建立 SLIP 接口：为 NSL 个 sl_softc 初始化接口名/类型/MTU/标志及 ioctl/output 入口并挂接 */
+/* EN: Establish SLIP interfaces at boot: init NSL sl_softc structures with name/type/MTU/flags and ioctl/output entry points, then attach them */
 void
 slattach()
 {
@@ -207,6 +209,8 @@ slattach()
 	}
 }
 
+/* 中文：初始化 SLIP 软设备：按需分配输入簇缓冲、设置缓冲边界并初始化压缩器，成功返回 1，失败返回 0 */
+/* EN: Initialize a SLIP soft device: allocate an input cluster buffer if needed, set buffer bounds and init the compressor, returning 1 or 0 */
 static int
 slinit(sc)
 	register struct sl_softc *sc;
@@ -233,6 +237,8 @@ slinit(sc)
  * Line specific open routine.
  * Attach the given tty to the first available sl unit.
  */
+/* 中文：线路规程 open：校验权限，把 tty 挂到第一个空闲 sl 单元、初始化设备并标记为打开，成功返回 0 */
+/* EN: Line-discipline open: check privileges, attach the tty to the first free sl unit, init it and mark it open, returning 0 on success */
 /* ARGSUSED */
 int
 slopen(dev, tp)
@@ -271,6 +277,8 @@ slopen(dev, tp)
  * Line specific close routine.
  * Detach the tty from the sl unit.
  */
+/* 中文：线路规程 close：刷出 tty 输出、置接口 down、解除 tty 与 sl 单元的绑定并释放缓冲簇 */
+/* EN: Line-discipline close: flush tty output, mark the interface down, detach the tty from the sl unit and free the buffer cluster */
 void
 slclose(tp)
 	struct tty *tp;
@@ -299,6 +307,8 @@ slclose(tp)
  * Line specific (tty) ioctl routine.
  * Provide a way to get the sl unit number.
  */
+/* 中文：SLIP tty ioctl：仅支持 SLIOCGUNIT 查询单元号，其余命令返回 -1 */
+/* EN: SLIP tty ioctl: only supports SLIOCGUNIT to query the unit number, returning -1 for other commands */
 /* ARGSUSED */
 int
 sltioctl(tp, cmd, data, flag)
@@ -326,6 +336,8 @@ sltioctl(tp, cmd, data, flag)
  * will cause us to not compress "background" packets, because
  * ordering gets trashed.  It can be done for all packets in slstart.
  */
+/* 中文：SLIP 接口输出：按目的与 TOS 把 IP 包排入普通或快速发送队列，未激活则启动发送 */
+/* EN: SLIP interface output: queue an IP packet into the normal or fast send queue by destination/TOS and start transmission if idle */
 int
 sloutput(ifp, m, dst, rtp)
 	struct ifnet *ifp;
@@ -388,6 +400,8 @@ sloutput(ifp, m, dst, rtp)
  * to send from the interface queue and map it to
  * the interface before starting output.
  */
+/* 中文：SLIP 发送引擎：从快速/普通队列取包，做首部压缩并逐字符写入 tty 输出队列 */
+/* EN: SLIP transmit engine: dequeue packets from the fast/normal queues, compress headers and write bytes to the tty output queue */
 void
 slstart(tp)
 	register struct tty *tp;
@@ -574,6 +588,8 @@ slstart(tp)
 /*
  * Copy data buffer to mbuf chain; add ifnet pointer.
  */
+/* 中文：把 sc 的输入缓冲中 len 字节复制到 mbuf 链：大包直接挂集群、小包拷贝，设置长度与接收接口后返回 mbuf */
+/* EN: Copy len bytes from sc's input buffer into an mbuf chain: large packets use a cluster, small ones are copied, then set lengths/rcvif and return the mbuf */
 static struct mbuf *
 sl_btom(sc, len)
 	register struct sl_softc *sc;
@@ -617,6 +633,8 @@ sl_btom(sc, len)
 /*
  * tty interface receiver interrupt.
  */
+/* 中文：SLIP 接收中断：逐字符处理 ESC 转义、解压缩首部、组装完整 IP 包并经 sl_btom 送协议栈 */
+/* EN: SLIP receive interrupt: process characters with ESC escaping, decompress headers, assemble a full IP packet and pass it up via sl_btom */
 void
 slinput(c, tp)
 	register int c;
@@ -789,6 +807,8 @@ newpack:
 /*
  * Process an ioctl request.
  */
+/* 中文：SLIP 接口 ioctl：处理地址设置、目的地址与多播地址增删（仅 AF_INET），其余返回 EINVAL */
+/* EN: SLIP interface ioctl: handle address setting, destination and multicast add/delete (AF_INET only), else EINVAL */
 int
 slioctl(ifp, cmd, data)
 	register struct ifnet *ifp;

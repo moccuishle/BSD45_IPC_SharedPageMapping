@@ -124,6 +124,8 @@ SOFTWARE.
  *
  * NOTES:			
  */
+/* 中文：从 inpcb 取传输后缀(本地或远端端口)写入 data_out，并把长度置为 2 字节 */
+/* EN: get the transport suffix (local or foreign port) from an inpcb into data_out, setting the length to 2 bytes */
 in_getsufx(inp, lenp, data_out, which)
 	struct inpcb *inp;
 	u_short *lenp;
@@ -159,6 +161,8 @@ in_getsufx(inp, lenp, data_out, which)
  * NOTES:			
  */
 /*ARGSUSED*/
+/* 中文：把传输后缀写入 inpcb，which 为 TP_FOREIGN 时写入远端端口 */
+/* EN: put a transport suffix into an inpcb; for TP_FOREIGN it is stored as the foreign port */
 void
 in_putsufx(inp, sufxloc, sufxlen, which)
 	struct inpcb *inp;
@@ -188,6 +192,8 @@ in_putsufx(inp, sufxloc, sufxlen, which)
  * 	The alternative is to have the port unusable until the reference
  * 	timer goes off.
  */
+/* 中文：清空 inpcb 的本地与远端端口，使传输后缀可被重用 */
+/* EN: clear the local and foreign ports in an inpcb so the transport suffix can be reused */
 void
 in_recycle_tsuffix(inp)
 	struct inpcb	*inp;
@@ -213,6 +219,8 @@ in_recycle_tsuffix(inp)
  *
  * NOTES:			
  */ 
+/* 中文：把 sockaddr_in 中的 IP 地址拷入 inpcb 的本地或远端地址字段 */
+/* EN: copy the IP address from a sockaddr_in into the inpcb's local or foreign address */
 void
 in_putnetaddr(inp, name, which)
 	register struct inpcb	*inp;
@@ -252,6 +260,8 @@ in_putnetaddr(inp, name, which)
  *
  * NOTES:			
  */ 
+/* 中文：比较 sockaddr_in 中的地址(及端口)与 inpcb 中本地或远端地址是否一致 */
+/* EN: compare a sockaddr_in address (and port) with the inpcb's local or foreign address */
 in_cmpnetaddr(inp, name, which)
 	register struct inpcb	*inp;
 	register struct sockaddr_in	*name;
@@ -284,6 +294,8 @@ in_cmpnetaddr(inp, name, which)
  * NOTES:			
  */ 
 
+/* 中文：把 inpcb 的本地或远端地址与端口写入 mbuf 中的 sockaddr_in */
+/* EN: write the inpcb's local or foreign address and port into a sockaddr_in in an mbuf */
 void
 in_getnetaddr( inp, name, which)
 	register struct mbuf *name;
@@ -327,6 +339,8 @@ in_getnetaddr( inp, name, which)
  * NOTES:
  */
 
+/* 中文：计算 TP 的 MTU 相关信息：保存指向目的路由的指针并返回 IP 头大小 */
+/* EN: compute TP MTU info: save a pointer to the destination route and return the IP header size */
 tpip_mtu(tpcb)
 register struct tp_pcb *tpcb;
 {
@@ -360,6 +374,8 @@ register struct tp_pcb *tpcb;
  * NOTES:			
  */
 
+/* 中文：把 TP 报文 m0 封装成 IP 可接受的格式：用 inpcb 的地址与路由调用 tpip_output_dg */
+/* EN: package a TP packet for IP using the inpcb's addresses and route via tpip_output_dg */
 int
 tpip_output(inp, m0, datalen, nochksum)
 	struct inpcb		*inp;
@@ -390,6 +406,8 @@ tpip_output(inp, m0, datalen, nochksum)
  */
 
 /*ARGSUSED*/
+/* 中文：用给定的源/目的地址把 TP 报文封装成 IP 包并交给 ip_output 发送 */
+/* EN: package a TP packet into an IP datagram using explicit source/destination addresses and send via ip_output */
 int
 tpip_output_dg(laddr, faddr, m0, datalen, ro, nochksum)
 	struct in_addr		*laddr, *faddr;
@@ -463,6 +481,8 @@ bad:
  *
  * NOTES:
  */
+/* 中文：从 IP 层接收报文，剥离 IP 头、pullup TP 头后交给 tp_input 处理 */
+/* EN: receive a packet from IP, strip the IP header, pull up the TP header and hand it to tp_input */
 ProtoHook
 tpip_input(m, iplen)
 	struct mbuf *m;
@@ -566,6 +586,8 @@ extern void tp_quench();
  * NOTES:			
  */
 
+/* 中文：从 inpcb 找到 tpcb 并以 PRC_QUENCH 调用 tp_quench 做源抑制处理 */
+/* EN: find the tpcb from an inpcb and call tp_quench with PRC_QUENCH for source quench */
 void
 tpin_quench(inp)
 	struct inpcb *inp;
@@ -593,6 +615,8 @@ tpin_quench(inp)
  *
  * NOTES:			
  */
+/* 中文：处理来自网络层的 ICMP 等价控制事件，按类型通知/抑制/中止相关连接 */
+/* EN: handle ICMP-equivalent control events from the network layer, notifying/quenching/aborting affected connections */
 ProtoHook
 tpip_ctlinput(cmd, sin)
 	int cmd;
@@ -666,6 +690,8 @@ tpip_ctlinput(cmd, sin)
  * NOTES:			
  */
 
+/* 中文：伪造一个 ER TPDU 事件交给 tp_driver，以网络层错误原因中止连接 */
+/* EN: abort a connection by faking an ER TPDU event with a network-error reason to tp_driver */
 ProtoHook
 tpin_abort(inp)
 	struct inpcb *inp;
@@ -679,6 +705,8 @@ tpin_abort(inp)
 }
 
 #ifdef ARGO_DEBUG
+/* 中文：调试用：打印 sockaddr_in 的端口与 IP 地址 */
+/* EN: debug helper that prints the port and IP address of a sockaddr_in */
 dump_inaddr(addr)
 	register struct sockaddr_in *addr;
 {

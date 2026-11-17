@@ -117,6 +117,8 @@ static void _vm_object_allocate __P((vm_size_t, vm_object_t));
  *
  *	Initialize the VM objects module.
  */
+/* 中文：初始化虚拟内存对象模块，建立哈希表、链表与锁，并分配内核对象与内核内存对象 */
+/* EN: Initialize the VM object module: set up hash table, lists and locks, and allocate the kernel and kmem objects */
 void
 vm_object_init(size)
 	vm_size_t	size;
@@ -145,6 +147,8 @@ vm_object_init(size)
  *	Returns a new object with the given size.
  */
 
+/* 中文：分配并返回一个指定大小的新虚拟内存对象 */
+/* EN: Allocate and return a new VM object of the given size */
 vm_object_t
 vm_object_allocate(size)
 	vm_size_t	size;
@@ -159,6 +163,8 @@ vm_object_allocate(size)
 	return(result);
 }
 
+/* 中文：初始化一个已分配虚拟内存对象的字段，并将其挂入全局对象链表 */
+/* EN: Initialize the fields of a VM object and insert it into the global object list */
 static void
 _vm_object_allocate(size, object)
 	vm_size_t		size;
@@ -194,6 +200,8 @@ _vm_object_allocate(size, object)
  *
  *	Gets another reference to the given object.
  */
+/* 中文：增加给定虚拟内存对象的引用计数 */
+/* EN: Acquire another reference to the given VM object */
 void
 vm_object_reference(object)
 	register vm_object_t	object;
@@ -217,6 +225,8 @@ vm_object_reference(object)
  *
  *	No object may be locked.
  */
+/* 中文：释放对指定对象的一次引用，引用归零时回收该对象及其所有资源 */
+/* EN: Release a reference to an object, destroying it and its resources when the last reference is gone */
 void
 vm_object_deallocate(object)
 	register vm_object_t	object;
@@ -288,6 +298,8 @@ vm_object_deallocate(object)
  *
  *	The object must be locked.
  */
+/* 中文：销毁指定对象，释放其全部页面、pager 及链表的相关资源（调用时对象必须已上锁） */
+/* EN: Destroy an object, freeing all its pages, pager and list resources (object must be locked on entry) */
 void
 vm_object_terminate(object)
 	register vm_object_t	object;
@@ -374,6 +386,8 @@ vm_object_terminate(object)
  *	somewhere.  We attempt to clean (and dequeue) all pages regardless
  *	of where an error occurs.
  */
+/* 中文：清洗对象指定范围内的所有脏页，可选择同步写回并从分页队列摘除，返回是否全部成功 */
+/* EN: Clean all dirty pages in a range of the object, optionally synchronous and dequeued; returns whether all succeeded */
 boolean_t
 vm_object_page_clean(object, start, end, syncio, de_queue)
 	register vm_object_t	object;
@@ -504,6 +518,8 @@ again:
  *
  *	The object must be locked.
  */
+/* 中文：将对象中的所有页面置为非活动状态（仍保留在内存中） */
+/* EN: Deactivate all pages in an object (keeping them resident in memory) */
 void
 vm_object_deactivate_pages(object)
 	register vm_object_t	object;
@@ -521,6 +537,8 @@ vm_object_deactivate_pages(object)
 /*
  *	Trim the object cache to size.
  */
+/* 中文：把对象缓存裁剪到 vm_cache_max 大小，淘汰多余的缓存对象 */
+/* EN: Trim the object cache down to vm_cache_max by evicting excess cached objects */
 void
 vm_object_cache_trim()
 {
@@ -550,6 +568,8 @@ vm_object_cache_trim()
  *
  *	The object must *not* be locked.
  */
+/* 中文：把对象指定范围内的所有物理页标记为写时复制并解除写权限 */
+/* EN: Mark all physical pages in a range of an object copy-on-write and revoke write access */
 void
 vm_object_pmap_copy(object, start, end)
 	register vm_object_t	object;
@@ -579,6 +599,8 @@ vm_object_pmap_copy(object, start, end)
  *
  *	The object must *not* be locked.
  */
+/* 中文：把对象指定范围内的所有物理页从所有物理映射中移除 */
+/* EN: Remove all physical pages in a range of an object from every physical map */
 void
 vm_object_pmap_remove(object, start, end)
 	register vm_object_t	object;
@@ -608,6 +630,8 @@ vm_object_pmap_remove(object, start, end)
  *	May defer the copy until later if the object is not backed
  *	up by a non-default pager.
  */
+/* 中文：创建一个作为现有对象副本的新对象，并把原对象相关页面标记为写时复制 */
+/* EN: Create a new object that copies an existing one, marking its pages copy-on-write */
 void
 vm_object_copy(src_object, src_offset, size,
 		    dst_object, dst_offset, src_needs_copy)
@@ -803,6 +827,8 @@ vm_object_copy(src_object, src_offset, size,
  *	are returned in the source parameters.
  */
 
+/* 中文：创建一个新的影子对象，由指定已有对象范围作后备，并回写新对象与偏移 */
+/* EN: Create a new shadow object backed by a range of an existing object and return new object/offset */
 void
 vm_object_shadow(object, offset, length)
 	vm_object_t	*object;	/* IN/OUT */
@@ -849,6 +875,8 @@ vm_object_shadow(object, offset, length)
  *	Set the specified object's pager to the specified pager.
  */
 
+/* 中文：设置指定对象的 pager 及其分页偏移 */
+/* EN: Set the pager and paging offset for the given object */
 void
 vm_object_setpager(object, pager, paging_offset,
 			read_only)
@@ -879,6 +907,8 @@ vm_object_setpager(object, pager, paging_offset,
  *	specified pager and paging id.
  */
 
+/* 中文：在对象缓存中按 pager 查找对象，找到则增加其引用计数并返回 */
+/* EN: Look up an object by pager in the cache, incrementing its reference count on a hit */
 vm_object_t
 vm_object_lookup(pager)
 	vm_pager_t	pager;
@@ -915,6 +945,8 @@ vm_object_lookup(pager)
  *	the hash table.
  */
 
+/* 中文：把指定对象与 pager 登记进对象哈希表，并标记为可持久缓存 */
+/* EN: Enter an object/pager pair into the hash table and mark the object cacheable */
 void
 vm_object_enter(object, pager)
 	vm_object_t	object;
@@ -952,6 +984,8 @@ vm_object_enter(object, pager)
  *	is locked.  XXX this should be fixed
  *	by reorganizing vm_object_deallocate.
  */
+/* 中文：从对象哈希表中移除指定 pager 对应的条目（调用时假设缓存已上锁） */
+/* EN: Remove the entry for a pager from the object hash table (cache assumed locked) */
 void
 vm_object_remove(pager)
 	register vm_pager_t	pager;
@@ -978,6 +1012,8 @@ vm_object_remove(pager)
  *	vm_object_cache_clear removes all objects from the cache.
  *
  */
+/* 中文：清空对象缓存中的所有对象 */
+/* EN: Remove all objects from the object cache */
 void
 vm_object_cache_clear()
 {
@@ -1018,6 +1054,8 @@ boolean_t	vm_object_collapse_allowed = TRUE;
  *	queues be unlocked.
  *
  */
+/* 中文：将对象与其后备（影子）对象合并，把后备页移入本对象并回收后备对象 */
+/* EN: Collapse an object with its backing shadow object, moving pages up and freeing the backing object */
 void
 vm_object_collapse(object)
 	register vm_object_t	object;
@@ -1287,6 +1325,8 @@ vm_object_collapse(object)
  *
  *	The object must be locked.
  */
+/* 中文：从对象页面列表中移除指定范围内的所有物理页并释放（对象须已上锁） */
+/* EN: Remove and free all physical pages in a range from an object's page list (object must be locked) */
 void
 vm_object_page_remove(object, start, end)
 	register vm_object_t	object;
@@ -1331,6 +1371,8 @@ vm_object_page_remove(object, start, end)
  *	Conditions:
  *	The object must *not* be locked.
  */
+/* 中文：把支撑相邻内存区域的对象合并为单个对象（目前仅支持 next_object 为 NULL），返回是否成功 */
+/* EN: Coalesce objects backing adjoining regions into one (currently only when next_object is NULL); returns success */
 boolean_t
 vm_object_coalesce(prev_object, next_object,
 			prev_offset, next_offset,
@@ -1403,6 +1445,8 @@ vm_object_coalesce(prev_object, next_object,
 /*
  *	vm_object_print:	[ debug ]
  */
+/* 中文：调试用，打印对象及其页面的关键信息（大小、引用数、pager、影子对象等） */
+/* EN: Debug helper that prints an object and its pages' key fields (size, refs, pager, shadow, etc.) */
 void
 vm_object_print(object, full)
 	vm_object_t	object;

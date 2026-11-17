@@ -77,6 +77,8 @@ int	avefree = 0;		/* XXX */
 unsigned maxdmap = MAXDSIZ;	/* XXX */
 int	readbuffers = 0;	/* XXX allow kgdb to read kernel buffer pool */
 
+/* 中文：检查内核地址范围是否可按 rw 指定方式（读/写）访问，缓冲区缓存区域除外 */
+/* EN: Check whether a kernel address range is accessible for read/write as given, excluding the buffer cache area */
 int
 kernacc(addr, len, rw)
 	caddr_t addr;
@@ -104,6 +106,8 @@ kernacc(addr, len, rw)
 	return(rv == TRUE);
 }
 
+/* 中文：检查用户地址范围在进程 vm_map 中是否可按 rw 指定方式访问 */
+/* EN: Check whether a user address range is accessible for read/write in the process vm_map */
 int
 useracc(addr, len, rw)
 	caddr_t addr;
@@ -130,6 +134,8 @@ useracc(addr, len, rw)
  * enforce a write-enable request.  Using pmap_enter is the only way
  * we can ensure the change takes place properly.
  */
+/* 中文：在 pmap 层强制改变内核页保护（供调试器插入断点），逐页重映射 */
+/* EN: Force a protection change on kernel pages at the pmap level (for debugger breakpoints), page by page */
 void
 chgkprot(addr, len, rw)
 	register caddr_t addr;
@@ -155,6 +161,8 @@ chgkprot(addr, len, rw)
 }
 #endif
 
+/* 中文：锁定（标记为不可分页）当前进程地址空间中的指定范围 */
+/* EN: Wire (mark non-pageable) the given range in the current process's address space */
 void
 vslock(addr, len)
 	caddr_t	addr;
@@ -164,6 +172,8 @@ vslock(addr, len)
 			round_page(addr+len), FALSE);
 }
 
+/* 中文：解锁（标记为可分页）当前进程地址空间中的指定范围 */
+/* EN: Unwire (mark pageable) the given range in the current process's address space */
 void
 vsunlock(addr, len, dirtied)
 	caddr_t	addr;
@@ -188,6 +198,8 @@ vsunlock(addr, len, dirtied)
  * after cpu_fork returns in the child process.  We do nothing here
  * after cpu_fork returns.
  */
+/* 中文：实现 fork 对地址空间的操作：复制/共享地址空间、分配 user 结构与内核栈，再调用机器相关层 */
+/* EN: Implement fork's address-space actions: copy/share the space, allocate user struct and kernel stack, then call cpu_fork */
 int
 vm_fork(p1, p2, isvfork)
 	register struct proc *p1, *p2;
@@ -269,6 +281,8 @@ not yet clear, yet it does... */
  * Set default limits for VM system.
  * Called for proc 0, and then inherited by all others.
  */
+/* 中文：为进程设置 VM 系统的默认资源限制（栈、数据、常驻集大小） */
+/* EN: Set default VM resource limits (stack, data, resident set size) for a process */
 void
 vm_init_limits(p)
 	register struct proc *p;
@@ -305,6 +319,8 @@ int	swapdebug = 0;
  *	2. If not enough memory, wake the pageout daemon and let it
  *	   clear some space.
  */
+/* 中文：交换调度器：按优先级把已换出的可运行进程换入，内存不足时唤醒 pageout 守护进程 */
+/* EN: Swap scheduler: swap in highest-priority swapped-out runnable processes, waking the pageout daemon when memory is low */
 void
 scheduler()
 {
@@ -405,6 +421,8 @@ loop:
  * they are swapped.  Else, we swap the longest-sleeping or stopped process,
  * if any, otherwise the longest-resident process.
  */
+/* 中文：由 pageout 守护进程驱动，选择睡眠/停止时间最长或常驻最久的进程换出 */
+/* EN: Driven by the pageout daemon: select and swap out the longest-sleeping/stopped or longest-resident process */
 void
 swapout_threads()
 {
@@ -462,6 +480,8 @@ swapout_threads()
 	}
 }
 
+/* 中文：换出进程 p：解除 u 区映射、清除 P_INMEM 标志并从运行队列移除 */
+/* EN: Swap out process p: unwire its u-area, clear P_INMEM and remove it from the run queue */
 void
 swapout(p)
 	register struct proc *p;
@@ -527,6 +547,8 @@ swapout(p)
  * The rest of these routines fake thread handling
  */
 
+/* 中文：伪线程机制：记录当前进程将要等待的事件（ ruptible 参数未用） */
+/* EN: Fake thread support: record the event the current process is about to wait on (ruptible unused) */
 void
 assert_wait(event, ruptible)
 	void *event;
@@ -538,6 +560,8 @@ assert_wait(event, ruptible)
 	curproc->p_thread = event;
 }
 
+/* 中文：伪线程机制：在已记录的等待事件上调用 tsleep 阻塞当前进程 */
+/* EN: Fake thread support: block the current process with tsleep on the recorded wait event */
 void
 thread_block()
 {
@@ -548,6 +572,8 @@ thread_block()
 	splx(s);
 }
 
+/* 中文：伪线程机制：记录等待事件、释放锁并在该事件上 tsleep 阻塞 */
+/* EN: Fake thread support: record the wait event, unlock, then block with tsleep on that event */
 void
 thread_sleep(event, lock, ruptible)
 	void *event;
@@ -566,6 +592,8 @@ thread_sleep(event, lock, ruptible)
 	splx(s);
 }
 
+/* 中文：伪线程机制：唤醒在指定事件上等待的进程 */
+/* EN: Fake thread support: wake processes waiting on the given event */
 void
 thread_wakeup(event)
 	void *event;
@@ -585,6 +613,8 @@ int indent = 0;
 #include <machine/stdarg.h>		/* see subr_prf.c */
 
 /*ARGSUSED2*/
+/* 中文：按全局 indent 缩进后按格式打印（调试辅助函数） */
+/* EN: Print formatted output with indentation per the global indent (debug helper) */
 void
 #if __STDC__
 iprintf(const char *fmt, ...)

@@ -100,6 +100,8 @@ struct addr_rfc986 u_bad = {
 	{0x01, 0xc0, 0x0c, 0x0c, 0xab, 0x11}
 };
 #include <stdio.h>
+/* 中文：测试主程序（仅 TESTDEBUG 编译）：用几组 sample ISO 地址调用 clnp_iso_addrp 并打印结果 */
+/* EN: Test main program (TESTDEBUG only): call clnp_iso_addrp on sample ISO addresses and print the results */
 main()
 {
 	struct iso_addr	a;
@@ -138,6 +140,8 @@ static char letters[] = "0123456789abcdef";
  *	Print buffer in hex, return addr of where we left off.
  *	Do not null terminate.
  */
+/* 中文：把 len 字节的缓冲区按十六进制写入 where 并返回结束位置，不补 NUL 结尾 */
+/* EN: Write len bytes of a buffer as hexadecimal into where and return the end position, without NUL termination */
 char *
 clnp_hexp(src, len, where)
 char	*src;		/* src of data to print */
@@ -160,6 +164,8 @@ char	*where;		/* where to put data */
 static char iso_addr_b[50];
 #define	DELIM	'.';
 
+/* 中文：把 iso_addr 转换成可读的字符串形式（长度加地址的十六进制）返回静态缓冲区 */
+/* EN: Convert an iso_addr into a human-readable string (length plus hex address) in a static buffer */
 char *
 clnp_iso_addrp(isoa)
 struct iso_addr *isoa;
@@ -243,6 +249,8 @@ struct iso_addr *isoa;
 	return(iso_addr_b);
 }
 
+/* 中文：把 sockaddr_iso 的地址与 TSEL 一起格式化为可读字符串返回静态缓冲区 */
+/* EN: Format a sockaddr_iso's address together with its TSEL into a readable string in a static buffer */
 char *
 clnp_saddr_isop(s)
 register struct sockaddr_iso *s;

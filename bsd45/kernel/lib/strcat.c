@@ -37,6 +37,8 @@ static char sccsid[] = "@(#)strcat.c	8.1 (Berkeley) 6/4/93";
 
 #include <string.h>
 
+/* 中文：把字符串 append 追加到 s 的末尾，返回 s 原来的起始地址 */
+/* EN: Append the string append to the end of s and return the original start of s */
 char *
 strcat(s, append)
 	register char *s;

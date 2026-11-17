@@ -55,6 +55,8 @@ static const struct linux_map_entry linux_map_tab[] = {
 	{ 252, 1 },	/* exit_group -> exit */
 };
 
+/* 中文：把 Linux 系统调用号映射为原生 4.5BSD 调用号，查表未命中时返回 -1 */
+/* EN: Map a Linux syscall number to the native 4.5BSD call number via a table, returning -1 when not found */
 int
 linux_map(int linux_nr)
 {
@@ -66,6 +68,8 @@ linux_map(int linux_nr)
 	return (-1);
 }
 
+/* 中文：Linux i386 系统调用分发入口：把 eax 中的调用号翻译为 BSD 号后转发给 bsd45_syscall，未映射则返回 ENOSYS */
+/* EN: Linux i386 syscall dispatch entry: translate the call number in eax to a BSD number then forward to bsd45_syscall, returning ENOSYS if unmapped */
 int
 linux_dispatch(struct sysregs *r)
 {

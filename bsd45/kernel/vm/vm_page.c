@@ -110,6 +110,8 @@ int		page_shift;
  *
  *	Sets page_shift and page_mask from cnt.v_page_size.
  */
+/* 中文：设置系统页面大小：确定 page_mask 与 page_shift，并要求页面大小为 2 的幂 */
+/* EN: Set the system page size: derive page_mask and page_shift, requiring the page size to be a power of two */
 void
 vm_set_page_size()
 {
@@ -134,6 +136,8 @@ vm_set_page_size()
  *	for the object/offset-to-page hash table headers.
  *	Each page cell is initialized and placed on the free list.
  */
+/* 中文：启动常驻内存管理模块：为页面结构、对象/偏移哈希表分配内存，初始化各页面并放入空闲链表 */
+/* EN: Start the resident memory module: allocate memory for page cells and the object/offset hash table, then initialize pages onto the free list */
 void
 vm_page_startup(start, end)
 	vm_offset_t	*start;
@@ -303,6 +307,8 @@ vm_page_startup(start, end)
  *	The object and page must be locked.
  */
 
+/* 中文：把一个物理页面按 object/offset 对插入到哈希表中并标记为已登记 */
+/* EN: Insert a physical page into the hash table by its object/offset pair and mark it as tabled */
 void
 vm_page_insert(mem, object, offset)
 	register vm_page_t	mem;
@@ -360,6 +366,8 @@ vm_page_insert(mem, object, offset)
  *	The object and page must be locked.
  */
 
+/* 中文：把一个物理页面从 object/offset 哈希表中移除并清除已登记标志 */
+/* EN: Remove a physical page from the object/offset hash table and clear its tabled flag */
 void
 vm_page_remove(mem)
 	register vm_page_t	mem;
@@ -408,6 +416,8 @@ vm_page_remove(mem)
  *	The object must be locked.  No side effects.
  */
 
+/* 中文：在哈希表中按 object/offset 查找并返回对应的物理页面 */
+/* EN: Look up and return the physical page for a given object/offset in the hash table */
 vm_page_t
 vm_page_lookup(object, offset)
 	register vm_object_t	object;
@@ -447,6 +457,8 @@ vm_page_lookup(object, offset)
  *
  *	The object must be locked.
  */
+/* 中文：把一个内存页面从当前对象迁移到指定的目标对象和偏移（调用时对象必须加锁） */
+/* EN: Move a memory page from its current object to a target object and offset (the object must be locked) */
 void
 vm_page_rename(mem, new_object, new_offset)
 	register vm_page_t	mem;
@@ -471,6 +483,8 @@ vm_page_rename(mem, new_object, new_offset)
  *
  *	Object must be locked.
  */
+/* 中文：为指定的 object/offset 分配并返回一个物理页面（对象必须加锁） */
+/* EN: Allocate and return a physical page for the given object/offset (the object must be locked) */
 vm_page_t
 vm_page_alloc(object, offset)
 	vm_object_t	object;
@@ -522,6 +536,8 @@ vm_page_alloc(object, offset)
  *
  *	Object and page must be locked prior to entry.
  */
+/* 中文：把一个物理页面归还空闲链表，解除与 VM 对象的关联，并从各队列中摘除 */
+/* EN: Return a physical page to the free list, disassociate it from its VM object and remove it from all queues */
 void
 vm_page_free(mem)
 	register vm_page_t	mem;
@@ -561,6 +577,8 @@ vm_page_free(mem)
  *
  *	The page queues must be locked.
  */
+/* 中文：标记一个页面被额外锁定（wired）：必要时从活动/非活动队列移除并增加锁定计数 */
+/* EN: Mark a page as wired by one more map: remove it from active/inactive queues as needed and bump the wire count */
 void
 vm_page_wire(mem)
 	register vm_page_t	mem;
@@ -591,6 +609,8 @@ vm_page_wire(mem)
  *
  *	The page queues must be locked.
  */
+/* 中文：释放一次页面锁定：当锁定计数归零时把页面放回活动队列，使其可再次换出 */
+/* EN: Release one wiring of a page: when the count reaches zero, put the page back on the active queue so it can be paged again */
 void
 vm_page_unwire(mem)
 	register vm_page_t	mem;
@@ -615,6 +635,8 @@ vm_page_unwire(mem)
  *
  *	The page queues must be locked.
  */
+/* 中文：把一个活动页面转入非活动链表，清除引用位，表示已无物理映射可访问该页 */
+/* EN: Move an active page to the inactive list, clearing its reference bit to indicate no physical map references it */
 void
 vm_page_deactivate(m)
 	register vm_page_t	m;
@@ -651,6 +673,8 @@ vm_page_deactivate(m)
  *	The page queues must be locked.
  */
 
+/* 中文：把一个非活动页面重新激活：从非活动队列移入活动队列并更新计数 */
+/* EN: Reactivate an inactive page: move it from the inactive to the active queue and update counters */
 void
 vm_page_activate(m)
 	register vm_page_t	m;
@@ -680,6 +704,8 @@ vm_page_activate(m)
  *	be used by the zero-fill object.
  */
 
+/* 中文：把一个物理页面清零，清除其 CLEAN 标志并返回成功 */
+/* EN: Zero a physical page, clear its CLEAN flag and return success */
 boolean_t
 vm_page_zero_fill(m)
 	vm_page_t	m;
@@ -697,6 +723,8 @@ vm_page_zero_fill(m)
  *	Copy one page to another
  */
 
+/* 中文：把一个物理页面的内容复制到另一个页面，并清除目标页的 CLEAN 标志 */
+/* EN: Copy the contents of one physical page to another and clear the destination page's CLEAN flag */
 void
 vm_page_copy(src_m, dest_m)
 	vm_page_t	src_m;

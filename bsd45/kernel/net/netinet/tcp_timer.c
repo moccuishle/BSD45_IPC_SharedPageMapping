@@ -73,6 +73,8 @@ extern	int tcp_maxpersistidle;
 /*
  * Fast timeout routine for processing delayed acks
  */
+/* 中文：TCP 快速超时：在 splnet 下把置位 TF_DELACK 的 tcpcb 改为 TF_ACKNOW 并立即发出 ACK */
+/* EN: TCP fast timeout: under splnet turn TF_DELACK into TF_ACKNOW on marked tcpcbs and send an ACK immediately */
 void
 tcp_fasttimo()
 {
@@ -98,6 +100,8 @@ tcp_fasttimo()
  * Updates the timers in all active tcb's and
  * causes finite state machine actions if timers expire.
  */
+/* 中文：TCP 慢超时（每 500ms 调用）：在 splnet 下递减各 tcpcb 的活动定时器，到期则触发 PRU_SLOWTIMO 状态机动作，并更新 iss/tcp_now */
+/* EN: TCP slow timeout (called every 500ms): under splnet decrement active timers on each tcpcb, firing PRU_SLOWTIMO actions on expiry, and advance iss/tcp_now */
 void
 tcp_slowtimo()
 {
@@ -148,6 +152,8 @@ tpgone:
 /*
  * Cancel all timers for TCP tp.
  */
+/* 中文：取消 TCP 控制块 tp 的所有定时器：把各 t_timer 项清零 */
+/* EN: Cancel all timers for TCP control block tp: zero each t_timer entry */
 void
 tcp_canceltimers(tp)
 	struct tcpcb *tp;
@@ -166,6 +172,8 @@ int tcp_totbackoff = 511;	/* sum of tcp_backoff[] */
 /*
  * TCP timer processing.
  */
+/* 中文：TCP 定时器处理：根据 timer 类型分别处理 2MSL 超时、重传退避与慢启动、零窗口坚持、保活探测，返回（可能已释放的）tcpcb */
+/* EN: TCP timer processing: handle 2MSL expiry, retransmit backoff/slow-start, zero-window persist and keepalive probes per timer type, returning the (possibly freed) tcpcb */
 struct tcpcb *
 tcp_timers(tp, timer)
 	register struct tcpcb *tp;

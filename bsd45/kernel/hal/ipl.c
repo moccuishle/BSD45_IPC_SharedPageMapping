@@ -112,6 +112,8 @@ ipl_enable_irq(int irq)
  * 处理函数链：多个设备可共享同一个 IPL 级别；同级按注册顺序服务；
  * 使用固定池，注册过程不在中断上下文里分配内存。
  */
+/* 中文：清空指定 IPL 级别的处理函数链，并把固定池中属于该级别的处理函数槽全部标记为空闲 */
+/* EN: Clear the handler chain of an IPL level and mark every handler slot of that level in the fixed pool as free */
 static void
 action_clear(int ipl)
 {
@@ -123,6 +125,8 @@ action_clear(int ipl)
 			action_pool[i].a_used = 0;
 }
 
+/* 中文：从固定池中分配一个中断处理函数槽，填入 IPL、回调、参数和名称并挂到该级别链头；池满则递增溢出计数并返回空 */
+/* EN: Allocate a handler slot from the fixed pool, fill in IPL/callback/arg/name and push it on the level's chain; on pool exhaustion bump the overflow counter and return null */
 static struct irq_action *
 action_alloc(int ipl, void (*fn)(void *), void *arg, const char *name)
 {

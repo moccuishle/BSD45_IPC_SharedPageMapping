@@ -77,6 +77,8 @@ typedef (*PFI)();   /* the standard Pointer to a Function returning an Int */
  * A miscellaneous routine.
  * A generic "default" routine that just returns an error.
  */
+/* 中文：vnode 操作的通用默认例程，总是返回 EOPNOTSUPP 表示操作不受支持 */
+/* EN: Generic default vnode operation that always returns EOPNOTSUPP */
 int
 vn_default_error()
 {
@@ -100,6 +102,8 @@ vn_default_error()
  * NFS code. (Of couse, the OTW NFS protocol still needs to be munged, but
  * that is a(whole)nother story.) This is a feature.
  */
+/* 中文：为各文件系统层分配并填充 vnode 操作向量，把每个操作按偏移写入向量，未指定的条目用默认例程填补 */
+/* EN: Allocate and fill in vnode operation vectors for each filesystem layer, placing each op at its offset and defaulting unspecified entries */
 void
 vfs_opv_init()
 {
@@ -184,6 +188,8 @@ vfs_opv_init()
 /*
  * Initialize known vnode operations vectors.
  */
+/* 中文：初始化 vnode 操作描述符：清空各操作向量指针，统计系统支持的操作总数并为每个描述符分配偏移 */
+/* EN: Initialize vnode operation descriptors: clear vector pointers, count the total supported operations and assign each descriptor an offset */
 void
 vfs_op_init()
 {
@@ -216,6 +222,8 @@ struct vattr va_null;
 /*
  * Initialize the vnode structures and initialize each file system type.
  */
+/* 中文：初始化 vnode 子系统：初始化 vnode 表与名字缓存、构建操作向量，再逐一调用各已配置文件系统的初始化例程 */
+/* EN: Initialize the vnode subsystem: set up the vnode table and name cache, build operation vectors, then call each configured filesystem's init routine */
 vfsinit()
 {
 	struct vfsconf *vfsp;

@@ -44,6 +44,8 @@ static char sccsid[] = "@(#)udivdi3.c	8.1 (Berkeley) 6/4/93";
 /*
  * Divide two unsigned quads.
  */
+/* 中文：对两个无符号 64 位整数做除法：调用 __qdivrem 并返回商（忽略余数） */
+/* EN: Divide two unsigned 64-bit integers by calling __qdivrem and returning the quotient, discarding the remainder */
 u_quad_t
 __udivdi3(a, b)
 	u_quad_t a, b;

@@ -45,6 +45,8 @@ static char sccsid[] = "@(#)strncpy.c	8.1 (Berkeley) 6/4/93";
  * Copy src to dst, truncating or null-padding to always copy n bytes.
  * Return dst.
  */
+/* 中文：把 src 指向的字符串复制到 dst，最多复制 n 字节：遇到终止符后用 NUL 补齐剩余字节，返回 dst */
+/* EN: Copy the string at src to dst, at most n bytes: NUL-pad the remainder once the terminator is reached, returning dst */
 char *
 strncpy(dst, src, n)
 	char *dst;

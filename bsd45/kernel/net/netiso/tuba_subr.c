@@ -77,6 +77,8 @@ struct	isopcb	tuba_isopcb;
 /*
  * Tuba initialization
  */
+/* 中文：初始化 tuba：初始化 inpcb/isopcb 链、地址指针，并确保协议头空间足够容纳 TUBA 头 */
+/* EN: initialize tuba: set up the inpcb/isopcb chains and address pointers, ensuring header space for the TUBA header */
 tuba_init()
 {
 #define TUBAHDRSIZE (3 /*LLC*/ + 9 /*CLNP Fixed*/ + 42 /*Addresses*/ \
@@ -103,6 +105,8 @@ struct addr_arg {
  * and coincidentally set pointer for convenience of clnp_output
  * if we are are responding when there is no isopcb around.
  */
+/* 中文：按 tuba 表索引查找 ISO 地址并累加其对 TCP 校验和的贡献，供 clnp_output 使用 */
+/* EN: look up an ISO address by tuba-table index and accumulate its contribution to the TCP checksum for clnp_output */
 static void
 tuba_getaddr(arg, siso, index)
 	register struct addr_arg *arg;
@@ -120,6 +124,8 @@ tuba_getaddr(arg, siso, index)
 		arg->error = 1;
 }
 
+/* 中文：调整 TCP 校验和、去掉伪 IP 头后把报文交给 clnp_output 发送 */
+/* EN: adjust the TCP checksum, strip the pseudo-IP header and hand the packet to clnp_output */
 tuba_output(m, tp)
 	register struct mbuf *m;
 	struct tcpcb *tp;
@@ -158,6 +164,8 @@ tuba_output(m, tp)
 	return (clnp_output(m, isop, m->m_pkthdr.len, 0));
 }
 
+/* 中文：增减 isopcb 本地/远端地址对应 tuba 表项的引用计数 */
+/* EN: increment or decrement the refcount of tuba-table entries for an isopcb's local/remote addresses */
 tuba_refcnt(isop, delta)
 	struct isopcb *isop;
 {
@@ -179,6 +187,8 @@ tuba_refcnt(isop, delta)
 		tc->tc_refcnt += delta;
 }
 
+/* 中文：分离 tuba pcb：减少引用计数、清空 socket 并调用 iso_pcbdetach */
+/* EN: detach a tuba pcb: drop its refcount, clear the socket and call iso_pcbdetach */
 tuba_pcbdetach(isop)
 	struct isopcb *isop;
 {
@@ -192,6 +202,8 @@ tuba_pcbdetach(isop)
 /*
  * Avoid  in_pcbconnect in faked out tcp_input()
  */
+/* 中文：为伪 tcp_input 连接 tuba pcb：硬编码本地 ISO 地址绑定与连接，然后增加引用计数 */
+/* EN: connect a tuba pcb for the faked tcp_input: hardwire local ISO bind/connect without a route, then bump the refcount */
 tuba_pcbconnect(inp, nam)
 	register struct inpcb *inp;
 	struct mbuf *nam;
@@ -232,6 +244,8 @@ tuba_pcbconnect(inp, nam)
  * and do tcp input processing.
  * No return value.  
  */
+/* 中文：从 clnp 接收报文：查找 tuba 地址、重建 tcpiphdr 并计算校验和后进入 TCP 输入处理 */
+/* EN: receive a packet from clnp: look up tuba addresses, rebuild the tcpiphdr, verify checksum and run TCP input processing */
 tuba_tcpinput(m, src, dst)
 	register struct mbuf *m;
 	struct sockaddr_iso *src, *dst;

@@ -45,6 +45,8 @@ static char sccsid[] = "@(#)ucmpdi2.c	8.1 (Berkeley) 6/4/93";
  * Return 0, 1, or 2 as a <, =, > b respectively.
  * Neither a nor b are considered signed.
  */
+/* 中文：无符号比较 64 位整数 a 与 b，按 a 小于、等于、大于 b 分别返回 0、1、2，两者均按无符号处理 */
+/* EN: Compare two 64-bit values as unsigned, returning 0, 1, or 2 when a is less than, equal to, or greater than b */
 int
 __ucmpdi2(a, b)
 	u_quad_t a, b;

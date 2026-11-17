@@ -60,6 +60,8 @@
 
 extern	struct fileops socketops;
 
+/* 中文：socket 系统调用：分配文件描述符与 file 结构，调用 socreate 创建 socket 并关联到该 file */
+/* EN: socket syscall: allocate a file descriptor and file structure, call socreate and attach the new socket */
 int
 socket(p, uap, retval)
 	struct proc *p;
@@ -92,6 +94,8 @@ socket(p, uap, retval)
 }
 
 /* ARGSUSED */
+/* 中文：bind 系统调用：把用户态 sockaddr 拷入 mbuf，为指定 socket 绑定本地地址 */
+/* EN: bind syscall: copy the user sockaddr into an mbuf and bind a local address to the socket */
 int
 bind(p, uap, retval)
 	struct proc *p;
@@ -117,6 +121,8 @@ bind(p, uap, retval)
 }
 
 /* ARGSUSED */
+/* 中文：listen 系统调用：将指定 socket 置为监听状态并设置连接队列长度 */
+/* EN: listen syscall: mark a socket as listening and set its connection queue backlog */
 int
 listen(p, uap, retval)
 	struct proc *p;
@@ -135,6 +141,8 @@ listen(p, uap, retval)
 }
 
 #ifdef COMPAT_OLDSOCK
+/* 中文：accept 系统调用（4.3BSD 兼容入口）：转调 accept1，不使用旧地址格式 */
+/* EN: accept syscall (4.3BSD compat entry): call accept1 without old-style address format */
 int
 accept(p, uap, retval)
 	struct proc *p;
@@ -149,6 +157,8 @@ accept(p, uap, retval)
 	return (accept1(p, uap, retval, 0));
 }
 
+/* 中文：accept 的 4.3BSD 兼容版本：以 compat_43=1 调用 accept1 返回旧格式地址 */
+/* EN: 4.3BSD-compatible accept: call accept1 with compat_43=1 to return old-format addresses */
 int
 compat_43_accept(p, uap, retval)
 	struct proc *p;
@@ -167,6 +177,8 @@ compat_43_accept(p, uap, retval)
 #define	accept1	accept
 #endif
 
+/* 中文：accept 的核心实现：从监听队列取出一个连接，分配新 socket/file 并返回对等地址 */
+/* EN: core accept implementation: dequeue a pending connection, allocate a new socket/file and return the peer address */
 int
 accept1(p, uap, retval, compat_43)
 	struct proc *p;
@@ -252,6 +264,8 @@ accept1(p, uap, retval, compat_43)
 }
 
 /* ARGSUSED */
+/* 中文：connect 系统调用：把用户态 sockaddr 拷入 mbuf 后发起连接，并等待连接完成 */
+/* EN: connect syscall: copy the user sockaddr into an mbuf, initiate a connection and wait for completion */
 int
 connect(p, uap, retval)
 	struct proc *p;
@@ -300,6 +314,8 @@ bad:
 	return (error);
 }
 
+/* 中文：socketpair 系统调用：创建一对已互连的 socket 并返回两个文件描述符 */
+/* EN: socketpair syscall: create a pair of interconnected sockets and return two file descriptors */
 int
 socketpair(p, uap, retval)
 	struct proc *p;
@@ -363,6 +379,8 @@ free1:
 	return (error);
 }
 
+/* 中文：sendto 系统调用：用目的地址构造 msghdr 后调用 sendit 发送数据报 */
+/* EN: sendto syscall: build a msghdr with the destination address and call sendit to send a datagram */
 int
 sendto(p, uap, retval)
 	struct proc *p;
@@ -393,6 +411,8 @@ sendto(p, uap, retval)
 }
 
 #ifdef COMPAT_OLDSOCK
+/* 中文：send 的 4.3BSD 兼容版本：用单段 iovec 构造 msghdr 后调用 sendit */
+/* EN: 4.3BSD-compatible send: build a msghdr with a single iovec and call sendit */
 int
 compat_43_send(p, uap, retval)
 	struct proc *p;
@@ -419,6 +439,8 @@ compat_43_send(p, uap, retval)
 }
 
 #define MSG_COMPAT	0x8000
+/* 中文：sendmsg 的 4.3BSD 兼容版本：拷入旧 omsghdr 与 iovec，置 MSG_COMPAT 后调用 sendit */
+/* EN: 4.3BSD-compatible sendmsg: copy in old omsghdr and iovec, set MSG_COMPAT and call sendit */
 int
 compat_43_sendmsg(p, uap, retval)
 	struct proc *p;
@@ -457,6 +479,8 @@ done:
 }
 #endif
 
+/* 中文：sendmsg 系统调用：拷入 msghdr 和 iovec 后调用 sendit 发送 */
+/* EN: sendmsg syscall: copy in the msghdr and iovec, then call sendit to send */
 int
 sendmsg(p, uap, retval)
 	struct proc *p;
@@ -496,6 +520,8 @@ done:
 	return (error);
 }
 
+/* 中文：send 的公共实现：由 msghdr 构造 uio 与地址/控制 mbuf，调用 sosend 并返回实际发送字节数 */
+/* EN: common send implementation: build a uio and address/control mbufs from msghdr, call sosend and return the bytes sent */
 int
 sendit(p, s, mp, flags, retsize)
 	register struct proc *p;
@@ -599,6 +625,8 @@ bad:
 }
 
 #ifdef COMPAT_OLDSOCK
+/* 中文：recvfrom 的 4.3BSD 兼容版本：置 MSG_COMPAT 后调用 recvfrom */
+/* EN: 4.3BSD-compatible recvfrom: call recvfrom with MSG_COMPAT set */
 int
 compat_43_recvfrom(p, uap, retval)
 	struct proc *p;
@@ -618,6 +646,8 @@ compat_43_recvfrom(p, uap, retval)
 }
 #endif
 
+/* 中文：recvfrom 系统调用：用单段 iovec 构造 msghdr，调用 recvit 接收并返回源地址 */
+/* EN: recvfrom syscall: build a msghdr with a single iovec, call recvit to receive and return the source address */
 int
 recvfrom(p, uap, retval)
 	struct proc *p;
@@ -653,6 +683,8 @@ recvfrom(p, uap, retval)
 }
 
 #ifdef COMPAT_OLDSOCK
+/* 中文：recv 的 4.3BSD 兼容版本：用单段 iovec 构造 msghdr 后调用 recvit */
+/* EN: 4.3BSD-compatible recv: build a msghdr with a single iovec and call recvit */
 int
 compat_43_recv(p, uap, retval)
 	struct proc *p;
@@ -683,6 +715,8 @@ compat_43_recv(p, uap, retval)
  * overlays the new one, missing only the flags, and with the (old) access
  * rights where the control fields are now.
  */
+/* 中文：recvmsg 的 4.3BSD 兼容版本：拷入旧 omsghdr/iovec，调用 recvit 并回写访问控制权 */
+/* EN: 4.3BSD-compatible recvmsg: copy in old omsghdr/iovec, call recvit and copy back access rights */
 int
 compat_43_recvmsg(p, uap, retval)
 	struct proc *p;
@@ -726,6 +760,8 @@ done:
 }
 #endif
 
+/* 中文：recvmsg 系统调用：拷入 msghdr 和 iovec，调用 recvit 接收并回写 msghdr */
+/* EN: recvmsg syscall: copy in msghdr and iovec, call recvit to receive and copy the msghdr back */
 int
 recvmsg(p, uap, retval)
 	struct proc *p;
@@ -772,6 +808,8 @@ done:
 	return (error);
 }
 
+/* 中文：recv 的公共实现：由 msghdr 构造 uio，调用 soreceive 并把数据与地址/控制信息拷回用户态 */
+/* EN: common recv implementation: build a uio from msghdr, call soreceive and copy data/address/control back to userland */
 int
 recvit(p, s, mp, namelenp, retsize)
 	register struct proc *p;
@@ -903,6 +941,8 @@ out:
 }
 
 /* ARGSUSED */
+/* 中文：shutdown 系统调用：对指定 socket 调用 soshutdown 关闭一侧或双侧通信 */
+/* EN: shutdown syscall: call soshutdown on a socket to disable one or both directions */
 int
 shutdown(p, uap, retval)
 	struct proc *p;
@@ -921,6 +961,8 @@ shutdown(p, uap, retval)
 }
 
 /* ARGSUSED */
+/* 中文：setsockopt 系统调用：把用户态选项值拷入 mbuf，调用 sosetopt 设置 socket 选项 */
+/* EN: setsockopt syscall: copy the user option value into an mbuf and call sosetopt */
 int
 setsockopt(p, uap, retval)
 	struct proc *p;
@@ -957,6 +999,8 @@ setsockopt(p, uap, retval)
 }
 
 /* ARGSUSED */
+/* 中文：getsockopt 系统调用：调用 sogetopt 取回选项值并拷回用户态 */
+/* EN: getsockopt syscall: call sogetopt and copy the option value back to userland */
 int
 getsockopt(p, uap, retval)
 	struct proc *p;
@@ -998,6 +1042,8 @@ getsockopt(p, uap, retval)
 }
 
 /* ARGSUSED */
+/* 中文：pipe 系统调用：创建一对用 AF_UNIX stream socket 实现的单向管道并返回读写 fd */
+/* EN: pipe syscall: create a pair of unidirectional fds backed by connected AF_UNIX stream sockets */
 int
 pipe(p, uap, retval)
 	struct proc *p;
@@ -1047,6 +1093,8 @@ free1:
  * Get socket name.
  */
 #ifdef COMPAT_OLDSOCK
+/* 中文：getsockname 系统调用入口（兼容分支）：转调 getsockname1，不使用旧地址格式 */
+/* EN: getsockname syscall entry (compat branch): call getsockname1 without old address format */
 int
 getsockname(p, uap, retval)
 	struct proc *p;
@@ -1061,6 +1109,8 @@ getsockname(p, uap, retval)
 	return (getsockname1(p, uap, retval, 0));
 }
 
+/* 中文：getsockname 的 4.3BSD 兼容版本：以 compat_43=1 调用 getsockname1 */
+/* EN: 4.3BSD-compatible getsockname: call getsockname1 with compat_43=1 */
 int
 compat_43_getsockname(p, uap, retval)
 	struct proc *p;
@@ -1080,6 +1130,8 @@ compat_43_getsockname(p, uap, retval)
 #endif
 
 /* ARGSUSED */
+/* 中文：getsockname 核心实现：通过 PRU_SOCKADDR 取本地地址并拷回用户态 */
+/* EN: core getsockname: fetch the local address via PRU_SOCKADDR and copy it to userland */
 int
 getsockname1(p, uap, retval, compat_43)
 	struct proc *p;
@@ -1127,6 +1179,8 @@ bad:
  * Get name of peer for connected socket.
  */
 #ifdef COMPAT_OLDSOCK
+/* 中文：getpeername 系统调用入口（兼容分支）：转调 getpeername1，不使用旧地址格式 */
+/* EN: getpeername syscall entry (compat branch): call getpeername1 without old address format */
 int
 getpeername(p, uap, retval)
 	struct proc *p;
@@ -1141,6 +1195,8 @@ getpeername(p, uap, retval)
 	return (getpeername1(p, uap, retval, 0));
 }
 
+/* 中文：getpeername 的 4.3BSD 兼容版本：以 compat_43=1 调用 getpeername1 */
+/* EN: 4.3BSD-compatible getpeername: call getpeername1 with compat_43=1 */
 int
 compat_43_getpeername(p, uap, retval)
 	struct proc *p;
@@ -1160,6 +1216,8 @@ compat_43_getpeername(p, uap, retval)
 #endif
 
 /* ARGSUSED */
+/* 中文：getpeername 核心实现：通过 PRU_PEERADDR 取已连接 socket 的对等地址并拷回用户态 */
+/* EN: core getpeername: fetch the peer address of a connected socket via PRU_PEERADDR and copy it out */
 int
 getpeername1(p, uap, retval, compat_43)
 	struct proc *p;
@@ -1205,6 +1263,8 @@ bad:
 	return (error);
 }
 
+/* 中文：把用户态缓冲区拷贝到一个新 mbuf，并对 MT_SONAME 设置 sa_len（含旧 socket 兼容处理） */
+/* EN: copy a user buffer into a new mbuf, setting sa_len for MT_SONAME (with old-socket compat handling) */
 int
 sockargs(mp, buf, buflen, type)
 	struct mbuf **mp;
@@ -1245,6 +1305,8 @@ sockargs(mp, buf, buflen, type)
 	return (0);
 }
 
+/* 中文：按文件描述符取出对应的 file，校验其类型为 socket，否则返回 EBADF/ENOTSOCK */
+/* EN: look up a file by descriptor, verify it is a socket, returning EBADF/ENOTSOCK otherwise */
 int
 getsock(fdp, fdes, fpp)
 	struct filedesc *fdp;

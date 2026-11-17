@@ -117,6 +117,8 @@ static	u_long cached_originmask;
 /*
  * Handle DVMRP setsockopt commands to modify the multicast routing tables.
  */
+/* 中文：处理 DVMRP setsockopt 命令：按命令分派初始化/关闭、增删 vif、增删本地组、增删组播路由 */
+/* EN: Handle DVMRP setsockopt commands, dispatching init/done, add/delete vif, add/delete local group and add/delete multicast route operations */
 int
 ip_mrouter_cmd(cmd, so, m)
 	register int cmd;
@@ -189,6 +191,8 @@ ip_mrouter_cmd(cmd, so, m)
 /*
  * Enable multicast routing
  */
+/* 中文：启用组播路由：校验 socket 为 IGMP 原始套接字且当前无路由器后把它登记为 ip_mrouter */
+/* EN: Enable multicast routing: verify the socket is a raw IGMP socket and no router exists, then register it as ip_mrouter */
 static int
 ip_mrouter_init(so)
 	register struct socket *so;
@@ -208,6 +212,8 @@ ip_mrouter_init(so)
 /*
  * Disable multicast routing
  */
+/* 中文：关闭组播路由：释放各物理接口的本地组列表并关闭全组播混杂接收，清空 vif 表和组播路由表 */
+/* EN: Disable multicast routing: free each physical interface's local group list and disable all-multicast reception, then clear the vif and multicast route tables */
 int
 ip_mrouter_done()
 {
@@ -255,6 +261,8 @@ ip_mrouter_done()
 /*
  * Add a vif to the vif table
  */
+/* 中文：向 vif 表添加一个虚拟接口：校验索引与本地地址，必要时开启全组播混杂接收并记录阈值与标志 */
+/* EN: Add a virtual interface to the vif table: validate index and local address, enable all-multicast reception when needed and record threshold and flags */
 static int
 add_vif(vifcp)
 	register struct vifctl *vifcp;
@@ -317,6 +325,8 @@ add_vif(vifcp)
 /*
  * Delete a vif from the vif table
  */
+/* 中文：从 vif 表删除一个虚拟接口：关闭混杂接收、释放本地组列表并清空表项，同时下调 numvifs */
+/* EN: Delete a virtual interface from the vif table: disable promiscuous reception, free its local group list, clear the entry and lower numvifs */
 static int
 del_vif(vifip)
 	register vifi_t *vifip;
@@ -358,6 +368,8 @@ del_vif(vifip)
  * Add the multicast group in the lgrpctl to the list of local multicast
  * group memberships associated with the vif indexed by gcp->lgc_vifi.
  */
+/* 中文：把指定组播地址加入某 vif 的本地组成员列表，空间不足时倍增扩容并更新缓存结果 */
+/* EN: Add a multicast address to a vif's local group membership list, doubling the array when full and updating the cached result */
 static int
 add_lgrp(gcp)
 	register struct lgrplctl *gcp;
@@ -416,6 +428,8 @@ add_lgrp(gcp)
  * indexed by gcp->lgc_vifi.
  */
 
+/* 中文：从某 vif 的本地组成员列表删除指定组播地址，并更新缓存结果 */
+/* EN: Delete a multicast address from a vif's local group membership list and update the cached result */
 static int
 del_lgrp(gcp)
 	register struct lgrplctl *gcp;
@@ -453,6 +467,8 @@ del_lgrp(gcp)
 /*
  * Return 1 if gaddr is a member of the local group list for vifp.
  */
+/* 中文：检查给定组播地址是否为 vif 的本地组成员，结果缓存在 v_cached_group/v_cached_result 中 */
+/* EN: Check whether a multicast address is a local group member of a vif, caching the result in v_cached_group/v_cached_result */
 static int
 grplst_member(vifp, gaddr)
 	register struct vif *vifp;
@@ -488,6 +504,8 @@ grplst_member(vifp, gaddr)
  * A simple hash function: returns MRTHASHMOD of the low-order octet of
  * the argument's network or subnet number.
  */
+/* 中文：简单哈希函数：取 IP 网络号低字节对 MRTHASHMOD 取模作为组播路由表索引 */
+/* EN: A simple hash function: take the low-order octet of the IP network number modulo MRTHASHMOD as the route table index */
 static u_long
 nethash(in)
 	struct in_addr in;
@@ -503,6 +521,8 @@ nethash(in)
 /*
  * Add an mrt entry
  */
+/* 中文：添加或更新组播路由：已存在则更新父节点和子/叶位图，否则分配新项并插入哈希链头 */
+/* EN: Add or update a multicast route: update parent and child/leaf bitmaps if it exists, otherwise allocate a new entry at the head of the hash chain */
 static int
 add_mrt(mrtcp)
 	register struct mrtctl *mrtcp;
@@ -549,6 +569,8 @@ add_mrt(mrtcp)
 /*
  * Delete an mrt entry
  */
+/* 中文：按源地址删除一条组播路由，必要时清除缓存并从哈希链摘除释放该项 */
+/* EN: Delete a multicast route by origin address, clearing the cache and unlinking and freeing the entry from the hash chain as needed */
 static int
 del_mrt(origin)
 	register struct in_addr *origin;
@@ -581,6 +603,8 @@ del_mrt(origin)
 /*
  * Find a route for a given origin IP address.
  */
+/* 中文：按源 IP 地址查找匹配的组播路由：先查缓存，未命中再遍历哈希链并更新缓存 */
+/* EN: Find a multicast route for an origin IP address: check the cache first, then scan the hash chain and update the cache on a hit */
 static struct mrt *
 mrtfind(origin)
 	struct in_addr origin;
@@ -625,6 +649,8 @@ mrtfind(origin)
 #define IP_HDR_LEN  20	/* # bytes of fixed IP header (excluding options) */
 #define TUNNEL_LEN  12  /* # bytes of IP option for tunnel encapsulation  */
 
+/* 中文：IP 组播转发主函数：剥离隧道选项、校验 TTL 与源路由，再按各 vif 的阈值和组成员关系转发包副本 */
+/* EN: Main IP multicast forwarding routine: strip tunnel options, validate TTL and source route, then forward packet copies per each vif's threshold and group membership */
 int
 ip_mforward(m, ifp)
 	register struct mbuf *m;
@@ -741,6 +767,8 @@ ip_mforward(m, ifp)
 	return ((int)tunnel_src);
 }
 
+/* 中文：通过物理接口发送组播包副本：复制 mbuf 并设置出接口、TTL 后调用 ip_output */
+/* EN: Send a multicast packet copy out a physical interface: copy the mbuf, set the outgoing interface and TTL, then call ip_output */
 static void
 phyint_send(m, vifp)
 	register struct mbuf *m;
@@ -764,6 +792,8 @@ phyint_send(m, vifp)
 	error = ip_output(mb_copy, NULL, NULL, IP_FORWARDING, imo);
 }
 
+/* 中文：通过隧道发送组播包副本：在私有头部加入 NOP/LSRR 隧道选项封装后调用 ip_output */
+/* EN: Send a multicast packet copy through a tunnel: build NOP/LSRR tunnel encapsulation in a private header and call ip_output */
 static void
 tunnel_send(m, vifp)
 	register struct mbuf *m;

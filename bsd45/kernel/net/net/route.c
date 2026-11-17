@@ -59,6 +59,8 @@
 int	rttrash;		/* routes not in table but not freed */
 struct	sockaddr wildcard;	/* zero valued cookie for wildcard searches */
 
+/* 中文：遍历所有已注册协议域，调用其 rtattach 回调初始化各自的路由表结构 */
+/* EN: Walk all registered protocol domains, invoking each domain's rtattach callback to initialize its routing table structure */
 void
 rtable_init(table)
 	void **table;
@@ -70,6 +72,8 @@ rtable_init(table)
 			    dom->dom_rtoffset);
 }
 
+/* 中文：初始化路由子系统，建立基数树掩码表并初始化各协议域的路由表 */
+/* EN: Initialize the routing subsystem, setting up the radix-tree mask tables and the routing tables of each protocol domain */
 void
 route_init()
 {
@@ -80,6 +84,8 @@ route_init()
 /*
  * Packet routing routines.
  */
+/* 中文：为路由结构分配路由，若缓存路由无效则按目的地址查找新路由 */
+/* EN: Allocate a route for a route structure, looking up a new route by destination when the cached one is invalid */
 void
 rtalloc(ro)
 	register struct route *ro;
@@ -89,6 +95,8 @@ rtalloc(ro)
 	ro->ro_rt = rtalloc1(&ro->ro_dst, 1);
 }
 
+/* 中文：按目的地址在路由表中精确查找路由，处理克隆/解析路由并在未找到时可选发送 RTM_MISS 消息 */
+/* EN: Look up a route by destination in the routing table, handling cloning/resolution and optionally sending an RTM_MISS message on a miss */
 struct rtentry *
 rtalloc1(dst, report)
 	register struct sockaddr *dst;
@@ -130,6 +138,8 @@ rtalloc1(dst, report)
 	return (newrt);
 }
 
+/* 中文：递减路由项引用计数，引用归零且路由已 down 时释放其接口地址、键和路由项本身 */
+/* EN: Decrement a route's reference count, freeing its interface address, key and the route itself once the count reaches zero and the route is down */
 void
 rtfree(rt)
 	register struct rtentry *rt;
@@ -154,6 +164,8 @@ rtfree(rt)
 	}
 }
 
+/* 中文：递减接口地址引用计数，计数为零时释放该接口地址 */
+/* EN: Decrement an interface address's reference count, freeing it when the count reaches zero */
 void
 ifafree(ifa)
 	register struct ifaddr *ifa;
@@ -175,6 +187,8 @@ ifafree(ifa)
  * N.B.: must be called at splnet
  *
  */
+/* 中文：处理网络层重定向报文，校验网关可达性后修改或新建到目的地址的路由，并发送 RTM_REDIRECT 消息 */
+/* EN: Handle a routing redirect, validating gateway reachability then modifying or creating the route to the destination and sending an RTM_REDIRECT message */
 int
 rtredirect(dst, gateway, netmask, flags, src, rtp)
 	struct sockaddr *dst, *gateway, *netmask, *src;
@@ -266,6 +280,8 @@ out:
 /*
 * Routing table ioctl interface.
 */
+/* 中文：路由表 ioctl 接口占位实现，当前总是返回 EOPNOTSUPP */
+/* EN: Routing table ioctl interface stub, currently always returning EOPNOTSUPP */
 int
 rtioctl(req, data, p)
 	u_long req;
@@ -275,6 +291,8 @@ rtioctl(req, data, p)
 	return (EOPNOTSUPP);
 }
 
+/* 中文：为路由查找合适的本地接口地址，根据是否为网关/主机路由按不同策略匹配目的或网关地址 */
+/* EN: Find a suitable local interface address for a route, matching destination or gateway by different strategies depending on gateway/host flags */
 struct ifaddr *
 ifa_ifwithroute(flags, dst, gateway)
 	int flags;
@@ -323,6 +341,8 @@ ifa_ifwithroute(flags, dst, gateway)
 
 #define ROUNDUP(a) (a>0 ? (1 + (((a) - 1) | (sizeof(long) - 1))) : sizeof(long))
 
+/* 中文：路由表条目的增删改核心操作，按 req（ADD/DELETE/RESOLVE）在基数树中增删路由并设置网关与接口 */
+/* EN: Core route table manipulation, adding/deleting/resolving routes in the radix tree per req and setting the gateway and interface */
 int
 rtrequest(req, dst, gateway, netmask, flags, ret_nrt)
 	int req, flags;
@@ -419,6 +439,8 @@ bad:
 	return (error);
 }
 
+/* 中文：设置路由项的网关地址，必要时重新分配键/网关存储，并使已缓存的网关路由失效后重新查找 */
+/* EN: Set a route's gateway address, reallocating key/gateway storage if needed and invalidating any cached gateway route before relookup */
 int
 rt_setgate(rt0, dst, gate)
 	struct rtentry *rt0;
@@ -453,6 +475,8 @@ rt_setgate(rt0, dst, gate)
 	return 0;
 }
 
+/* 中文：把源 sockaddr 按网络掩码逐字节相与后复制到目的 sockaddr，剩余部分清零 */
+/* EN: Copy a source sockaddr to a destination applying the netmask byte by byte, zeroing the remaining bytes */
 void
 rt_maskedcopy(src, dst, netmask)
 	struct sockaddr *src, *dst, *netmask;
@@ -477,6 +501,8 @@ rt_maskedcopy(src, dst, netmask)
  * Set up a routing table entry, normally
  * for an interface.
  */
+/* 中文：为接口地址添加或删除对应的路由表项，并在变更后发送新地址消息 */
+/* EN: Add or delete the routing table entry for an interface address, sending a new-address message after the change */
 int
 rtinit(ifa, cmd, flags)
 	register struct ifaddr *ifa;

@@ -67,6 +67,8 @@ struct inpcb rawinpcb;
 /*
  * Initialize raw connection block q.
  */
+/* 中文：初始化原始 IP 协议的 PCB 队列及相关状态。 */
+/* EN: Initialize the raw IP protocol's PCB queue and related state. */
 void
 rip_init()
 {
@@ -80,6 +82,8 @@ struct	sockaddr_in ripsrc = { sizeof(ripsrc), AF_INET };
  * for raw_input routine, then pass them along with
  * mbuf chain.
  */
+/* 中文：为 raw_input 准备通用地址和协议结构，连同 mbuf 链一起交给原始套接口处理。 */
+/* EN: Set up generic address and protocol structures for raw_input and pass them along with the mbuf chain. */
 void
 rip_input(m)
 	struct mbuf *m;
@@ -129,6 +133,8 @@ rip_input(m)
  * Generate IP header and pass packet to ip_output.
  * Tack on options user may have setup with control call.
  */
+/* 中文：生成 IP 首部（含用户设置的选项）并把报文交给 ip_output 发送。 */
+/* EN: Generate an IP header (with user-set options) and hand the packet to ip_output. */
 int
 rip_output(m, so, dst)
 	register struct mbuf *m;
@@ -170,6 +176,8 @@ rip_output(m, so, dst)
 /*
  * Raw IP socket option processing.
  */
+/* 中文：处理原始 IP 套接口的选项（如 IP_HDRINCL）。 */
+/* EN: Process raw IP socket options (e.g. IP_HDRINCL). */
 int
 rip_ctloutput(op, so, level, optname, m)
 	int op;
@@ -253,6 +261,8 @@ u_long	rip_sendspace = RIPSNDQ;
 u_long	rip_recvspace = RIPRCVQ;
 
 /*ARGSUSED*/
+/* 中文：处理原始 IP 套接口的用户请求（PRU_* 操作，如绑定、连接、发送与接收）。 */
+/* EN: Handle raw IP socket user requests (PRU_* operations such as bind, connect, send and receive). */
 int
 rip_usrreq(so, req, m, nam, control)
 	register struct socket *so;

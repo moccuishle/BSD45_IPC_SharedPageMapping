@@ -65,6 +65,8 @@ typedef tpcb_struct tp_PCB_;
 
 #include "tp_events.h"
 
+/* 中文：TP 协议状态机动作分发：根据动作号 a 对事件 e 与 PCB p 执行相应 TPDU 发送/确认/错误处理，返回错误码 */
+/* EN: TP protocol state-machine action dispatcher: execute the TPDU send/ack/error handling for action a on event e and PCB p, returning an error code */
 _XEBEC_PG int _Xebec_action(a,e,p)
 int a;
 struct tp_event *e;
@@ -861,6 +863,8 @@ case 0x38:
 return 0;
 }
 
+/* 中文：TP 状态机动作索引兜底：当主索引表为 -1 时，按事件号与当前状态组合（含重传判断）计算动作索引 */
+/* EN: Fallback action-indexer for the TP state machine: when the main table gives -1, compute an action index from event number and current state (with retransmission checks) */
 _XEBEC_PG int
 _Xebec_index( e,p )
 	struct tp_event *e;
@@ -973,6 +977,8 @@ static int inx[26][9] = { {0,0,0,0,0,0,0,0,0,},
  {0x0,0x49,-1,0x45,-1,0x44,0x48,-1,0x0, },
  {0x0,0x0,0x0,0x0,0x0,0x0,0x0,0x0,-1, },
 };
+/* 中文：TP 协议驱动入口：用事件号与状态查动作表（必要时调 _Xebec_index 兜底），执行 _Xebec_action 并推进 PCB 状态 */
+/* EN: TP protocol driver entry: look up the action table by event and state (falling back to _Xebec_index), run _Xebec_action and advance the PCB state */
 tp_driver(p, e)
 register tp_PCB_ *p;
 register struct tp_event *e;

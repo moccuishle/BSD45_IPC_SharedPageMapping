@@ -65,6 +65,8 @@ static void ip_mloopback
  * The mbuf chain containing the packet will be freed.
  * The mbuf opt, if present, will not be freed.
  */
+/* 中文：IP 输出主函数：填充 IP 头、按路由选接口、处理组播/广播、必要时分片后交给接口 if_output 发送 */
+/* EN: IP output: fill in the IP header, select the interface via routing, handle multicast/broadcast, fragment if needed and send via if_output */
 int
 ip_output(m0, opt, ro, flags, imo)
 	struct mbuf *m0;
@@ -392,6 +394,8 @@ bad:
  * Adjust IP destination as required for IP source routing,
  * as indicated by a non-zero in_addr at the start of the options.
  */
+/* 中文：把 IP 选项插入已构造的数据报，按源路由首跳目的地址调整 IP 目的地址，并返回新的 IP 头长度 */
+/* EN: insert IP options into a preformed datagram, adjust the destination for source routing and return the new header length */
 static struct mbuf *
 ip_insertoptions(m, opt, phlen)
 	register struct mbuf *m;
@@ -437,6 +441,8 @@ ip_insertoptions(m, opt, phlen)
  * Copy options from ip to jp,
  * omitting those not copied during fragmentation.
  */
+/* 中文：把 ip 的 IP 选项复制到 jp，跳过分片时不复制的选项，并把长度补齐到 4 字节对齐 */
+/* EN: copy IP options from ip to jp, omitting options not copied on fragmentation and padding to a 4-byte boundary */
 int
 ip_optcopy(ip, jp)
 	struct ip *ip, *jp;
@@ -474,6 +480,8 @@ ip_optcopy(ip, jp)
 /*
  * IP socket option processing.
  */
+/* 中文：处理 IP 层 socket 选项：设置/获取 TOS、TTL、选项及各类组播选项 */
+/* EN: process IP-level socket options: get/set TOS, TTL, options and the various multicast options */
 int
 ip_ctloutput(op, so, level, optname, mp)
 	int op;
@@ -632,6 +640,8 @@ int
 ip_pcbopts(optname, pcbopt, m)
 	int optname;
 #else
+/* 中文：设置 pcb 中用于外出报文的 IP 选项，先释放旧选项，校验并把源路由首跳地址存到选项前 */
+/* EN: set the IP options in a pcb for outgoing packets, freeing old options, validating and storing the source-route first hop */
 ip_pcbopts(pcbopt, m)
 #endif
 	struct mbuf **pcbopt;
@@ -732,6 +742,8 @@ bad:
 /*
  * Set the IP multicast options in response to user setsockopt().
  */
+/* 中文：响应 setsockopt 设置 IP 组播选项：接口、TTL、回环以及加入/退出组播组 */
+/* EN: handle setsockopt for IP multicast options: interface, TTL, loopback and add/drop group membership */
 int
 ip_setmoptions(optname, imop, m)
 	int optname;
@@ -971,6 +983,8 @@ ip_setmoptions(optname, imop, m)
 /*
  * Return the IP multicast options in response to user getsockopt().
  */
+/* 中文：响应 getsockopt 返回当前 IP 组播选项：接口地址、TTL 与回环标志，结果放入 mbuf */
+/* EN: handle getsockopt for IP multicast options: return interface address, TTL and loopback flag in an mbuf */
 int
 ip_getmoptions(optname, imo, mp)
 	int optname;
@@ -1020,6 +1034,8 @@ ip_getmoptions(optname, imo, mp)
 /*
  * Discard the IP multicast options.
  */
+/* 中文：释放 IP 组播选项结构：先删除各组成员关系再释放该结构 */
+/* EN: free IP multicast options: drop every group membership then free the options structure */
 void
 ip_freemoptions(imo)
 	register struct ip_moptions *imo;
@@ -1039,6 +1055,8 @@ ip_freemoptions(imo)
  * calls the output routine of the loopback "driver", but with an interface
  * pointer that might NOT be &loif -- easier than replicating that code here.
  */
+/* 中文：复制一份 IP 组播报文并通过 looutput 回送到指定接口的输入队列，使其像本地收到一样被处理 */
+/* EN: copy an IP multicast packet and loop it back via looutput to the given interface's input queue */
 static void
 ip_mloopback(ifp, m, dst)
 	struct ifnet *ifp;

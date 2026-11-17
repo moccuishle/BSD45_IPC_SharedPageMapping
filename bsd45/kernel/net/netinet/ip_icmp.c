@@ -69,6 +69,8 @@ extern	struct protosw inetsw[];
  * Generate an error packet of type error
  * in response to bad packet ip.
  */
+/* 中文：针对坏包 n 生成并发送指定类型/代码的 ICMP 差错报文(含原 IP 头)，随后释放 n */
+/* EN: generate and send an ICMP error of the given type/code for a bad packet n, quoting the original IP header, then free n */
 void
 icmp_error(n, type, code, dest, destifp)
 	struct mbuf *n;
@@ -170,6 +172,8 @@ struct sockaddr_in icmpmask = { 8, 0 };
 /*
  * Process a received ICMP message.
  */
+/* 中文：处理收到的 ICMP 报文：校验长度与校验和，按类型分派错误到上层、回应 echo/时间戳/掩码请求或交给 raw socket */
+/* EN: process a received ICMP message: validate length/checksum, dispatch errors upward, answer echo/timestamp/mask requests or pass to raw sockets */
 void
 icmp_input(m, hlen)
 	register struct mbuf *m;
@@ -408,6 +412,8 @@ freeit:
 /*
  * Reflect the ip packet back to the source
  */
+/* 中文：把 ICMP 报文回送给发送方：交换源/目的地址、选择源地址、处理源路由选项后调用 icmp_send */
+/* EN: reflect an ICMP packet back to its sender: swap src/dst, choose a source address, handle source-route options and call icmp_send */
 void
 icmp_reflect(m)
 	struct mbuf *m;
@@ -532,6 +538,8 @@ done:
  * Send an icmp packet back to the ip level,
  * after supplying a checksum.
  */
+/* 中文：为 ICMP 报文计算校验和后交给 ip_output 发送 */
+/* EN: compute the ICMP checksum and send the packet via ip_output */
 void
 icmp_send(m, opts)
 	register struct mbuf *m;
@@ -556,6 +564,8 @@ icmp_send(m, opts)
 	(void) ip_output(m, opts, NULL, 0, NULL);
 }
 
+/* 中文：返回以网络字节序表示的当前时间(自午夜起的毫秒数)，用于 ICMP 时间戳 */
+/* EN: return the current time as milliseconds since midnight in network byte order for ICMP timestamps */
 n_time
 iptime()
 {
@@ -567,6 +577,8 @@ iptime()
 	return (htonl(t));
 }
 
+/* 中文：处理 ICMP 的 sysctl 请求，目前仅支持 ICMPCTL_MASKREPL */
+/* EN: handle ICMP sysctl requests, currently only ICMPCTL_MASKREPL */
 int
 icmp_sysctl(name, namelen, oldp, oldlenp, newp, newlen)
 	int *name;

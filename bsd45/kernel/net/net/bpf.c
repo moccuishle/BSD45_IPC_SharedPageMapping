@@ -109,6 +109,8 @@ struct bpf_d	bpf_dtab[NBPFILTER];
  * nothing here since old systems will not call this.
  */
 /* ARGSUSED */
+/* 中文：BPF 启动时调用的挂接入口：在新式系统中无需做事，保留为空实现以兼容旧式调用 */
+/* EN: BPF boot-time attach hook: a no-op on newer systems, kept as an empty stub for compatibility with older callers */
 void
 bpfilterattach(n)
 	int n;
@@ -133,6 +135,8 @@ static void	catchpacket __P((struct bpf_d *, u_char *, u_int,
 		    u_int, void (*)(const void *, void *, u_int)));
 static void	reset_d __P((struct bpf_d *));
 
+/* 中文：把用户空间 uio 中的数据搬进 mbuf，并根据链路层类型构造 sockaddr（以太网首部直接拷入 sockaddr 数据区，SLIP 则原样转发） */
+/* EN: Move data from a user-space uio into an mbuf and build a sockaddr based on the link type (Ethernet headers are copied into the sockaddr data, SLIP packets are passed through) */
 static int
 bpf_movein(uio, linktype, mp, sockp, datlen)
 	register struct uio *uio;
@@ -230,6 +234,8 @@ bpf_movein(uio, linktype, mp, sockp, datlen)
  * Attach file to the bpf interface, i.e. make d listen on bp.
  * Must be called at splimp.
  */
+/* 中文：把一个 BPF 描述符挂接到指定网络接口：将其加入接口的监听链表，并设置驱动程序的 bpf 指针以开始转发报文 */
+/* EN: Attach a BPF descriptor to a network interface: add it to the interface's listener list and set the driver's bpf cookie so packets are diverted */
 static void
 bpf_attachd(d, bp)
 	struct bpf_d *d;
@@ -250,6 +256,8 @@ bpf_attachd(d, bp)
 /*
  * Detach a file from its interface.
  */
+/* 中文：把 BPF 描述符从其接口上摘下：若曾请求混杂模式则将其关闭，并从监听链表中移除 */
+/* EN: Detach a BPF descriptor from its interface: turn off promiscuous mode if it was requested and remove it from the listener list */
 static void
 bpf_detachd(d)
 	struct bpf_d *d;
@@ -303,6 +311,8 @@ bpf_detachd(d)
  * EBUSY if file is open by another process.
  */
 /* ARGSUSED */
+/* 中文：打开 BPF 设备：校验次设备号，检查设备是否已被占用，并初始化对应的 bpf_d 描述符 */
+/* EN: Open a BPF device: validate the minor number, check that it is not already in use, and initialize the corresponding bpf_d descriptor */
 int
 bpfopen(dev, flag)
 	dev_t dev;
@@ -332,6 +342,8 @@ bpfopen(dev, flag)
  * deallocating its buffers, and marking it free.
  */
 /* ARGSUSED */
+/* 中文：关闭 BPF 描述符：从接口摘下、释放缓冲区并标记为可用 */
+/* EN: Close a BPF descriptor: detach it from its interface, free its buffers and mark it free */
 int
 bpfclose(dev, flag)
 	dev_t dev;
@@ -354,6 +366,8 @@ bpfclose(dev, flag)
  */
 #if BSD < 199103
 static
+/* 中文：BPF 读超时回调：设置 timedout 标志并唤醒等待的进程 */
+/* EN: BPF read-timeout callback: set the timedout flag and wake any waiting process */
 bpf_timeout(arg)
 	caddr_t arg;
 {
@@ -364,6 +378,8 @@ bpf_timeout(arg)
 
 #define BPF_SLEEP(chan, pri, s, t) bpf_sleep((struct bpf_d *)chan)
 
+/* 中文：在 BPF 描述符上睡眠等待报文：若设置了读超时则注册定时器，睡眠返回后处理超时与 EWOULDBLOCK */
+/* EN: Sleep on a BPF descriptor waiting for packets: arm a read timeout if set, then handle timeout and EWOULDBLOCK after waking */
 int
 bpf_sleep(d)
 	register struct bpf_d *d;
@@ -402,6 +418,8 @@ bpf_sleep(d)
 /*
  *  bpfread - read next chunk of packets from buffers
  */
+/* 中文：从 BPF 缓冲区读取下一批报文到用户空间，要求用户缓冲区大小与内核缓冲区一致，并处理阻塞/非阻塞与超时 */
+/* EN: Read the next chunk of packets from the BPF buffer into user space, requiring the user buffer to match the kernel buffer size and handling blocking/nonblocking and timeout */
 int
 bpfread(dev, uio)
 	dev_t dev;
@@ -488,6 +506,8 @@ bpfread(dev, uio)
  * If there are processes sleeping on this descriptor, wake them up.
  */
 static __inline void
+/* 中文：唤醒在 BPF 描述符上等待的进程，并触发 select 的 selwakeup 通知 */
+/* EN: Wake processes waiting on a BPF descriptor and issue the corresponding select selwakeup notification */
 bpf_wakeup(d)
 	register struct bpf_d *d;
 {
@@ -505,6 +525,8 @@ bpf_wakeup(d)
 #endif
 }
 
+/* 中文：向 BPF 设备写入一个报文：根据用户数据构造 mbuf 并通过关联接口发送出去 */
+/* EN: Write a packet to the BPF device: build an mbuf from the user data and transmit it through the attached interface */
 int
 bpfwrite(dev, uio)
 	dev_t dev;
@@ -549,6 +571,8 @@ bpfwrite(dev, uio)
  * Reset a descriptor by flushing its packet buffer and clearing the
  * receive and drop counts.  Should be called at splimp.
  */
+/* 中文：复位 BPF 描述符：释放当前保持缓冲区，清空存储缓冲区长度以及接收和丢弃计数 */
+/* EN: Reset a BPF descriptor: free the current hold buffer and clear stored buffer lengths plus receive and drop counters */
 static void
 reset_d(d)
 	struct bpf_d *d;
@@ -581,6 +605,8 @@ reset_d(d)
  *  BIOCVERSION		Get filter language version.
  */
 /* ARGSUSED */
+/* 中文：处理 BPF 的 ioctl 请求：分发 FIONREAD、设置过滤器、混杂模式、接口、超时、统计等控制命令 */
+/* EN: Handle BPF ioctl requests: dispatch FIONREAD, filter setup, promiscuous mode, interface selection, timeouts and statistics commands */
 int
 bpfioctl(dev, cmd, addr, flag)
 	dev_t dev;
@@ -785,6 +811,8 @@ bpfioctl(dev, cmd, addr, flag)
  * Set d's packet filter program to fp.  If this file already has a filter,
  * free it and replace it.  Returns EINVAL for bogus requests.
  */
+/* 中文：设置 BPF 描述符的报文过滤程序：若已有过滤器则先释放再替换，非法请求返回 EINVAL */
+/* EN: Set the packet filter program of a BPF descriptor: free an existing filter before replacing it, returning EINVAL for bogus requests */
 int
 bpf_setf(d, fp)
 	struct bpf_d *d;
@@ -832,6 +860,8 @@ bpf_setf(d, fp)
  * to the interface indicated by the name stored in ifr.
  * Return an errno or 0.
  */
+/* 中文：按名称把 BPF 描述符从当前接口摘下并挂接到 ifr 指定的接口，返回错误码或 0 */
+/* EN: Detach a BPF descriptor from its current interface and attach it to the interface named in ifr, returning an errno or 0 */
 static int
 bpf_setif(d, ifr)
 	struct bpf_d *d;
@@ -905,6 +935,8 @@ bpf_setif(d, ifr)
  * Convert an interface name plus unit number of an ifp to a single
  * name which is returned in the ifr.
  */
+/* 中文：把接口名和单元号合并成 ifr 中的单个接口名称字符串 */
+/* EN: Combine an interface name and unit number into a single name string in ifr */
 static void
 bpf_ifname(ifp, ifr)
 	struct ifnet *ifp;
@@ -927,6 +959,8 @@ bpf_ifname(ifp, ifr)
 #if BSD >= 199103
 #define bpf_select bpfselect
 #else
+/* 中文：旧式 select 接口：把当前进程传给 bpf_select 完成可读性检查 */
+/* EN: Legacy select interface: pass the current process to bpf_select for the readability check */
 int
 bpfselect(dev, rw)
 	register dev_t dev;
@@ -942,6 +976,8 @@ bpfselect(dev, rw)
  * Return true iff the specific operation will not block indefinitely.
  * Otherwise, return false but make a note that a selwakeup() must be done.
  */
+/* 中文：支持 select()：当读操作不会阻塞时返回真，否则登记需要 selwakeup 的等待者 */
+/* EN: Support select(): return true when a read will not block, otherwise record a waiter to be notified by selwakeup */
 int
 bpf_select(dev, rw, p)
 	register dev_t dev;
@@ -991,6 +1027,8 @@ bpf_select(dev, rw, p)
  * by each process' filter, and if accepted, stashed into the corresponding
  * buffer.
  */
+/* 中文：来自设备驱动的报文入口：对连续缓冲区中的报文运行每个监听者的过滤器，接受的报文存入对应缓冲区 */
+/* EN: Incoming linkage from device drivers: run each listener's filter over a packet in a contiguous buffer, stashing accepted packets into the matching buffer */
 void
 bpf_tap(arg, pkt, pktlen)
 	caddr_t arg;
@@ -1018,6 +1056,8 @@ bpf_tap(arg, pkt, pktlen)
  * Copy data from an mbuf chain into a buffer.  This code is derived
  * from m_copydata in sys/uipc_mbuf.c.
  */
+/* 中文：把 mbuf 链中的数据拷贝到目标缓冲区（源自 sys/uipc_mbuf.c 的 m_copydata） */
+/* EN: Copy data from an mbuf chain into a buffer (derived from m_copydata in sys/uipc_mbuf.c) */
 static void
 bpf_mcopy(src_arg, dst_arg, len)
 	const void *src_arg;
@@ -1044,6 +1084,8 @@ bpf_mcopy(src_arg, dst_arg, len)
 /*
  * Incoming linkage from device drivers, when packet is in an mbuf chain.
  */
+/* 中文：来自设备驱动的报文入口，处理以 mbuf 链形式存在的报文：先统计总长度再逐个过滤器判定 */
+/* EN: Incoming linkage from device drivers for packets held in mbuf chains: compute the total length then apply each listener's filter */
 void
 bpf_mtap(arg, m)
 	caddr_t arg;
@@ -1074,6 +1116,8 @@ bpf_mtap(arg, m)
  * bpf_mcopy is passed in to copy mbuf chains.  In the latter case,
  * pkt is really an mbuf.
  */
+/* 中文：把报文数据从接口内存拷入 BPF 存储缓冲区，按快照长度截断，并在缓冲区满时返回是否需要唤醒监听者 */
+/* EN: Copy packet data from interface memory into the BPF store buffer, truncating to the snapshot length and reporting when the buffer is full so a listener should be woken */
 static void
 catchpacket(d, pkt, pktlen, snaplen, cpfn)
 	register struct bpf_d *d;
@@ -1146,6 +1190,8 @@ catchpacket(d, pkt, pktlen, snaplen, cpfn)
 /*
  * Initialize all nonzero fields of a descriptor.
  */
+/* 中文：初始化 BPF 描述符中所有非零字段：分配存储缓冲区和保持缓冲区，失败时返回 ENOBUFS */
+/* EN: Initialize all nonzero fields of a BPF descriptor: allocate the store and hold buffers, returning ENOBUFS on failure */
 static int
 bpf_allocbufs(d)
 	register struct bpf_d *d;
@@ -1168,6 +1214,8 @@ bpf_allocbufs(d)
  * Free buffers currently in use by a descriptor.
  * Called on close.
  */
+/* 中文：释放 BPF 描述符当前占用的所有缓冲区与过滤器（关闭时调用） */
+/* EN: Free all buffers and filter currently held by a BPF descriptor (called on close) */
 static void
 bpf_freed(d)
 	register struct bpf_d *d;
@@ -1195,6 +1243,8 @@ bpf_freed(d)
  * in the driver's softc; dlt is the link layer type; hdrlen is the fixed
  * size of the link header (variable length headers not yet supported).
  */
+/* 中文：把一个网络接口挂接到 BPF：分配并初始化 bpf_if，设置数据链路类型与固定首部长度 */
+/* EN: Attach a network interface to BPF: allocate and initialize a bpf_if with the given link type and fixed header length */
 void
 bpfattach(driverp, ifp, dlt, hdrlen)
 	caddr_t *driverp;
@@ -1250,6 +1300,8 @@ bpfattach(driverp, ifp, dlt, hdrlen)
  * "on" request actually has an effect, as does the final "off" request.
  * Results are undefined if the "off" and "on" requests are not matched.
  */
+/* 中文：按 pswitch 的真假设置或清除接口的混杂模式；调用采用引用计数，只有首次开启和最后一次关闭才真正生效 */
+/* EN: Set or clear promiscuous mode on an interface according to pswitch; calls are reference-counted so only the first on and final off take effect */
 int
 ifpromisc(ifp, pswitch)
 	struct ifnet *ifp;
@@ -1283,6 +1335,8 @@ ifpromisc(ifp, pswitch)
  * is admittedly a hack.
  * If resources unavaiable, return 0.
  */
+/* 中文：为 BPF 分配内存（临时的 SunOS 兼容实现）：从 mbuf 中切出所需大小，资源不足时返回 0 */
+/* EN: Allocate memory for BPF (temporary SunOS compatibility hack): carve the requested size from an mbuf, returning 0 when unavailable */
 static caddr_t
 bpf_alloc(size, canwait)
 	register int size;

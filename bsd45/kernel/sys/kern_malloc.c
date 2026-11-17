@@ -87,6 +87,8 @@ struct freelist {
 /*
  * Allocate a block of memory
  */
+/* 中文：从按大小分桶的空闲链表分配一块内核内存，必要时向 kmem_map 申请新页，并维护统计与诊断信息 */
+/* EN: Allocate kernel memory from the size-bucketed free lists, obtaining new pages from kmem_map when needed, while maintaining statistics and diagnostics */
 void *
 malloc(size, type, flags)
 	unsigned long size;
@@ -260,6 +262,8 @@ out:
 /*
  * Free a block of memory allocated by malloc.
  */
+/* 中文：释放由 malloc 分配的内存块，把它放回对应大小的空闲桶链表并更新统计，同时检查重复释放和数据被改写 */
+/* EN: Free a block allocated by malloc, returning it to its size-bucket free list and updating statistics, with checks for duplicate frees and modified data */
 void
 free(addr, type)
 	void *addr;
@@ -363,6 +367,8 @@ free(addr, type)
 /*
  * Initialize the kernel memory allocator
  */
+/* 中文：初始化内核内存分配器：分配 kmemusage 数组、建立 kmem_map 子映射并初始化各内存桶的统计上限 */
+/* EN: Initialize the kernel memory allocator: allocate the kmemusage array, create the kmem_map submap and initialize per-bucket statistics limits */
 kmeminit()
 {
 	register long indx;

@@ -175,6 +175,8 @@ int				clnp_id = 0;		/* id for segmented dgrams */
  *					to have clnp check that the route has the same dest, but
  *					by avoiding this check, we save a call to iso_addrmatch1.
  */
+/* 中文：CLNP 输出主例程：按路由确定源地址、构造 CLNP 头与选项、计算校验和，视 MTU 与 flags 决定发送 DT/ER/RAW 包或调用分片 */
+/* EN: Main CLNP output routine: determine the source via routing, build the CLNP header and options, compute the checksum, then send DT/ER/RAW or fragment per MTU and flags */
 clnp_output(m0, isop, datalen, flags)
 struct mbuf			*m0;		/* data for the packet */
 struct isopcb		*isop;		/* iso pcb */
@@ -556,6 +558,8 @@ done:
 	return (error);
 }
 
+/* 中文：CLNP 控制输出空实现：未处理任何 socket 选项 */
+/* EN: Empty CLNP control-output implementation: handles no socket options */
 int clnp_ctloutput()
 {
 }

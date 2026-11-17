@@ -71,6 +71,8 @@ int	tcpconsdebug = 0;
 /*
  * Tcp debug routines
  */
+/* 中文：记录一次 TCP 调试事件到循环缓冲区 tcp_debug，并在启用 tcpconsdebug 时把事件打印到控制台 */
+/* EN: Record a TCP debug event into the circular tcp_debug buffer and, when tcpconsdebug is enabled, print the event to the console */
 void
 tcp_trace(act, ostate, tp, ti, req)
 	short act, ostate;

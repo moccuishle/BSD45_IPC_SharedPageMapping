@@ -75,6 +75,8 @@ __dead void exit1 __P((struct proc *, int));
 struct rexit_args {
 	int	rval;
 };
+/* 中文：exit 系统调用：以给定的退出码调用 exit1 终止当前进程 */
+/* EN: The exit system call: terminate the current process by calling exit1 with the given exit status */
 __dead void
 exit(p, uap, retval)
 	struct proc *p;
@@ -91,6 +93,8 @@ exit(p, uap, retval)
  * to zombie, and unlink proc from allproc and parent's lists.  Save exit
  * status and rusage for wait().  Check for child processes and orphan them.
  */
+/* 中文：进程退出的核心实现：释放地址空间与资源、置为僵尸、保存状态与 rusage、把子进程过继给 init 并通知父进程 */
+/* EN: Core process-exit implementation: release address space and resources, become a zombie, save status and rusage, reparent children to init and notify the parent */
 __dead void
 exit1(p, rv)
 	register struct proc *p;
@@ -277,6 +281,8 @@ struct wait_args {
 #define GETPS(rp)	(rp)[PS]
 #endif
 
+/* 中文：4.3BSD 兼容的 wait 入口：从寄存器取出参数填入 wait_args 后转交 wait1 处理 */
+/* EN: 4.3BSD-compatible wait syscall entry: take arguments from registers into wait_args and pass them to wait1 */
 compat_43_wait(p, uap, retval)
 	struct proc *p;
 	register struct wait_args *uap;
@@ -301,6 +307,8 @@ compat_43_wait(p, uap, retval)
 	return (wait1(p, uap, retval));
 }
 
+/* 中文：wait4 系统调用入口：设置 compat 标志为 0 后转交 wait1 处理 */
+/* EN: The wait4 syscall entry: set the compat flag to 0 and pass the request to wait1 */
 wait4(p, uap, retval)
 	struct proc *p;
 	struct wait_args *uap;
@@ -314,6 +322,8 @@ wait4(p, uap, retval)
 #define	wait1	wait4
 #endif
 
+/* 中文：等待子进程状态变化：查找匹配子进程，回收僵尸或报告停止状态，无匹配时按需睡眠等待 */
+/* EN: Wait for a child's state change: find a matching child, reap a zombie or report a stop, sleeping when needed if none matches */
 int
 wait1(q, uap, retval)
 	register struct proc *q;
@@ -438,6 +448,8 @@ loop:
 /*
  * make process 'parent' the new parent of process 'child'.
  */
+/* 中文：把子进程 child 的父进程改为 parent，更新兄弟链表和 p_pptr 指针 */
+/* EN: Reparent a child process to a new parent, updating the sibling list and the p_pptr pointer */
 void
 proc_reparent(child, parent)
 	register struct proc *child;

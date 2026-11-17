@@ -63,6 +63,8 @@ static u_long igmp_all_hosts_group;
 
 static void igmp_sendreport __P((struct in_multi *));
 
+/* 中文：初始化 IGMP：预先把 all-hosts 组播地址转换成网络字节序缓存起来 */
+/* EN: initialize IGMP by caching the all-hosts multicast address in network byte order */
 void
 igmp_init()
 {
@@ -72,6 +74,8 @@ igmp_init()
 	igmp_all_hosts_group = htonl(INADDR_ALLHOSTS_GROUP);
 }
 
+/* 中文：处理收到的 IGMP 报文：校验长度与校验和，处理成员查询/报告并更新定时器，最后交给 raw socket */
+/* EN: process received IGMP packets: validate length and checksum, handle membership queries/reports and timers, then pass to raw sockets */
 void
 igmp_input(m, iphlen)
 	register struct mbuf *m;
@@ -201,6 +205,8 @@ igmp_input(m, iphlen)
 	rip_input(m);
 }
 
+/* 中文：加入组播组：发送成员报告并为该组成员启动随机定时器(all-hosts/回环除外) */
+/* EN: join a multicast group: send a membership report and start a random timer (except all-hosts/loopback) */
 void
 igmp_joingroup(inm)
 	struct in_multi *inm;
@@ -218,6 +224,8 @@ igmp_joingroup(inm)
 	splx(s);
 }
 
+/* 中文：离开组播组(当前无需任何操作) */
+/* EN: leave a multicast group (currently no action required) */
 void
 igmp_leavegroup(inm)
 	struct in_multi *inm;
@@ -227,6 +235,8 @@ igmp_leavegroup(inm)
 	 */
 }
 
+/* 中文：IGMP 快速定时器：递减各组成员定时器，到期时发送成员报告并维护定时器运行状态 */
+/* EN: IGMP fast timer: decrement each membership timer, send reports on expiry and maintain the timers-running flag */
 void
 igmp_fasttimo()
 {
@@ -257,6 +267,8 @@ igmp_fasttimo()
 	splx(s);
 }
 
+/* 中文：构造并发送 IGMP 主机成员报告报文到指定组播组 */
+/* EN: build and send an IGMP host membership report for a multicast group */
 static void
 igmp_sendreport(inm)
 	register struct in_multi *inm;

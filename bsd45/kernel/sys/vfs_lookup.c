@@ -73,6 +73,8 @@
  *		if symbolic link, massage name in buffer and continue
  *	}
  */
+/* 中文：把路径名解析为指向锁定 vnode 的指针，按标志跟随末尾符号链接并处理起始目录 */
+/* EN: Convert a pathname into a pointer to a locked vnode, following trailing symbolic links as flagged and resolving the starting directory */
 int
 namei(ndp)
 	register struct nameidata *ndp;
@@ -243,6 +245,8 @@ namei(ndp)
  *	    if LOCKPARENT set, return locked parent in ni_dvp
  *	    if WANTPARENT set, return unlocked parent in ni_dvp
  */
+/* 中文：逐段查找路径名，处理 ".."、挂载点跨越、符号链接与目录项缓存，返回目标 vnode 并按需返回父目录 */
+/* EN: Search a pathname component by component, handling "..", mount-point crossing, symbolic links and name caching, returning the target vnode and optionally the parent */
 int
 lookup(ndp)
 	register struct nameidata *ndp;
@@ -502,6 +506,8 @@ bad:
  * relookup - lookup a path name component
  *    Used by lookup to re-aquire things.
  */
+/* 中文：重新查找单个路径名分量以再次获取 vnode，供 lookup 在需要刷新时调用 */
+/* EN: Re-look up a single pathname component to re-acquire its vnode, used by lookup when a refresh is needed */
 int
 relookup(dvp, vpp, cnp)
 	struct vnode *dvp, **vpp;

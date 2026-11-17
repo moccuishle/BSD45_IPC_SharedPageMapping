@@ -153,6 +153,8 @@ struct pagerops swappagerops = {
 	swap_pager_cluster
 };
 
+/* 中文：初始化交换分页器：把 swappagerops 设为默认分页器，初始化交换分页链表，并分配异步 I/O 所需的数据结构 */
+/* EN: Initialize the swap pager: install swappagerops as the default pager, init the swap pager list and allocate the asynchronous I/O structures */
 static void
 swap_pager_init()
 {
@@ -231,6 +233,8 @@ swap_pager_init()
  * Note that if we are called from the pageout daemon (handle == NULL)
  * we should not wait for memory as it could resulting in deadlock.
  */
+/* 中文：分配一个交换分页器结构及相关资源；从 pageout 守护进程调用（handle 为空）时不等待内存以免死锁 */
+/* EN: Allocate a swap pager structure and resources; when called from the pageout daemon (null handle) it does not wait for memory to avoid deadlock */
 static vm_pager_t
 swap_pager_alloc(handle, size, prot, foff)
 	caddr_t handle;
@@ -341,6 +345,8 @@ swap_pager_alloc(handle, size, prot, foff)
 	return(pager);
 }
 
+/* 中文：释放一个交换分页器：归还其占用的交换块并解除相关资源 */
+/* EN: Deallocate a swap pager: return its swap blocks and release associated resources */
 static void
 swap_pager_dealloc(pager)
 	vm_pager_t pager;
@@ -406,6 +412,8 @@ swap_pager_dealloc(pager)
 	free((caddr_t)pager, M_VMPAGER);
 }
 
+/* 中文：从交换设备读取 npages 个页面：调用 swap_pager_io 以 B_READ 标志完成实际 I/O */
+/* EN: Read npages pages from the swap device by calling swap_pager_io with the B_READ flag */
 static int
 swap_pager_getpage(pager, mlist, npages, sync)
 	vm_pager_t pager;
@@ -422,6 +430,8 @@ swap_pager_getpage(pager, mlist, npages, sync)
 			     mlist, npages, B_READ));
 }
 
+/* 中文：把 npages 个页面写回交换设备；分页器为空时先写回脏页并返回成功 */
+/* EN: Write npages pages back to the swap device; with a null pager, clean dirty pages first and report success */
 static int
 swap_pager_putpage(pager, mlist, npages, sync)
 	vm_pager_t pager;
@@ -447,6 +457,8 @@ swap_pager_putpage(pager, mlist, npages, sync)
 			     mlist, npages, flags));
 }
 
+/* 中文：检查交换分页器在指定偏移处是否保存有对应的页面 */
+/* EN: Check whether the swap pager holds a page at the given offset */
 static boolean_t
 swap_pager_haspage(pager, offset)
 	vm_pager_t pager;
@@ -485,6 +497,8 @@ swap_pager_haspage(pager, offset)
 	return(FALSE);
 }
 
+/* 中文：计算交换分页器中给定偏移附近的聚类范围（受 swap_pager_maxcluster 限制） */
+/* EN: Compute the cluster range around a given offset in a swap pager, bounded by swap_pager_maxcluster */
 static void
 swap_pager_cluster(pager, offset, loffset, hoffset)
 	vm_pager_t	pager;
@@ -527,6 +541,8 @@ swap_pager_cluster(pager, offset, loffset, hoffset)
  * BOGUS:  lower level IO routines expect a KVA so we have to map our
  * provided physical page into the KVA to keep them happy.
  */
+/* 中文：交换分页器的实际 I/O 例程：为页面临时映射到内核虚拟地址，构造 buf 并发起读写，处理异步完成 */
+/* EN: The swap pager's actual I/O routine: temporarily map pages into kernel virtual space, build a buf, issue the read/write and handle asynchronous completion */
 static int
 swap_pager_io(swp, mlist, npages, flags)
 	register sw_pager_t swp;
@@ -805,6 +821,8 @@ swap_pager_io(swp, mlist, npages, flags)
 	return(rv);
 }
 
+/* 中文：按读写标志清理交换分页器：回收已完成异步 I/O 的描述符并释放相关资源 */
+/* EN: Clean up swap pagers for the given read/write direction: reclaim completed asynchronous I/O descriptors and release resources */
 static void
 swap_pager_clean(rw)
 	int rw;
@@ -911,6 +929,8 @@ swap_pager_clean(rw)
 }
 
 #ifdef DEBUG
+/* 中文：检查一组页面是否在清理过程中被标记为坏页或状态不一致 */
+/* EN: Check a list of pages for bad or inconsistent state during the cleaning pass */
 static void
 swap_pager_clean_check(mlist, npages, rw)
 	vm_page_t *mlist;
@@ -948,6 +968,8 @@ swap_pager_clean_check(mlist, npages, rw)
 }
 #endif
 
+/* 中文：交换 I/O 完成回调：从 buf 中取出结果，标记对应页面并唤醒等待者 */
+/* EN: Swap I/O completion callback: extract the result from the buf, mark the corresponding pages and wake waiters */
 static void
 swap_pager_iodone(bp)
 	register struct buf *bp;

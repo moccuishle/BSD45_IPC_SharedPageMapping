@@ -107,6 +107,8 @@ void	llc_rtrequest();
  *
  * NOTES:			
  */
+/* 中文：判断两个 ISO 地址是否相等：长度不同则返回 0，否则逐字节比较生成地址，相同返回 1 */
+/* EN: Decide whether two ISO addresses are equal: return 0 if lengths differ, else compare the generated addresses byte by byte, returning 1 if equal */
 iso_addrmatch1(isoaa, isoab)
 register struct iso_addr *isoaa, *isoab;		/* addresses to check */
 {
@@ -170,6 +172,8 @@ register struct iso_addr *isoaa, *isoab;		/* addresses to check */
  *
  * NOTES:			
  */
+/* 中文：判断两个 sockaddr_iso 是否相等：提取其中的 iso_addr 交 iso_addrmatch1 比较 */
+/* EN: Decide whether two sockaddr_iso addresses are equal: extract their iso_addr and compare via iso_addrmatch1 */
 iso_addrmatch(sisoa, sisob)
 struct sockaddr_iso	*sisoa, *sisob;		/* addresses to check */
 {
@@ -188,6 +192,8 @@ struct sockaddr_iso	*sisoa, *sisob;		/* addresses to check */
  *
  * NOTES:			
  */
+/* 中文：未启用代码（notdef）：判断两个 sockaddr_iso 是否属于同一网络，分别取网络部分比较长度与内容 */
+/* EN: Disabled code (notdef): decide whether two sockaddr_iso are on the same network by comparing their network portions */
 iso_netmatch(sisoa, sisob)
 struct sockaddr_iso *sisoa, *sisob;
 {
@@ -223,6 +229,8 @@ struct sockaddr_iso *sisoa, *sisob;
  * NOTES:			The hash is achieved by exclusive ORing 4 byte
  *					quantities. 
  */
+/* 中文：把 buf 的前 len 字节按 4 字节分组异或成一个 u_long 哈希值，尾部不足 4 字节也纳入并返回哈希 */
+/* EN: Hash the first len bytes of buf into a u_long by XORing 4-byte groups, folding in a short tail and returning the hash */
 u_long
 iso_hashchar(buf, len)
 register caddr_t	buf;		/* buffer to pack from */
@@ -274,6 +282,8 @@ register int		len;		/* length of buffer */
  *
  * NOTES:			
  */
+/* 中文：未启用代码（notdef）：根据 ISO 地址填写 afhash 结构：网络部分与主机地址分别经 iso_hashchar 得到 nethash/hosthash */
+/* EN: Disabled code (notdef): fill an afhash struct from an ISO address, computing nethash/hosthash via iso_hashchar on the network and host portions */
 iso_hash(siso, hp)
 struct sockaddr_iso	*siso;		/* address to perform hash on */
 struct afhash		*hp;		/* RETURN: hash info here */
@@ -320,6 +330,8 @@ struct afhash		*hp;		/* RETURN: hash info here */
  *
  * NOTES:			Buf is assumed to be big enough
  */
+/* 中文：未启用代码（notdef）：提取 ISO 地址的网络部分写入 buf（按 AFI 类型取不同字段），返回写入字节数 */
+/* EN: Disabled code (notdef): extract the network portion of an ISO address into buf (fields vary by AFI type), returning the byte count */
 iso_netof(isoa, buf)
 struct iso_addr	*isoa;		/* address */
 caddr_t			buf;		/* RESULT: network portion of address here */
@@ -410,6 +422,8 @@ caddr_t			buf;		/* RESULT: network portion of address here */
  * Generic iso control operations (ioctl's).
  * Ifp is 0 if not an interface-specific ioctl.
  */
+/* 中文：ISO 通用控制操作（ioctl）：处理地址/目的/掩码的查询与增删，分配或释放 iso_ifaddr，其余交给接口 ioctl */
+/* EN: Generic ISO control operations (ioctl): handle address/destination/mask queries and add/delete, allocating or freeing iso_ifaddr, passing others to the interface ioctl */
 /* ARGSUSED */
 iso_control(so, cmd, data, ifp)
 	struct socket *so;
@@ -575,6 +589,8 @@ iso_control(so, cmd, data, ifp)
 /*
  * Delete any existing route for an interface.
  */
+/* 中文：删除接口地址 ia 关联的路由：按回环/点到点/普通分别调用 rtinit 删除主机或网络路由并清 IFA_ROUTE */
+/* EN: Delete routes associated with an interface address ia: call rtinit for host or network routes per loopback/point-to-point/normal and clear IFA_ROUTE */
 iso_ifscrub(ifp, ia)
 	register struct ifnet *ifp;
 	register struct iso_ifaddr *ia;
@@ -598,6 +614,8 @@ iso_ifscrub(ifp, ia)
  * Initialize an interface's internet address
  * and routing table entry.
  */
+/* 中文：初始化接口 ISO 地址与路由：设置 ia_addr、交 if_ioctl 验证，按需清理旧路由，为网络/主机添加 rtinit 路由并置 IFA_ROUTE */
+/* EN: Initialize an interface's ISO address and routing entry: set ia_addr, validate via if_ioctl, scrub old routes if requested, add a network/host route via rtinit and set IFA_ROUTE */
 iso_ifinit(ifp, ia, siso, scrub)
 	register struct ifnet *ifp;
 	register struct iso_ifaddr *ia;
@@ -655,6 +673,8 @@ iso_ifinit(ifp, ia, siso, scrub)
 }
 #ifdef notdef
 
+/* 中文：未启用代码（notdef）：按 ISO 地址查找具有相同地址类型的接口地址 ifaddr，找到返回指针否则 0 */
+/* EN: Disabled code (notdef): find an interface ifaddr with an address of the same type as addr, returning its pointer or 0 */
 struct ifaddr *
 iso_ifwithidi(addr)
 	register struct sockaddr *addr;
@@ -719,6 +739,8 @@ iso_ifwithidi(addr)
  * SIDE EFFECTS:	
  *
  */
+/* 中文：检查 ISO 地址长度是否合法（不超过 20 字节），合法返回 1 */
+/* EN: Check whether an ISO address length is legal (no more than 20 bytes), returning 1 if valid */
 iso_ck_addr(isoa)
 struct iso_addr	*isoa;	/* address to check */
 {
@@ -744,6 +766,8 @@ struct iso_addr	*isoa;	/* address to check */
  *					This will first compare afis. If they match, then
  *					if the addr is not t37, the idis must be compared.
  */
+/* 中文：未启用代码（notdef）：判断两个 ISO 地址类型是否相同：先比 AFI，t37 直接相同，其余再比 IDI 前两字节 */
+/* EN: Disabled code (notdef): decide whether two ISO addresses have the same type: compare AFI first, t37 matches directly, others also compare the first two IDI bytes */
 iso_eqtype(isoaa, isoab)
 struct iso_addr	*isoaa;		/* first addr to check */
 struct iso_addr	*isoab;		/* other addr to check */
@@ -769,6 +793,8 @@ struct iso_addr	*isoab;		/* other addr to check */
  *
  * NOTES:			
  */
+/* 中文：查找与目的 sockaddr_iso 匹配（精确或同网络）的已启用接口地址：点到点比目的地址，否则按掩码比较并优先精确匹配 */
+/* EN: Find an up interface address matching a destination sockaddr_iso exactly or by network: compare dstaddr for point-to-point, else use netmask with exact match preferred */
 struct iso_ifaddr *
 iso_localifa(siso)
 	register struct sockaddr_iso *siso;
@@ -825,6 +851,8 @@ iso_localifa(siso)
  * NOTES:			This could embody some of the functions of
  *					rclnp_ctloutput and cons_ctloutput.
  */
+/* 中文：网络层选项控制：仅支持 PRCO_GETOPT/PRCO_SETOPT，TPCONS 下可设置 X.25 crud 选项，其余返回 EOPNOTSUPP；set 后释放 mbuf */
+/* EN: Network-level option control: only PRCO_GETOPT/PRCO_SETOPT supported, sets X.25 crud under TPCONS, else EOPNOTSUPP; frees the mbuf after a set */
 iso_nlctloutput(cmd, optname, pcb, m)
 int			cmd;		/* command:set or get */
 int			optname;	/* option of interest */
@@ -894,6 +922,8 @@ struct mbuf	*m;			/* data for set, buffer for get */
  * RETURNS:			nada 
  *
  */
+/* 中文：调试辅助：按地址族打印 ISO 地址的后缀长度与格式化字符串 */
+/* EN: Debugging helper: print an address's suffix length and formatted string according to its address family */
 dump_isoaddr(s)
 	struct sockaddr_iso *s;
 {

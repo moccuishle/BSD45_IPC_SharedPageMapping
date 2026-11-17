@@ -38,6 +38,8 @@ static char sccsid[] = "@(#)strlen.c	8.1 (Berkeley) 6/4/93";
 #include <sys/cdefs.h>
 #include <string.h>
 
+/* 中文：计算字符串 str 的长度（不含结尾的空字符），返回其字节数 */
+/* EN: Return the number of bytes in the string str, excluding the terminating NUL character */
 size_t
 strlen(str)
 	const char *str;

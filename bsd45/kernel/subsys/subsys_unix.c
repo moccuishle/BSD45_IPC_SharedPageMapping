@@ -13,6 +13,8 @@
 
 #include "subsys/subsys.h"
 
+/* 中文：原生 4.5BSD ABI personality 的系统调用分发入口，直接转发到内核内部的 bsd45_syscall 开关 */
+/* EN: Native 4.5BSD ABI syscall dispatch entry that simply forwards to the kernel's internal bsd45_syscall switch */
 int
 unix_dispatch(struct sysregs *r)
 {

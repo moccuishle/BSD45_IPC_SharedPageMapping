@@ -59,6 +59,8 @@ struct logsoftc {
 int	log_open;			/* also used in log() */
 
 /*ARGSUSED*/
+/* 中文：打开内核日志设备，初始化消息缓冲区并在已打开时返回 EBUSY */
+/* EN: Open the kernel log device, initializing the message buffer; returns EBUSY if already open */
 int
 logopen(dev, flags, mode, p)
 	dev_t dev;
@@ -88,6 +90,8 @@ logopen(dev, flags, mode, p)
 }
 
 /*ARGSUSED*/
+/* 中文：关闭内核日志设备，清除打开标志与异步 I/O 状态 */
+/* EN: Close the kernel log device, clearing the open flag and async I/O state */
 int
 logclose(dev, flag, mode, p)
 	dev_t dev;
@@ -101,6 +105,8 @@ logclose(dev, flag, mode, p)
 }
 
 /*ARGSUSED*/
+/* 中文：从内核消息缓冲区读取日志数据到 uio，无数据且非阻塞时返回 EWOULDBLOCK */
+/* EN: Read log data from the kernel message buffer into a uio; returns EWOULDBLOCK when empty and non-blocking */
 int
 logread(dev, uio, flag)
 	dev_t dev;
@@ -147,6 +153,8 @@ logread(dev, uio, flag)
 }
 
 /*ARGSUSED*/
+/* 中文：日志设备的 select 实现：有数据可读时返回 1，否则记录等待进程并返回 0 */
+/* EN: select implementation for the log device: returns 1 if data is readable, else records the waiter and returns 0 */
 int
 logselect(dev, rw, p)
 	dev_t dev;
@@ -169,6 +177,8 @@ logselect(dev, rw, p)
 	return (0);
 }
 
+/* 中文：日志缓冲区有新数据时唤醒 select 等待者，并按配置向进程或进程组发送 SIGIO */
+/* EN: Wake select waiters when new log data arrives and send SIGIO to the process/group if configured */
 void
 logwakeup()
 {
@@ -190,6 +200,8 @@ logwakeup()
 }
 
 /*ARGSUSED*/
+/* 中文：日志设备的 ioctl，处理 FIONREAD/FIONBIO/FIOASYNC/TIOCSPGRP/TIOCGPGRP，未知命令返回 -1 */
+/* EN: ioctl for the log device handling FIONREAD/FIONBIO/FIOASYNC/TIOCSPGRP/TIOCGPGRP; unknown commands return -1 */
 int
 logioctl(dev, com, data, flag, p)
 	dev_t dev;

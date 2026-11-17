@@ -54,6 +54,8 @@
 #include <sys/mount.h>
 #include <sys/syscallargs.h>
 
+/* 中文：getpid 系统调用：返回当前进程的进程号（兼容模式下同时返回父进程号） */
+/* EN: The getpid system call: return the current process ID (also the parent PID in compatibility modes) */
 /* ARGSUSED */
 int
 getpid(p, uap, retval)
@@ -69,6 +71,8 @@ getpid(p, uap, retval)
 	return (0);
 }
 
+/* 中文：getppid 系统调用：返回当前进程的父进程号 */
+/* EN: The getppid system call: return the parent process ID of the current process */
 /* ARGSUSED */
 int
 getppid(p, uap, retval)
@@ -82,6 +86,8 @@ getppid(p, uap, retval)
 }
 
 /* Get process group ID; note that POSIX getpgrp takes no parameter */
+/* 中文：getpgrp 系统调用：返回当前进程所在进程组的组号 */
+/* EN: The getpgrp system call: return the process group ID of the current process */
 int
 getpgrp(p, uap, retval)
 	struct proc *p;
@@ -93,6 +99,8 @@ getpgrp(p, uap, retval)
 	return (0);
 }
 
+/* 中文：getuid 系统调用：返回当前进程的真实用户号（兼容模式下同时返回有效用户号） */
+/* EN: The getuid system call: return the real user ID of the current process (also the effective UID in compatibility modes) */
 /* ARGSUSED */
 int
 getuid(p, uap, retval)
@@ -108,6 +116,8 @@ getuid(p, uap, retval)
 	return (0);
 }
 
+/* 中文：geteuid 系统调用：返回当前进程的有效用户号 */
+/* EN: The geteuid system call: return the effective user ID of the current process */
 /* ARGSUSED */
 int
 geteuid(p, uap, retval)
@@ -120,6 +130,8 @@ geteuid(p, uap, retval)
 	return (0);
 }
 
+/* 中文：getgid 系统调用：返回当前进程的真实组号（兼容模式下同时返回有效组号） */
+/* EN: The getgid system call: return the real group ID of the current process (also the effective GID in compatibility modes) */
 /* ARGSUSED */
 int
 getgid(p, uap, retval)
@@ -140,6 +152,8 @@ getgid(p, uap, retval)
  * via getgroups.  This syscall exists because it is somewhat painful to do
  * correctly in a library function.
  */
+/* 中文：getegid 系统调用：返回当前进程的有效组号（即 cr_groups[0]） */
+/* EN: The getegid system call: return the effective group ID of the current process (cr_groups[0]) */
 /* ARGSUSED */
 int
 getegid(p, uap, retval)
@@ -152,6 +166,8 @@ getegid(p, uap, retval)
 	return (0);
 }
 
+/* 中文：getgroups 系统调用：返回当前进程的附属组号集合，gidsetsize 为 0 时只返回组数量 */
+/* EN: The getgroups system call: return the supplementary group IDs of the current process; when gidsetsize is 0 only return the group count */
 int
 getgroups(p, uap, retval)
 	struct proc *p;
@@ -179,6 +195,8 @@ getgroups(p, uap, retval)
 	return (0);
 }
 
+/* 中文：setsid 系统调用：为调用者创建新会话并成为会话首领，若已是进程组长则返回 EPERM */
+/* EN: The setsid system call: create a new session with the caller as leader, failing with EPERM if it is already a process group leader */
 /* ARGSUSED */
 int
 setsid(p, uap, retval)
@@ -209,6 +227,8 @@ setsid(p, uap, retval)
  * 	there must exist some pid in same session having pgid (EPERM)
  * pid must not be session leader (EPERM)
  */
+/* 中文：setpgid 系统调用：校验目标进程是自己或同会话的子进程后，用 enterpgrp 设置其进程组号 */
+/* EN: The setpgid system call: validate the target is the caller or a child in the same session, then set its process group via enterpgrp */
 /* ARGSUSED */
 int
 setpgid(curp, uap, retval)
@@ -242,6 +262,8 @@ setpgid(curp, uap, retval)
 	return (enterpgrp(targp, SCARG(uap, pgid), 0));
 }
 
+/* 中文：setuid 系统调用：设置进程的真实、有效和保存用户号，必要时校验特权并转移进程计数 */
+/* EN: The setuid system call: set the real, effective and saved user IDs, checking privilege when needed and transferring the process count */
 /* ARGSUSED */
 int
 setuid(p, uap, retval)
@@ -274,6 +296,8 @@ setuid(p, uap, retval)
 	return (0);
 }
 
+/* 中文：seteuid 系统调用：设置有效用户号，仅允许在真实/保存用户号之间切换或由特权用户设置 */
+/* EN: The seteuid system call: set the effective user ID, allowing switches between real/saved UIDs or setting by a privileged user */
 /* ARGSUSED */
 int
 seteuid(p, uap, retval)
@@ -301,6 +325,8 @@ seteuid(p, uap, retval)
 	return (0);
 }
 
+/* 中文：setgid 系统调用：设置进程的真实、有效和保存组号，必要时校验超级用户权限 */
+/* EN: The setgid system call: set the real, effective and saved group IDs, checking super-user privilege when needed */
 /* ARGSUSED */
 int
 setgid(p, uap, retval)
@@ -325,6 +351,8 @@ setgid(p, uap, retval)
 	return (0);
 }
 
+/* 中文：setegid 系统调用：设置有效组号，仅允许在真实/保存组号之间切换或由特权用户设置 */
+/* EN: The setegid system call: set the effective group ID, allowing switches between real/saved GIDs or setting by a privileged user */
 /* ARGSUSED */
 int
 setegid(p, uap, retval)
@@ -348,6 +376,8 @@ setegid(p, uap, retval)
 	return (0);
 }
 
+/* 中文：setgroups 系统调用：仅超级用户可调用，从用户空间复制组号数组来设置进程的附属组集合 */
+/* EN: The setgroups system call: super-user only, copy a group array from user space to set the process's supplementary groups */
 /* ARGSUSED */
 int
 setgroups(p, uap, retval)
@@ -377,6 +407,8 @@ setgroups(p, uap, retval)
 }
 
 #if defined(COMPAT_43) || defined(COMPAT_SUNOS)
+/* 中文：4.3BSD 兼容的 setreuid：ruid 与 euid 相同时退化为 setuid，否则校验后仅用 seteuid 设置有效用户号 */
+/* EN: 4.3BSD-compatible setreuid: degrade to setuid when ruid equals euid, otherwise validate and set the effective UID via seteuid */
 /* ARGSUSED */
 int
 compat_43_setreuid(p, uap, retval)
@@ -416,6 +448,8 @@ compat_43_setreuid(p, uap, retval)
 	return (seteuid(p, &args.ea, retval));
 }
 
+/* 中文：4.3BSD 兼容的 setregid：rgid 与 egid 相同时退化为 setgid，否则校验后仅用 setegid 设置有效组号 */
+/* EN: 4.3BSD-compatible setregid: degrade to setgid when rgid equals egid, otherwise validate and set the effective GID via setegid */
 /* ARGSUSED */
 int
 compat_43_setregid(p, uap, retval)
@@ -459,6 +493,8 @@ compat_43_setregid(p, uap, retval)
 /*
  * Check if gid is a member of the group set.
  */
+/* 中文：检查给定 gid 是否属于凭证 cred 中的组集合 */
+/* EN: Check whether a given gid is a member of the group set held in credentials cred */
 int
 groupmember(gid, cred)
 	gid_t gid;
@@ -480,6 +516,8 @@ groupmember(gid, cred)
  * indicating use of super-powers.
  * Returns 0 or error.
  */
+/* 中文：检查凭证是否具有超级用户权限（uid 为 0），若有且提供 acflag 则设置 ASU 记账标志 */
+/* EN: Test whether credentials imply super-user privilege (uid 0), setting the ASU accounting flag via acflag when provided */
 int
 suser(cred, acflag)
 	struct ucred *cred;
@@ -496,6 +534,8 @@ suser(cred, acflag)
 /*
  * Allocate a zeroed cred structure.
  */
+/* 中文：分配并清零一个引用计数为 1 的 ucred 凭证结构 */
+/* EN: Allocate and zero a ucred credentials structure with reference count 1 */
 struct ucred *
 crget()
 {
@@ -511,6 +551,8 @@ crget()
  * Free a cred structure.
  * Throws away space when ref count gets to 0.
  */
+/* 中文：释放一个 ucred 凭证结构，引用计数降到 0 时才真正释放其内存 */
+/* EN: Free a ucred credentials structure, actually releasing its memory when the reference count drops to zero */
 void
 crfree(cr)
 	struct ucred *cr;
@@ -526,6 +568,8 @@ crfree(cr)
 /*
  * Copy cred structure to a new one and free the old one.
  */
+/* 中文：为修改准备凭证副本：引用数为 1 时直接返回原结构，否则复制新结构并释放旧结构 */
+/* EN: Copy credentials for modification: return the original when refcount is 1, otherwise copy to a new structure and free the old one */
 struct ucred *
 crcopy(cr)
 	struct ucred *cr;
@@ -544,6 +588,8 @@ crcopy(cr)
 /*
  * Dup cred struct to a new held one.
  */
+/* 中文：把一个 ucred 凭证结构复制为独立持有引用的新结构 */
+/* EN: Duplicate a ucred credentials structure into a new independently held copy */
 struct ucred *
 crdup(cr)
 	struct ucred *cr;
@@ -559,6 +605,8 @@ crdup(cr)
 /*
  * Get login name, if available.
  */
+/* 中文：getlogin 系统调用：把当前会话的登录名复制到用户缓冲区，长度按 s_login 大小截断 */
+/* EN: The getlogin system call: copy the current session's login name into a user buffer, truncating the length to the s_login size */
 /* ARGSUSED */
 int
 getlogin(p, uap, retval)
@@ -579,6 +627,8 @@ getlogin(p, uap, retval)
 /*
  * Set login name.
  */
+/* 中文：setlogin 系统调用：仅超级用户可调用，从用户空间复制字符串来设置当前会话的登录名 */
+/* EN: The setlogin system call: super-user only, copy a string from user space to set the current session's login name */
 /* ARGSUSED */
 int
 setlogin(p, uap, retval)

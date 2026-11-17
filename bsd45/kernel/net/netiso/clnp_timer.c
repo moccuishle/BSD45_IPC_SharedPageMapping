@@ -92,6 +92,8 @@ extern struct clnp_fragl *clnp_frags;
  * NOTES:			
  *			TODO: send ER back to source
  */
+/* 中文：释放一个 CLNP 分片头及其挂载的所有分片与原始头副本，从全局分片链摘除后返回链中下一个分片 */
+/* EN: Free a CLNP fragment header along with its attached fragments and original-header copy, unlink it from the global list and return the next fragment */
 struct clnp_fragl *
 clnp_freefrags(cfh)
 register struct clnp_fragl	*cfh;	/* fragment header to delete */
@@ -143,6 +145,8 @@ register struct clnp_fragl	*cfh;	/* fragment header to delete */
  *
  * NOTES:			
  */
+/* 中文：CLNP 慢超时处理：在 splnet 下递减重组队列中每个分片头的 TTL，TTL 归零则释放该分片 */
+/* EN: CLNP slow timeout: under splnet decrement the TTL of each fragment header in the reassembly queue, freeing those whose TTL hits zero */
 clnp_slowtimo()
 {
 	register struct clnp_fragl	*cfh = clnp_frags;
@@ -171,6 +175,8 @@ clnp_slowtimo()
  * NOTES:			
  *	TODO: should send back ER
  */
+/* 中文：清空所有重组数据报分片：遍历全局分片链并逐个释放 */
+/* EN: Drain all reassembling datagram fragments: walk the global fragment list and free each one */
 clnp_drain()
 {
 	register struct clnp_fragl	*cfh = clnp_frags;

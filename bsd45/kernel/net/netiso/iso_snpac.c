@@ -153,6 +153,8 @@ union sockunion {
  *
  * NOTES:			This does a lot of obscure magic;
  */
+/* 中文：管理 ISO/LLC 专用的路由表项：处理 ADD/RESOLVE/DELETE，维护 llinfo_llc 链并设置 MTU */
+/* EN: manage ISO/LLC-specific routing entries: handle ADD/RESOLVE/DELETE, maintain the llinfo_llc chain and set the MTU */
 llc_rtrequest(req, rt, sa)
 int req;
 register struct rtentry *rt;
@@ -233,6 +235,8 @@ struct sockaddr *sa;
  *
  * NOTES:			This also does a lot of obscure magic;
  */
+/* 中文：在接口上启用或禁用 ESIS/ISIS 组播接收，按需复位接口 */
+/* EN: enable or disable ESIS/ISIS multicast reception on an interface, resetting it if needed */
 iso_setmcasts(ifp, req)
 	struct	ifnet *ifp;
 	int		req;
@@ -282,6 +286,8 @@ iso_setmcasts(ifp, req)
  *					A mechanism is needed to prevent this function from
  *					being invoked if the system is an IS.
  */
+/* 中文：把 ISO 地址解析为 SNPA 地址：内嵌 SNPA、已知 IS 或 all-ES 组播，结果写入 snpa */
+/* EN: resolve an ISO address to an SNPA: embedded SNPA, a known IS or the all-ES multicast, written into snpa */
 iso_snparesolve(ifp, dest, snpa, snpa_len)
 struct	ifnet *ifp;			/* outgoing interface */
 struct	sockaddr_iso *dest;	/* destination */
@@ -347,6 +353,8 @@ int		*snpa_len;			/* RESULT: length of snpa */
  * NOTES:			If there is a route entry associated with cache
  *					entry, then delete that as well
  */
+/* 中文：释放 snpa 缓存表项，并删除与其关联的动态路由 */
+/* EN: free an snpa cache entry and delete its associated dynamic route */
 snpac_free(lc)
 register struct llinfo_llc *lc;		/* entry to free */
 {
@@ -375,6 +383,8 @@ register struct llinfo_llc *lc;		/* entry to free */
  *
  * NOTES:			If entry already exists, then update holding time.
  */
+/* 中文：向 snpa 缓存添加或更新表项：建立/查找路由、填入链路层地址、设置保持时间与类型标志 */
+/* EN: add or update an snpa cache entry: create/find a route, fill the link-layer address and set holding time and type flags */
 snpac_add(ifp, nsap, snpa, type, ht, nsellength)
 struct ifnet		*ifp;		/* interface info is related to */
 struct iso_addr		*nsap;		/* nsap to add */
@@ -458,6 +468,8 @@ int					nsellength;	/* nsaps may differ only in trailing bytes */
 	return (new_entry);
 }
 
+/* 中文：按 nsellength 修正 ISO 子网掩码和目的地址长度，构造掩码字节 */
+/* EN: adjust the ISO subnet mask and destination length per nsellength, building the mask bytes */
 static void
 snpac_fixdstandmask(nsellength)
 {
@@ -485,6 +497,8 @@ snpac_fixdstandmask(nsellength)
  *
  * NOTES:			
  */
+/* 中文：处理 SIOCSSTYPE/SIOCGSTYPE ioctl，设置或查询系统类型(ES/IS)与 ESIS 定时参数 */
+/* EN: handle SIOCSSTYPE/SIOCGSTYPE ioctls to set or query the system type (ES/IS) and ESIS timers */
 snpac_ioctl (so, cmd, data)
 struct socket *so;
 u_long	cmd;	/* ioctl to process */
@@ -541,6 +555,8 @@ caddr_t	data;	/* data for the cmd */
  *
  * NOTES:			
  */
+/* 中文：把传入的 IS 路由登记为默认 IS，必要时更新默认路由的网关 */
+/* EN: record the given IS route as the default IS, updating the default route gateway if needed */
 snpac_logdefis(sc)
 register struct rtentry *sc;
 {
@@ -587,6 +603,8 @@ register struct rtentry *sc;
  *					would time out entries where expiry date is older
  *					than the current time.
  */
+/* 中文：周期性老化 snpa 缓存表项，删除已过期的有效表项并重新调度定时器 */
+/* EN: periodically age snpa cache entries, freeing expired valid entries and rescheduling the timer */
 void
 snpac_age()
 {
@@ -619,6 +637,8 @@ snpac_age()
  *					as interm kludge until
  *					real multicast addresses can be configured
  */
+/* 中文：判断给定 snpa 是否为本系统类型对应的组播地址(all-ES/all-IS) */
+/* EN: test whether an snpa is the multicast address matching this system's type (all-ES/all-IS) */
 snpac_ownmulti(snpa, len)
 caddr_t	snpa;
 u_int	len;
@@ -640,6 +660,8 @@ u_int	len;
  *
  * NOTES:			
  */
+/* 中文：清除指定接口上的所有有效 snpa 缓存表项 */
+/* EN: flush all valid snpa cache entries associated with a given interface */
 snpac_flushifp(ifp)
 struct ifnet	*ifp;
 {
@@ -663,6 +685,8 @@ struct ifnet	*ifp;
  * NOTES:			In the future, this should make a request of a user
  *					level routing daemon.
  */
+/* 中文：把 ISO 地址转换为 sockaddr 后向路由系统发起 ADD/DELETE 请求 */
+/* EN: issue an ADD/DELETE routing request after converting ISO addresses to sockaddrs */
 snpac_rtrequest(req, host, gateway, netmask, flags, ret_nrt)
 int				req;
 struct iso_addr	*host;
@@ -717,6 +741,8 @@ struct rtentry	**ret_nrt;
  *					This could be made more efficient by checking 
  *					the existing route before adding a new one.
  */
+/* 中文：把网关的 snpac 表项与目标主机关联，通过 rtredirect 建立到该主机的路由 */
+/* EN: associate a gateway's snpac entry with a destination host via rtredirect */
 snpac_addrt(ifp, host, gateway, netmask)
 struct ifnet *ifp;
 struct iso_addr	*host, *gateway, *netmask;

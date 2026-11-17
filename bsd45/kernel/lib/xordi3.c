@@ -44,6 +44,8 @@ static char sccsid[] = "@(#)xordi3.c	8.1 (Berkeley) 6/4/93";
 /*
  * Return a ^ b, in quad.
  */
+/* 中文：对两个 8 字节 quad_t 整数按位异或并返回结果 */
+/* EN: Bitwise XOR two 8-byte quad_t values and return the result */
 quad_t
 __xordi3(a, b)
 	quad_t a, b;

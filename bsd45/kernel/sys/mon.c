@@ -42,6 +42,8 @@ extern char etext[], edata[], end[];
 
 static char line[128];
 
+/* 中文：从控制台读取一行输入到全局 line 缓冲区，处理退格并回显，返回字符数 */
+/* EN: Read a line of input from the console into the global line buffer, handling backspace with echo and returning the character count */
 static int
 getline(void)
 {
@@ -70,6 +72,8 @@ getline(void)
 	}
 }
 
+/* 中文：把单个十六进制字符转换为其数值，非法字符返回 -1 */
+/* EN: Convert a single hexadecimal character to its numeric value, returning -1 for invalid characters */
 static int
 hexval(int c)
 {
@@ -82,6 +86,8 @@ hexval(int c)
 	return (-1);
 }
 
+/* 中文：解析字符串 s 中的十六进制数（可带 0x 前缀与前导空格），结果写入 *vp 并返回解析的位数 */
+/* EN: Parse a hexadecimal number from string s (optional 0x prefix and leading spaces), storing the result in *vp and returning the digit count */
 static int
 parsehex(const char *s, unsigned *vp)
 {
@@ -101,6 +107,8 @@ parsehex(const char *s, unsigned *vp)
 	return (n);
 }
 
+/* 中文：monitor 命令，打印物理内存与虚拟地址空间的统计和内核各段地址 */
+/* EN: Monitor command that prints physical memory and virtual address space statistics and the kernel segment addresses */
 static void
 cmd_mem(void)
 {
@@ -111,6 +119,8 @@ cmd_mem(void)
 	printf("kernel    text %x data %x end %x\n", etext, edata, end);
 }
 
+/* 中文：monitor 命令，解析给定虚拟地址并打印其在内核页表中的页表项与属性位 */
+/* EN: Monitor command that parses a given virtual address and prints its kernel page table entry and attribute bits */
 static void
 cmd_pte(const char *arg)
 {
@@ -138,6 +148,8 @@ cmd_pte(const char *arg)
  * and after a stress loop: "vnode used" must come back down and
  * "pages alloc" must not keep growing.
  */
+/* 中文：monitor 命令，打印 vnode 池与物理页的统计以及缓冲/名字/页缓存计数 */
+/* EN: Monitor command that prints vnode pool and physical page statistics plus buffer/name/page cache counters */
 static void
 cmd_vstat(void)
 {
@@ -152,6 +164,8 @@ cmd_vstat(void)
 	printf("%s", buf);
 }
 
+/* 中文：monitor 命令，测试 kstr 路径API，解析 /readme.txt 并报告 ASCII/UTF16 路径转换是否成功 */
+/* EN: Monitor command that tests the kstr path API by resolving /readme.txt and reporting whether ASCII/UTF16 path conversion succeeds */
 static void
 cmd_wtest(void)
 {
@@ -179,6 +193,8 @@ cmd_wtest(void)
  * print the pool counters before/after.  If vnodes or pages leak, "used"
  * and "inuse" keep climbing instead of returning to the baseline.
  */
+/* 中文：把前缀 prefix 与整数 n 的十进制表示拼接成路径字符串写入 buf */
+/* EN: Build a path string in buf by concatenating the prefix and the decimal representation of integer n */
 static void
 mkpath(char *buf, const char *prefix, int n)
 {
@@ -194,6 +210,8 @@ mkpath(char *buf, const char *prefix, int n)
 	*p = 0;
 }
 
+/* 中文：以给定标签 tag 打印 vnode 池与物理页的统计数据 */
+/* EN: Print vnode pool and physical page statistics with the given tag label */
 static void
 show_vstat(const char *tag)
 {
@@ -205,6 +223,8 @@ show_vstat(const char *tag)
 	    tag, pa, pf, pi);
 }
 
+/* 中文：monitor 压力自测命令，反复执行 VFS 密集操作（ISO 查找读取、tmpfs 建删目录/重写文件）并对比前后池计数以检测泄漏 */
+/* EN: Monitor stress self-test that repeatedly performs VFS-heavy operations (ISO lookups/reads, tmpfs mkdir/rmdir and file rewrites) and compares pool counters before and after to detect leaks */
 static void
 cmd_vstress(void)
 {
@@ -263,6 +283,8 @@ cmd_vstress(void)
 	show_vstat("after");
 }
 
+/* 中文：monitor 命令，分配一个物理页映射到内核，写入并回读数据以验证 pmap 映射正确 */
+/* EN: Monitor command that allocates and maps a physical page in the kernel, then writes and reads it back to verify pmap mapping */
 static void
 cmd_map(void)
 {
@@ -283,6 +305,8 @@ cmd_map(void)
 	printf("ok\n");
 }
 
+/* 中文：通过键盘控制器复位重启系统，失败时以三重故障兜底 */
+/* EN: Reboot the system via the keyboard controller, falling back to a triple fault if that fails */
 void
 reboot_now(void)
 {
@@ -299,6 +323,8 @@ reboot_now(void)
 		;
 }
 
+/* 中文：板载监控器主循环，打印提示符读取命令并分派执行内存、VFS、子系统、线程、时钟等测试与操作命令 */
+/* EN: The on-board monitor main loop, printing a prompt, reading commands and dispatching memory, VFS, subsystem, thread and clock tests and operations */
 void
 monitor(void)
 {

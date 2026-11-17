@@ -59,6 +59,8 @@
 /*
  * Read system call.
  */
+/* 中文：read 系统调用：从文件描述符 fd 读数据到用户缓冲区，返回实际读到的字节数 */
+/* EN: The read system call: read data from file descriptor fd into a user buffer, returning the number of bytes actually read */
 /* ARGSUSED */
 int
 read(p, uap, retval)
@@ -116,6 +118,8 @@ read(p, uap, retval)
 /*
  * Scatter read system call.
  */
+/* 中文：readv 系统调用：把数据分散读入 iovec 数组描述的多个用户缓冲区，返回实际读到的总字节数 */
+/* EN: The readv system call: scatter-read data into multiple user buffers described by an iovec array, returning the total bytes read */
 int
 readv(p, uap, retval)
 	struct proc *p;
@@ -202,6 +206,8 @@ done:
 /*
  * Write system call
  */
+/* 中文：write 系统调用：把用户缓冲区数据写入文件描述符 fd，返回实际写入字节数，EPIPE 时向进程发 SIGPIPE */
+/* EN: The write system call: write data from a user buffer to file descriptor fd, returning bytes written and sending SIGPIPE on EPIPE */
 int
 write(p, uap, retval)
 	struct proc *p;
@@ -261,6 +267,8 @@ write(p, uap, retval)
 /*
  * Gather write system call
  */
+/* 中文：writev 系统调用：把 iovec 数组描述的多个用户缓冲区数据聚集写入文件描述符 fd */
+/* EN: The writev system call: gather-write data from multiple user buffers described by an iovec array to file descriptor fd */
 int
 writev(p, uap, retval)
 	struct proc *p;
@@ -350,6 +358,8 @@ done:
 /*
  * Ioctl system call
  */
+/* 中文：ioctl 系统调用：处理 FIONBIO/FIOCLEX 等通用命令，其余命令转交文件的 fo_ioctl 并回传输出数据 */
+/* EN: The ioctl system call: handle generic commands such as FIONBIO/FIOCLEX, pass others to the file's fo_ioctl and copy back output data */
 /* ARGSUSED */
 int
 ioctl(p, uap, retval)
@@ -489,6 +499,8 @@ int	selwait, nselcoll;
 /*
  * Select system call.
  */
+/* 中文：select 系统调用：检查读/写/异常描述符集合，必要时睡眠等待事件或超时，返回就绪描述符数量 */
+/* EN: The select system call: check read/write/except descriptor sets, sleeping until an event or timeout, and return the number of ready descriptors */
 int
 select(p, uap, retval)
 	register struct proc *p;
@@ -592,6 +604,8 @@ done:
 	return (error);
 }
 
+/* 中文：扫描三个 fd 集合，对每个描述符调用 fo_select，把就绪者计入 obits 并返回就绪总数 */
+/* EN: Scan the three fd sets, call fo_select on each descriptor, mark ready ones in obits and return the ready count */
 int
 selscan(p, ibits, obits, nfd, retval)
 	struct proc *p;
@@ -625,6 +639,8 @@ selscan(p, ibits, obits, nfd, retval)
 	return (0);
 }
 
+/* 中文：总是返回 1 的 fo_select 实现，表示设备始终处于可就绪状态 */
+/* EN: A fo_select implementation that always returns 1, indicating the device is always ready */
 /*ARGSUSED*/
 int
 seltrue(dev, flag, p)
@@ -639,6 +655,8 @@ seltrue(dev, flag, p)
 /*
  * Record a select request.
  */
+/* 中文：在 selinfo 中记录一个 select 等待者，若已有其他等待者则标记 SI_COLL 冲突 */
+/* EN: Record a select waiter in a selinfo structure, marking SI_COLL when another waiter already exists */
 void
 selrecord(selector, sip)
 	struct proc *selector;
@@ -660,6 +678,8 @@ selrecord(selector, sip)
 /*
  * Do a wakeup when a selectable event occurs.
  */
+/* 中文：当可 select 的事件发生时唤醒等待者，处理 SI_COLL 冲突并将睡眠进程置为可运行 */
+/* EN: Wake waiters when a selectable event occurs, handling SI_COLL collisions and making sleeping processes runnable */
 void
 selwakeup(sip)
 	register struct selinfo *sip;

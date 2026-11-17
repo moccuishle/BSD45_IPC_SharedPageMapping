@@ -62,6 +62,8 @@ void	user_fault(int sig, unsigned eip, unsigned va);
 /*
  * Called from pmap/machdep before page-size dependent code runs.
  */
+/* 中文：在页面相关代码运行前设置系统页大小：校验并固定为 DEFAULT_PAGE_SIZE，计算页移位与页掩码 */
+/* EN: Set the system page size before page-dependent code runs: validate and fix it to DEFAULT_PAGE_SIZE, compute page shift and mask */
 void
 vm_set_page_size(void)
 {
@@ -77,6 +79,8 @@ vm_set_page_size(void)
 /*
  * Formatting output.  Deliberately small: %c %s %d %u %x %o %p %b.
  */
+/* 中文：按给定进制、宽度和填充字符把一个无符号长整型格式化输出到控制台 */
+/* EN: Format and output an unsigned long to the console in the given base, width and pad character */
 static void
 putnum(unsigned long v, int base, int width, int pad)
 {
@@ -97,6 +101,8 @@ putnum(unsigned long v, int base, int width, int pad)
 		cnputc(buf[i]);
 }
 
+/* 中文：精简格式化输出核心：解析 %c/%s/%d/%u/%x/%o/%p/%b 等转换并逐字符经 cnputc 输出 */
+/* EN: Minimal formatted-output core: parse conversions like %c/%s/%d/%u/%x/%o/%p/%b and emit characters via cnputc */
 static void
 vprintf(const char *fmt, va_list ap)
 {
@@ -168,6 +174,8 @@ vprintf(const char *fmt, va_list ap)
 	}
 }
 
+/* 中文：可变参数格式化输出到控制台，封装 vprintf */
+/* EN: Variadic formatted output to the console, wrapping vprintf */
 void
 printf(const char *fmt, ...)
 {
@@ -178,6 +186,8 @@ printf(const char *fmt, ...)
 	va_end(ap);
 }
 
+/* 中文：内核 printf 别名，与 printf 同样经 vprintf 格式化输出 */
+/* EN: Kernel printf alias, formatting output through vprintf just like printf */
 void
 kprintf(const char *fmt, ...)
 {
@@ -188,6 +198,8 @@ kprintf(const char *fmt, ...)
 	va_end(ap);
 }
 
+/* 中文：内核致命错误处理：打印 panic 前缀与消息后进入无限循环停机 */
+/* EN: Kernel fatal-error handler: print a panic prefix and message, then halt in an infinite loop */
 void
 panic(const char *fmt, ...)
 {
@@ -207,6 +219,8 @@ panic(const char *fmt, ...)
  * Trap entry.  locore pushes a trapframe and calls trap().  Without the
  * VM fault machinery we report and stop rather than corrupt state.
  */
+/* 中文：陷阱/异常入口：用户态错误映射为信号交付，内核态错误打印寄存器与调用栈信息后停机 */
+/* EN: Trap/exception entry: map user-mode faults to signal delivery; for kernel faults print registers and halt the system */
 void
 trap(struct trapframe *frame)
 {
@@ -288,6 +302,8 @@ trap(struct trapframe *frame)
 		;
 }
 
+/* 中文：系统调用占位实现：打印未实现提示并返回 0 */
+/* EN: Placeholder system-call implementation: print a not-implemented message and return 0 */
 int
 syscall(void)
 {
@@ -300,6 +316,8 @@ syscall(void)
  * The 4.4BSD kernel proper enters userland here.  We have no userland:
  * hand control to the on-board monitor instead.
  */
+/* 中文：内核主入口：打印系统信息，探测并挂载根文件系统（ISO/FFS/tmpfs），初始化压缩池、子系统、线程、软中断与时钟，最后交控制权给 monitor */
+/* EN: Kernel main entry: print system info, probe and mount the root filesystem (ISO/FFS/tmpfs), init zcomp pool, subsystems, threads, softirqs and clock, then hand control to monitor */
 void
 main(vm_offset_t firstaddr)
 {

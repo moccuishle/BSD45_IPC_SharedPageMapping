@@ -115,6 +115,8 @@ SOFTWARE.
  *  EOK if they are ok for a given class
  */
 
+/* 中文：检查连接参数与所选 TP 类别的一致性，按 cmd 的 TP_STRICT/TP_FORCE 标志纠正或报错，并可把参数强制写入控制块 */
+/* EN: Check the consistency of connection parameters with the selected TP class, correcting or rejecting them per the TP_STRICT/TP_FORCE flags and optionally forcing them into the pcb */
 int
 tp_consistency( tpcb, cmd, param )
 	u_int cmd;
@@ -360,6 +362,8 @@ done:
  *
  * NOTES:
  */
+/* 中文：实现传输层 [sg]etsockopt 选项处理，校验连接状态后读取或设置本地/对端 TSEL、参数、连接数据等传输选项 */
+/* EN: Implement transport-level [sg]etsockopt option handling, validating connection state and getting or setting local/peer TSEL, parameters, connection data and other options */
 ProtoHook 
 tp_ctloutput(cmd, so, level, optname, mp)
 	int 			cmd, level, optname;
