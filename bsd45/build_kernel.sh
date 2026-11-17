@@ -214,6 +214,7 @@ sources=(
     "asm:$src/thread/kswitch.s"
     "asm:$src/arch/$ARCH/x86.asm"
     # kernel/hal removed: context + timer folded into arch/i386, no IPL layer
+    "c:$src/arch/$ARCH/smp.c"
     "c:$src/arch/$ARCH/ctx.c"
     "c:$src/arch/$ARCH/timer.c"
     "c:$src/vm/zcomp.c"

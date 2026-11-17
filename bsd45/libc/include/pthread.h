@@ -20,6 +20,9 @@ int	pthread_detach(pthread_t tid);
 pthread_t pthread_self(void);
 void	pthread_exit(void *retval);
 int	pthread_yield(void);
+/* scheduling: 0 = lowest, 19 = highest */
+int	sched_setprio(int prio);
+int	sched_getprio(void);
 
 #ifdef __cplusplus
 }

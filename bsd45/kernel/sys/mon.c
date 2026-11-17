@@ -365,6 +365,9 @@ monitor(void)
 			kthread_print();
 		else if (!strcmp(line, "softirq"))
 			softirq_print();
+		else if (!strcmp(line, "schedtest")) {
+			(void)sched_prio_selftest();
+		}
 		else if (!strcmp(line, "kthreadtest")) {
 			unsigned n = kthread_selftest();
 

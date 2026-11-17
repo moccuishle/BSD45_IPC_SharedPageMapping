@@ -172,6 +172,7 @@ kthread_spawn(const char *name, void (*entry)(void *), void *arg)
 	*--sp = 0;				/* edi */
 	t->t_ksp = (unsigned)sp;
 	t->t_lastcpu = 0;		/* no affinity yet */
+	sched_prio_init(t, PRI_NORMAL);
 	rq_enqueue(t);			/* runnable TCB enters the run queue */
 	printf("kthread: spawn %s tid %d\n", name, t->t_tid);
 	return (t);
@@ -201,6 +202,7 @@ kthread_user_spawn(struct proc *p, int tid)
 	t->t_base_ipl = 0;
 	t->t_eff_ipl = 0;
 	t->t_preemptable = 1;
+	sched_prio_init(t, PRI_NORMAL);
 	/* KLT: link this thread into its owning process's thread list */
 	if (p != 0) {
 		struct kthread **pp = &p->uk_p_threads;
@@ -277,6 +279,7 @@ kthread_block(void)
 	if (t == 0)
 		return;
 	rq_dequeue(t);			/* blocked TCB leaves the run queue */
+	sched_on_block(t);		/* start sleep-length accounting */
 	t->t_state = KT_BLOCK;
 	hal_switch_stack(&t->t_ksp, sched_esp);
 }
@@ -288,6 +291,8 @@ kthread_wake(struct kthread *t)
 {
 
 	if (t != 0 && t->t_state == KT_BLOCK) {
+		t->t_sleep_ticks++;	/* it really slept a tick */
+		sched_on_wake(t);	/* I/O/interactive boost + quantum class */
 		t->t_state = KT_RUN;
 		rq_enqueue(t);		/* affinity: re-enter at tail for now */
 	}
@@ -381,6 +386,161 @@ kthread_count(void)
 		if (kthreads[i].t_used)
 			n++;
 	return (n);
+}
+
+/* ------------------------------------------------- dynamic priority */
+
+/* EN: Initialize a thread's base/effective priority and default quantum. */
+void
+sched_prio_init(struct kthread *t, int base)
+{
+
+	if (t == 0)
+		return;
+	if (base < 0)
+		base = PRI_NORMAL;
+	if (base >= NPRIO)
+		base = PRI_HIGHEST;
+	t->t_prio = base;
+	t->t_curprio = base;
+	t->t_base_prio = base;
+	t->t_inherit_prio = 0;
+	t->t_blocked_on = -1;
+	t->t_quantum = QUANTUM_BASE;
+	t->t_ticks = 0;
+	t->t_sleep_ticks = 0;
+	t->t_starve = 0;
+	t->t_cpu_burst = 0;
+}
+
+/*
+ * EN: Effective priority, 0 lowest .. 19 highest.  Higher is better.
+ * Boosts (I/O wake, starvation, inheritance) ADD to the priority; the
+ * result is clamped to [0, PRI_HIGHEST].
+ */
+int
+sched_effective_prio(struct kthread *t)
+{
+	int p;
+
+	if (t == 0)
+		return (PRI_LOWEST);
+	p = t->t_prio;
+	if (t->t_sleep_ticks > 0 && t->t_state == KT_RUN)
+		p += PRI_BOOST_IO;		/* woken I/O thread: interactive */
+	if (t->t_starve >= STARVE_THRESHOLD)
+		p += PRI_BOOST_STARVE;		/* anti-starvation */
+	/* BSD interaction score: high estcpu (CPU hog) and high nice lower
+	 * the effective priority; interactive (low estcpu) tasks stay high. */
+	p -= sched_interaction_penalty(t);
+	/* priority inheritance dominates: run at the donor's level */
+	if (t->t_inherit_prio > 0 && t->t_inherit_prio > p)
+		p = t->t_inherit_prio;
+	if (p < PRI_LOWEST)
+		p = PRI_LOWEST;
+	if (p > PRI_HIGHEST)
+		p = PRI_HIGHEST;
+	return (p);
+}
+
+/*
+ * EN: Priority inheritance.  A high-priority WAITER blocks on a lock held
+ * by HOLDER; temporarily raise the holder to the waiter's priority so it
+ * finishes quickly and releases the resource.  Chain-safe: if the holder
+ * is itself blocked on a third thread, propagate the donation further.
+ */
+void
+prio_inherit(struct kthread *waiter, struct kthread *holder)
+{
+	int donated;
+
+	if (waiter == 0 || holder == 0 || waiter == holder)
+		return;
+	donated = sched_effective_prio(waiter);
+	if (donated <= sched_effective_prio(holder)) {
+		holder->t_blocked_on = -1;
+		return;
+	}
+	/* remember the original priority once (before the first donation) */
+	if (holder->t_inherit_prio == 0)
+		holder->t_base_prio = holder->t_prio;
+	if (donated > holder->t_inherit_prio)
+		holder->t_inherit_prio = donated;
+	ipl_donations++;
+	/* transitive inheritance: holder waits on another holder */
+	if (holder->t_blocked_on >= 0) {
+		struct kthread *next = kthread_find(holder->t_blocked_on);
+
+		if (next != 0 && next != holder)
+			prio_inherit(holder, next);
+	}
+}
+
+/* EN: Restore a lock holder's original priority after it releases the
+ * resource.  Releases the whole inherited chain as needed. */
+void
+prio_restore(struct kthread *holder)
+{
+
+	if (holder == 0)
+		return;
+	holder->t_inherit_prio = 0;
+	holder->t_prio = holder->t_base_prio;
+	holder->t_blocked_on = -1;
+}
+
+/* EN: Called when a thread wakes from sleep/I/O: it is likely interactive. */
+void
+sched_on_wake(struct kthread *t)
+{
+
+	if (t == 0)
+		return;
+	/* slept a long time => interactive; reward with short quantum + boost */
+	if (t->t_sleep_ticks > 2) {
+		t->t_quantum = QUANTUM_IO;
+	} else if (t->t_cpu_burst >= CPU_BOUND_THRESHOLD) {
+		/* CPU-bound: longer quantum to amortise switch overhead */
+		t->t_quantum = QUANTUM_CPU;
+	} else {
+		t->t_quantum = QUANTUM_BASE;
+	}
+	t->t_cpu_burst = 0;
+	t->t_ticks = 0;
+	t->t_starve = 0;
+}
+
+/* EN: Called when a thread blocks: start counting sleep for classification. */
+void
+sched_on_block(struct kthread *t)
+{
+
+	if (t == 0)
+		return;
+	t->t_sleep_ticks = 1;
+}
+
+/* EN: Called each tick the thread is running: detect CPU-bound workloads. */
+void
+sched_on_tick(struct kthread *t)
+{
+
+	if (t == 0)
+		return;
+	t->t_ticks++;
+	if (t->t_ticks >= t->t_quantum) {
+		t->t_cpu_burst++;
+		if (t->t_cpu_burst > CPU_BOUND_THRESHOLD)
+			t->t_cpu_burst = CPU_BOUND_THRESHOLD;
+	}
+}
+
+/* EN: A thread is CPU-bound if it consumed several full quanta without sleeping. */
+int
+sched_is_cpu_bound(struct kthread *t)
+{
+
+	return (t != 0 && t->t_cpu_burst >= CPU_BOUND_THRESHOLD);
 }
 
 /* ------------------------------------------------- os.md mechanism 4 */
@@ -489,6 +649,40 @@ kthread_ipl_selftest(void)
 }
 
 /* ---------------------------------------------------------------- test */
+
+/* EN: Self-test of the 20-level priority model and priority inheritance.
+ * Uses local TCBs so it does not depend on userland thread timing. */
+int
+sched_prio_selftest(void)
+{
+	struct kthread waiter, holder;
+	int ok = 1;
+
+	bzero(&waiter, sizeof(waiter));
+	bzero(&holder, sizeof(holder));
+	sched_prio_init(&waiter, PRI_HIGH);	/* 17: high-priority waiter */
+	sched_prio_init(&holder, PRI_BATCH);	/* 5: low-priority holder */
+	waiter.t_tid = 90;
+	holder.t_tid = 91;
+	waiter.t_state = holder.t_state = KT_RUN;
+
+	/* higher must outrank lower */
+	if (sched_effective_prio(&waiter) <= sched_effective_prio(&holder))
+		ok = 0;
+	/* donate: holder should jump to waiter's level */
+	prio_inherit(&waiter, &holder);
+	if (holder.t_inherit_prio < sched_effective_prio(&waiter))
+		ok = 0;
+	if (sched_effective_prio(&holder) < sched_effective_prio(&waiter))
+		ok = 0;
+	/* restore: holder returns to its original priority */
+	prio_restore(&holder);
+	if (sched_effective_prio(&holder) != PRI_BATCH || holder.t_inherit_prio != 0)
+		ok = 0;
+	ipl_donations = 0;
+	printf("schedtest: 20-level prio + inheritance %s\n", ok ? "PASS" : "FAIL");
+	return (ok ? 0 : -1);
+}
 
 static int ktest_counter;
 

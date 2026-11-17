@@ -118,6 +118,8 @@ $sub = Join-Path $ws "out\userland\subtest.elf"
 if (Test-Path $sub) { Copy-Item $sub "$isodir\bin\SUBTEST.ELF" -Force }
 $mmb = Join-Path $ws "out\userland\mmaptest.elf"
 if (Test-Path $mmb) { Copy-Item $mmb "$isodir\bin\MMAPTEST.ELF" -Force }
+$stb = Join-Path $ws "out\userland\schedtest.elf"
+if (Test-Path $stb) { Copy-Item $stb "$isodir\bin\SCHEDTEST.ELF" -Force }
 $ptb = Join-Path $ws "out\userland\pthread.elf"
 if (Test-Path $ptb) { Copy-Item $ptb "$isodir\bin\PTHREAD.ELF" -Force }
 $atb = Join-Path $ws "out\userland\aiotest.elf"

@@ -24,6 +24,27 @@
 #define	KT_BLOCK	2
 #define	KT_ZOMBIE	3
 
+/* priority scale: 0 = LOWEST, 19 = HIGHEST (20 levels) */
+#define	NPRIO		20
+#define	PRI_LOWEST	0
+#define	PRI_IDLE	2
+#define	PRI_BATCH	5		/* CPU-bound baseline (low) */
+#define	PRI_NORMAL	10
+#define	PRI_INTERACTIVE	14	/* interactive / I/O-bound baseline */
+#define	PRI_HIGH	17
+#define	PRI_HIGHEST	19
+
+/* quantum (ticks) -- fixed base; CPU-bound threads get a longer one */
+#define	QUANTUM_BASE	4
+#define	QUANTUM_CPU	8
+#define	QUANTUM_IO	2
+
+/* dynamic priority tuning */
+#define	PRI_BOOST_IO	6	/* boost on wake from sleep/I/O */
+#define	PRI_BOOST_STARVE	8	/* max anti-starvation boost */
+#define	STARVE_THRESHOLD	40	/* ticks before anti-starvation kicks in */
+#define	CPU_BOUND_THRESHOLD	3	/* consecutive CPU quanta => CPU-bound */
+
 #define	KSTACK_VA	0xFEA00000
 #define	KSTACK_SIZE	8192
 
@@ -46,7 +67,19 @@ struct kthread {
 	struct kthread	*t_rqnext;	/* next TCB in the scheduler run queue */
 	int		t_onrq;		/* 1 if currently linked on the run queue */
 	/* Scheduling: the quantum is per-thread, fairness is per-process. */
+	/* ---- scheduling: dynamic priority, quantum, workload class ---- */
+	int		t_prio;		/* base priority 0(low)..19(high) */
+	int		t_curprio;	/* effective priority (dynamic boosts/decay) */
+	/* priority inheritance: a low-prio holder temporarily runs at a
+	 * high-prio waiter's level, then restores its original priority. */
+	int		t_base_prio;	/* original priority before inheritance */
+	int		t_inherit_prio;	/* donated priority (0 = none) */
+	int		t_blocked_on;	/* tid of thread holding the wanted lock, -1 none */
 	int		t_ticks;	/* ticks consumed in current quantum */
+	int		t_quantum;	/* quantum for this slice (workload-tuned) */
+	int		t_sleep_ticks;	/* ticks slept: I/O-bound detector */
+	int		t_starve;	/* ticks waiting: anti-starvation boost */
+	int		t_cpu_burst;	/* consecutive CPU ticks: CPU-bound detector */
 	int		t_lastcpu;	/* affinity: last CPU this thread ran on */
 	void		*t_wchan;	/* non-NULL => blocked on this channel */
 	struct sysregs	t_regs;
@@ -91,6 +124,22 @@ extern unsigned kthread_switches;
 
 /* context switch: save current esp in *old, continue on new stack */
 void	kswitch(unsigned *old, unsigned new);
+
+/* interaction scoring hook provided by the process layer (usermode.c):
+ * returns a penalty 0..N derived from BSD estcpu + p_nice. */
+int	sched_interaction_penalty(struct kthread *t);
+
+/* dynamic priority / workload scheduling */
+void	sched_prio_init(struct kthread *t, int base);
+int	sched_effective_prio(struct kthread *t);
+void	sched_on_wake(struct kthread *t);	/* boost on I/O/sleep wake */
+void	sched_on_block(struct kthread *t);	/* record sleep for classification */
+void	sched_on_tick(struct kthread *t);	/* update cpu/starve counters */
+int	sched_is_cpu_bound(struct kthread *t);
+/* priority inheritance: waiter donates its priority to the lock holder */
+void	prio_inherit(struct kthread *waiter, struct kthread *holder);
+void	prio_restore(struct kthread *holder);
+int	sched_prio_selftest(void);
 
 /* os.md mechanism 4: per-thread IPL policy + priority inheritance */
 void	thread_ipl_set(struct kthread *t, int base_ipl, int preemptable);

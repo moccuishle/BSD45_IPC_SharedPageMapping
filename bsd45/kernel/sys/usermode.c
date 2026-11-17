@@ -246,6 +246,8 @@ proc_wake(struct proc *p)
 	for (i = 0; i < NKTHREAD; i++) {
 		t = &kthreads[i];
 		if (t->t_used && t->t_proc == p && t->t_state == KT_BLOCK) {
+			t->t_sleep_ticks++;	/* account wake from sleep/I/O */
+			sched_on_wake(t);	/* boost interactivity, pick quantum */
 			t->t_state = KT_RUN;
 			t->t_wchan = 0;
 		}
@@ -2473,33 +2475,69 @@ estcpu_decay_all(void)
 			procs[i].uk_estcpu >>= ESTCPU_DECAY_SHIFT;
 }
 
-/* EN: Pick a runnable TCB: least-charged process first, then round-robin within it. */
+/* EN: Is a TCB currently runnable (TCB state + whole-process block rule)? */
+static int
+tcb_runnable(struct kthread *t)
+{
+	struct proc *p;
+
+	if (t == 0 || !t->t_used || t->t_proc == 0 || t->t_state != KT_RUN)
+		return (0);
+	p = t->t_proc;
+	if (p->uk_state == P_FREE || p->uk_state == P_ZOMBIE)
+		return (0);
+	if (p->uk_state == P_BLOCKED && p->uk_p_nthreads <= 1)
+		return (0);
+	return (1);
+}
+
+/*
+ * EN: BSD-style interaction penalty from the owning process: a high estcpu
+ * (CPU-bound) or a high p_nice (voluntary yield) lowers the thread's
+ * effective priority; interactive (low estcpu) tasks stay high.  Lives in
+ * the process layer because estcpu is on struct proc; kthread.c calls it
+ * through sched_interaction_penalty().
+ */
+int
+sched_interaction_penalty(struct kthread *t)
+{
+	struct proc *p;
+	int penalty;
+
+	if (t == 0 || (p = t->t_proc) == 0)
+		return (0);
+	penalty = (int)(p->uk_estcpu >> 8);	/* every 256 CPU ticks = -1 */
+	penalty += (int)p->p_nice >> 2;		/* nice in 4-point steps */
+	if (penalty > 8)
+		penalty = 8;
+	return (penalty);
+}
+
+/*
+ * EN: Pick the best runnable TCB.  Primary key is the DYNAMIC effective
+ * priority (HIGHER = better, 0 lowest .. 19 highest).  I/O-woken, starved
+ * and priority-inherited threads get boosted; CPU-bound threads stay low.
+ * estcpu breaks ties so a process with many threads cannot dominate.
+ */
 static struct kthread *
 fair_pick_next(struct kthread *me)
 {
 	struct kthread *best = 0;
-	struct proc *bestp = 0;
-	int i, start;
+	int best_prio = -1, i, start;
 
 	start = (me != 0) ? (me - kthreads) : 0;
-	/* first pass: find the runnable process with the lowest estcpu */
 	for (i = 0; i < NKTHREAD; i++) {
 		struct kthread *t = &kthreads[(start + i + 1) % NKTHREAD];
-		struct proc *p;
+		int prio;
 
-		if (!t->t_used || t->t_proc == 0 || t == me)
+		if (t == me || !tcb_runnable(t))
 			continue;
-		if (t->t_state != KT_RUN)	/* blocked TCB is never picked */
-			continue;
-		p = t->t_proc;
-		if (p->uk_state == P_FREE || p->uk_state == P_ZOMBIE)
-			continue;
-		/* single-threaded process blocked as a whole is not runnable */
-		if (p->uk_state == P_BLOCKED && p->uk_p_nthreads <= 1)
-			continue;
-		if (bestp == 0 || p->uk_estcpu < bestp->uk_estcpu) {
-			bestp = p;
+		prio = sched_effective_prio(t);
+		if (best == 0 || prio > best_prio ||
+		    (prio == best_prio &&
+		     t->t_proc->uk_estcpu < best->t_proc->uk_estcpu)) {
 			best = t;
+			best_prio = prio;
 		}
 	}
 	return (best);
@@ -2528,16 +2566,39 @@ sched_tick(struct sysregs *r)
 	else
 		me->t_regs = *r;
 
-	/* charge this tick to the interrupted process (fairness accounting) */
+	/* charge this tick: process CPU accounting + thread quantum/counters */
 	mp->uk_estcpu++;
-	me->t_ticks++;
-
-	if (!need_resched)
-		return;
-	need_resched = 0;
+	sched_on_tick(me);			/* quantum + CPU-bound detection */
 	estcpu_decay_all();
 
+	/* anti-starvation: every waiting-but-runnable thread ages upward */
+	{
+		int j;
+		for (j = 0; j < NKTHREAD; j++)
+			if (kthreads[j].t_used && kthreads[j].t_state == KT_RUN &&
+			    &kthreads[j] != me &&
+			    kthreads[j].t_starve < STARVE_THRESHOLD * 2)
+				kthreads[j].t_starve++;
+	}
+
+	/*
+	 * Preemptive decision (priority scheduling): switch immediately if a
+	 * strictly higher-priority thread became runnable, OR the current
+	 * thread exhausted its quantum.  Need_resched from syscall exit is
+	 * still honoured.  A high-priority thread need not wait for the
+	 * quantum to expire -- that is the essence of preemption.
+	 */
 	t = fair_pick_next(me);
+	{
+		int me_prio = sched_effective_prio(me);
+		int next_prio = (t != 0) ? sched_effective_prio(t) : PRI_LOWEST;
+		int quantum_expired = (me->t_ticks >= me->t_quantum);
+		/* higher-priority next preempts immediately (no wait for quantum) */
+		if (t == 0 || (!quantum_expired && !need_resched &&
+		               next_prio <= me_prio))
+			return;			/* keep running current thread */
+	}
+	need_resched = 0;
 	if (t == 0) {
 		/* nobody else runnable: current thread keeps the CPU */
 		if (me->t_tid == mp->uk_pid)
@@ -3587,6 +3648,8 @@ thread_exit_current(int code)
 	}
 	t->t_exitcode = code;
 	t->t_state = KT_ZOMBIE;
+	/* release inherited priority: the resource (this thread) is done */
+	prio_restore(t);
 	cur->uk_p_nthreads--;
 	for (i = 0; i < NKTHREAD; i++) {
 		struct kthread *j = &kthreads[i];
@@ -3594,6 +3657,7 @@ thread_exit_current(int code)
 		if (!j->t_used || j->t_join_tid != t->t_tid)
 			continue;
 		j->t_join_tid = 0;
+		j->t_blocked_on = -1;	/* inherited priority released on wake */
 		if (j->t_tid == j->t_proc->uk_pid) {
 			j->t_proc->uk_regs.eax = code;
 			proc_wake(j->t_proc);
@@ -3645,6 +3709,10 @@ thread_join(int tid, struct sysregs *r)
 	}
 	jt = cur_thread;
 	jt->t_join_tid = tid;
+	jt->t_blocked_on = t->t_tid;
+	/* priority inheritance: if the joiner outranks the joinee, lend it
+	 * our priority so it finishes and releases us quickly. */
+	prio_inherit(jt, t);
 	if (jt->t_tid == cur->uk_pid) {
 		cur->uk_regs = *r;
 		kthread_block_tcb(0);
@@ -4877,6 +4945,20 @@ bsd45_syscall(struct sysregs *r)
 		break;
 	case 445:			/* thread_detach(tid) */
 		r->eax = (unsigned)thread_detach((int)r->ebx);
+		break;
+	case 446:			/* sched_setprio(prio): 0 lowest .. 19 highest */
+		if (cur_thread != 0 && (int)r->ebx >= 0 && (int)r->ebx < NPRIO) {
+			cur_thread->t_prio = (int)r->ebx;
+			cur_thread->t_base_prio = (int)r->ebx;
+			cur_thread->t_curprio = sched_effective_prio(cur_thread);
+			r->eax = 0;
+			need_resched = 1;	/* re-evaluate after priority change */
+		} else
+			r->eax = (unsigned)-EINVAL;
+		break;
+	case 447:			/* sched_getprio() */
+		r->eax = (unsigned)(cur_thread != 0 ?
+		    sched_effective_prio(cur_thread) : PRI_NORMAL);
 		break;
 	case 451: {			/* tgkill(tid, sig) - thread-directed */
 		int tid = (int)r->ebx, sig = (int)r->ecx;

@@ -257,6 +257,7 @@ $c_sources = [ordered]@{
     "kswitch.o"  = @("asm", "$ws\kernel\thread\kswitch.s")
     "hal_arch.o" = @("asm", "$ws\kernel\arch\$Arch\x86.asm")
     # kernel/hal removed: context + timer folded into arch/i386, no IPL layer
+    "smp.o"      = @("c",   "$ws\kernel\arch\$Arch\smp.c")
     "ctx.o"      = @("c",   "$ws\kernel\arch\$Arch\ctx.c")
     "timer.o"    = @("c",   "$ws\kernel\arch\$Arch\timer.c")
     "zcomp.o"    = @("c",   "$ws\kernel\vm\zcomp.c")

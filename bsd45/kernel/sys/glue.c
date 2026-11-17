@@ -34,9 +34,8 @@
 #include "vfs.h"
 #include "lib/kstr.h"
 #include "sys/platform.h"
+#include "sys/smp.h"
 #include "thread/kthread.h"
-#include "sys/platform.h"
-#include "sys/platform.h"
 #include "vm/zcomp.h"
 
 /* GCC builtins: the mingw <stdarg.h> is only an include_next stub. */
@@ -404,6 +403,7 @@ main(vm_offset_t firstaddr)
 	softirq_init();
 	vfs_aio_init();
 	aio_user_init();
+	smp_init();			/* per-CPU state + Local APIC probe */
 	clock_init();
 	printf("\n");
 

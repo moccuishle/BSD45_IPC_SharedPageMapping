@@ -66,7 +66,7 @@ for pair in "sh:bin/SH.ELF" "init:sbin/INIT.ELF" "hello:HELLO.ELF" "test:TEST.EL
             "uname:bin/UNAME.ELF" "true:bin/TRUE.ELF" "false:bin/FALSE.ELF" \
             "date:bin/DATE.ELF" "vmstat:bin/VMSTAT.ELF" \
             "mmaptest:bin/MMAPTEST.ELF" "subtest:bin/SUBTEST.ELF" \
-            "pthread:bin/PTHREAD.ELF" \
+            "pthread:bin/PTHREAD.ELF" "schedtest:bin/SCHEDTEST.ELF" \
             "spin:bin/SPIN.ELF" "cowtest:bin/COWTEST.ELF" \
             "crash:bin/CRASH.ELF" "badptr:bin/BADPTR.ELF" \
             "aiotest:bin/AIOTEST.ELF" "uring:bin/uring.ELF"; do

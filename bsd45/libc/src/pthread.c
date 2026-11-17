@@ -142,3 +142,17 @@ pthread_yield(void)
 
 	return (sc(444, 0, 0, 0));
 }
+
+int
+sched_setprio(int prio)
+{
+
+	return (sc(446, prio, 0, 0));
+}
+
+int
+sched_getprio(void)
+{
+
+	return (sc(447, 0, 0, 0));
+}
