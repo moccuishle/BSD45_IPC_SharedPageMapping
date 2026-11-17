@@ -1,20 +1,20 @@
 # config.mk - kernel/arch/sparc/fpu
 #
-# Per-directory build configuration for the BSD45 kernel.
-# build_kernel.ps1 is the current driver; a kbuild-style build can
-# pick up obj-y/obj-m/dir-y from here.
+# kbuild-style per-directory config (tc216 Makefile/config.mk style).
+# This directory is NOT part of the current kernel build (legacy 4.5BSD
+# tree / placeholder). Sources are recorded as COMMENTS for reference.
+#
+# current file directory
+MAKEFILE_DIR_arch_sparc_fpu_mk := $(dir $(abspath $(lastword $(MAKEFILE_LIST))))
+arch_sparc_fpu_OBJ_DIR = $(patsubst ${MAKEFILE_DIR_project_mk}%,${OBJ_DIR}/%,$(MAKEFILE_DIR_arch_sparc_fpu_mk))
+$(shell mkdir -p ${arch_sparc_fpu_OBJ_DIR})
 
-# obj-y += 
-# obj-m += 
-# dir-y += 
+# CPPFLAGS
+CPPFLAGS := $(CPPFLAGS) -I$(MAKEFILE_DIR_arch_sparc_fpu_mk)
 
-# sources in this directory:
-#   fpu.c
-#   fpu_add.c
-#   fpu_compare.c
-#   fpu_div.c
-#   fpu_explode.c
-#   fpu_implode.c
-#   fpu_mul.c
-#   fpu_sqrt.c
-#   fpu_subr.c
+# ---- NOT BUILT: source inventory (reference only) ----
+# (empty placeholder directory)
+
+arch_sparc_fpu_OBJS :=
+
+clean::

@@ -1,73 +1,30 @@
-﻿# config.mk - kernel/sys
+# config.mk - kernel/sys
 #
-# Per-directory build configuration for the BSD45 kernel.
-# build_kernel.ps1 is the current driver; a kbuild-style build can
-# pick up obj-y/obj-m/dir-y from here.
+# kbuild-style per-directory config (tc216 Makefile/config.mk style).
+# THIS DIRECTORY PARTICIPATES IN THE KERNEL BUILD.
+#
+# current file directory
+MAKEFILE_DIR_sys_mk := $(dir $(abspath $(lastword $(MAKEFILE_LIST))))
+sys_OBJ_DIR = $(patsubst ${MAKEFILE_DIR_project_mk}%,${OBJ_DIR}/%,$(MAKEFILE_DIR_sys_mk))
+$(shell mkdir -p ${sys_OBJ_DIR})
 
-# obj-y += 
-# obj-m += 
-# dir-y += 
+# CPPFLAGS
+CPPFLAGS := $(CPPFLAGS) -I$(MAKEFILE_DIR_sys_mk)
 
-# sources in this directory:
-#   init_main.c
-#   init_sysent.c
-#   kern_acct.c
-#   kern_clock.c
-#   kern_descrip.c
-#   kern_exec.c
-#   kern_exit.c
-#   kern_fork.c
-#   kern_ktrace.c
-#   kern_lock.c
-#   kern_malloc.c
-#   kern_physio.c
-#   kern_proc.c
-#   kern_prot.c
-#   kern_resource.c
-#   kern_sig.c
-#   kern_subr.c
-#   kern_synch.c
-#   kern_sysctl.c
-#   kern_time.c
-#   kern_xxx.c
-#   subr_autoconf.c
-#   subr_log.c
-#   subr_prf.c
-#   subr_prof.c
-#   subr_rmap.c
-#   subr_xxx.c
-#   sys_generic.c
-#   sys_process.c
-#   sys_socket.c
-#   syscalls.c
-#   tty.c
-#   tty_compat.c
-#   tty_conf.c
-#   tty_pty.c
-#   tty_subr.c
-#   tty_tb.c
-#   tty_tty.c
-#   uipc_domain.c
-#   uipc_mbuf.c
-#   uipc_proto.c
-#   uipc_socket.c
-#   uipc_socket2.c
-#   uipc_syscalls.c
-#   uipc_usrreq.c
-#   vfs_bio.c
-#   vfs_cache.c
-#   vfs_cluster.c
-#   vfs_conf.c
-#   vfs_init.c
-#   vfs_lookup.c
-#   vfs_subr.c
-#   vfs_syscalls.c
-#   vfs_vnops.c
-#   glue.c
-#   mon.c
-#   usermode.c
-#   usermode_asm.s
-#   stubs.c
+# C sources (explicit; 4.5BSD tree has legacy files that must not build)
+sys_CSRCS := usermode.c stubs.c glue.c mon.c
+sys_COBJS := $(patsubst %.c,$(sys_OBJ_DIR)/%.o,$(sys_CSRCS))
+sys_ASMSRC := usermode_asm.s
+sys_ASMOBJS := $(patsubst %.s,$(sys_OBJ_DIR)/%.o,$(patsubst %.asm,$(sys_OBJ_DIR)/%.o,$(sys_ASMSRC)))
 
-# legacy subdirectories (not built):
-#   legacy/
+sys_OBJS := $(sys_COBJS) $(sys_ASMOBJS)
+
+$(sys_COBJS):$(OBJ_DIR)/%.o:%.c
+	@echo ---------------------[build $<]----------------------------------
+	$(CC) $(CFLAGS) -c $(CPPFLAGS) $< -o $@
+
+$(sys_ASMOBJS):$(OBJ_DIR)/%.o:%.s
+	@echo ---------------------[build $<]----------------------------------
+	$(CC) -m32 -c -x assembler-with-cpp -nostdinc $(CPPFLAGS) $< -o $@
+
+clean::

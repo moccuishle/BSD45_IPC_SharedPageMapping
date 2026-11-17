@@ -1,16 +1,26 @@
 # config.mk - kernel/driver
 #
-# Per-directory build configuration for the BSD45 kernel.
-# build_kernel.ps1 is the current driver; a kbuild-style build can
-# pick up obj-y/obj-m/dir-y from here.
+# kbuild-style per-directory config (tc216 Makefile/config.mk style).
+# THIS DIRECTORY PARTICIPATES IN THE KERNEL BUILD.
+#
+# current file directory
+MAKEFILE_DIR_driver_mk := $(dir $(abspath $(lastword $(MAKEFILE_LIST))))
+driver_OBJ_DIR = $(patsubst ${MAKEFILE_DIR_project_mk}%,${OBJ_DIR}/%,$(MAKEFILE_DIR_driver_mk))
+$(shell mkdir -p ${driver_OBJ_DIR})
 
-# obj-y += 
-# obj-m += 
-# dir-y += 
+# CPPFLAGS
+CPPFLAGS := $(CPPFLAGS) -I$(MAKEFILE_DIR_driver_mk)
 
-# sources in this directory:
-#   atapi.c
-#   pccon.c
+# C sources (explicit; 4.5BSD tree has legacy files that must not build)
+driver_CSRCS := pccon.c atapi.c ata.c
+driver_COBJS := $(patsubst %.c,$(driver_OBJ_DIR)/%.o,$(driver_CSRCS))
+driver_ASMSRC := 
+driver_ASMOBJS := $(patsubst %.s,$(driver_OBJ_DIR)/%.o,$(patsubst %.asm,$(driver_OBJ_DIR)/%.o,$(driver_ASMSRC)))
 
-# subdirectories:
-#   dev/
+driver_OBJS := $(driver_COBJS) $(driver_ASMOBJS)
+
+$(driver_COBJS):$(OBJ_DIR)/%.o:%.c
+	@echo ---------------------[build $<]----------------------------------
+	$(CC) $(CFLAGS) -c $(CPPFLAGS) $< -o $@
+
+clean::

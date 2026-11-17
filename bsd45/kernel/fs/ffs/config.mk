@@ -1,14 +1,26 @@
 # config.mk - kernel/fs/ffs
 #
-# Per-directory build configuration for the BSD45 kernel.
-# build_kernel.ps1 is the current driver; a kbuild-style build can
-# pick up obj-y/obj-m/dir-y from here.
+# kbuild-style per-directory config (tc216 Makefile/config.mk style).
+# THIS DIRECTORY PARTICIPATES IN THE KERNEL BUILD.
+#
+# current file directory
+MAKEFILE_DIR_fs_ffs_mk := $(dir $(abspath $(lastword $(MAKEFILE_LIST))))
+fs_ffs_OBJ_DIR = $(patsubst ${MAKEFILE_DIR_project_mk}%,${OBJ_DIR}/%,$(MAKEFILE_DIR_fs_ffs_mk))
+$(shell mkdir -p ${fs_ffs_OBJ_DIR})
 
-obj-y += ffs.o
+# CPPFLAGS
+CPPFLAGS := $(CPPFLAGS) -I$(MAKEFILE_DIR_fs_ffs_mk)
 
-# sources in this directory:
-#   ffs.c   (read-only 4.4BSD-Lite2 FFS/UFS1 parser)
+# C sources (explicit; 4.5BSD tree has legacy files that must not build)
+fs_ffs_CSRCS := ffs.c install.c
+fs_ffs_COBJS := $(patsubst %.c,$(fs_ffs_OBJ_DIR)/%.o,$(fs_ffs_CSRCS))
+fs_ffs_ASMSRC := 
+fs_ffs_ASMOBJS := $(patsubst %.s,$(fs_ffs_OBJ_DIR)/%.o,$(patsubst %.asm,$(fs_ffs_OBJ_DIR)/%.o,$(fs_ffs_ASMSRC)))
 
-# The host-side image builder lives in bsd45/hdd/mkffs.py.  It writes the
-# same on-disk format that ffs.c parses (struct fs at byte 8192, 128-byte
-# struct dinode table, struct direct directories, direct-block files).
+fs_ffs_OBJS := $(fs_ffs_COBJS) $(fs_ffs_ASMOBJS)
+
+$(fs_ffs_COBJS):$(OBJ_DIR)/%.o:%.c
+	@echo ---------------------[build $<]----------------------------------
+	$(CC) $(CFLAGS) -c $(CPPFLAGS) $< -o $@
+
+clean::

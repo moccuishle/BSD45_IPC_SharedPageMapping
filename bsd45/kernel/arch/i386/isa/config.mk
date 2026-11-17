@@ -1,30 +1,30 @@
 # config.mk - kernel/arch/i386/isa
 #
-# Per-directory build configuration for the BSD45 kernel.
-# build_kernel.ps1 is the current driver; a kbuild-style build can
-# pick up obj-y/obj-m/dir-y from here.
+# kbuild-style per-directory config (tc216 Makefile/config.mk style).
+# THIS DIRECTORY PARTICIPATES IN THE KERNEL BUILD.
+#
+# current file directory
+MAKEFILE_DIR_arch_i386_isa_mk := $(dir $(abspath $(lastword $(MAKEFILE_LIST))))
+arch_i386_isa_OBJ_DIR = $(patsubst ${MAKEFILE_DIR_project_mk}%,${OBJ_DIR}/%,$(MAKEFILE_DIR_arch_i386_isa_mk))
+$(shell mkdir -p ${arch_i386_isa_OBJ_DIR})
 
-# obj-y += 
-# obj-m += 
-# dir-y += 
+# CPPFLAGS
+CPPFLAGS := $(CPPFLAGS) -I$(MAKEFILE_DIR_arch_i386_isa_mk)
 
-# sources in this directory:
-#   clock.c
-#   com.c
-#   fd.c
-#   icu.s
-#   if_apx.c
-#   if_ec.c
-#   if_ne.c
-#   if_we.c
-#   isa.c
-#   locore.s
-#   machdep.c
-#   npx.c
-#   pccons.c
-#   pmap.c
-#   wd.c
-#   wt.c
+# C sources (explicit; 4.5BSD tree has legacy files that must not build)
+arch_i386_isa_CSRCS := pmap.c machdep.c
+arch_i386_isa_COBJS := $(patsubst %.c,$(arch_i386_isa_OBJ_DIR)/%.o,$(arch_i386_isa_CSRCS))
+arch_i386_isa_ASMSRC := locore.s
+arch_i386_isa_ASMOBJS := $(patsubst %.s,$(arch_i386_isa_OBJ_DIR)/%.o,$(patsubst %.asm,$(arch_i386_isa_OBJ_DIR)/%.o,$(arch_i386_isa_ASMSRC)))
 
-# subdirectories:
-#   ic/
+arch_i386_isa_OBJS := $(arch_i386_isa_COBJS) $(arch_i386_isa_ASMOBJS)
+
+$(arch_i386_isa_COBJS):$(OBJ_DIR)/%.o:%.c
+	@echo ---------------------[build $<]----------------------------------
+	$(CC) $(CFLAGS) -c $(CPPFLAGS) $< -o $@
+
+$(arch_i386_isa_ASMOBJS):$(OBJ_DIR)/%.o:%.s
+	@echo ---------------------[build $<]----------------------------------
+	$(CC) -m32 -c -x assembler-with-cpp -nostdinc $(CPPFLAGS) $< -o $@
+
+clean::

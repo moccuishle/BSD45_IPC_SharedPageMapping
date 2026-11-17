@@ -1,44 +1,24 @@
-# config.mk - kernel/other/tests/benchmarks
+# config.mk - kernel/sys/legacy/tests/benchmarks
 #
-# Per-directory build configuration for the BSD45 kernel.
-# build_kernel.ps1 is the current driver; a kbuild-style build can
-# pick up obj-y/obj-m/dir-y from here.
+# kbuild-style per-directory config (tc216 Makefile/config.mk style).
+# This directory is NOT part of the current kernel build (legacy 4.5BSD
+# tree / placeholder). Sources are recorded as COMMENTS for reference.
+#
+# current file directory
+MAKEFILE_DIR_sys_legacy_tests_benchmarks_mk := $(dir $(abspath $(lastword $(MAKEFILE_LIST))))
+sys_legacy_tests_benchmarks_OBJ_DIR = $(patsubst ${MAKEFILE_DIR_project_mk}%,${OBJ_DIR}/%,$(MAKEFILE_DIR_sys_legacy_tests_benchmarks_mk))
+$(shell mkdir -p ${sys_legacy_tests_benchmarks_OBJ_DIR})
 
-# obj-y += 
-# obj-m += 
-# dir-y += 
+# CPPFLAGS
+CPPFLAGS := $(CPPFLAGS) -I$(MAKEFILE_DIR_sys_legacy_tests_benchmarks_mk)
 
-# sources in this directory:
-#   bigjob.c
-#   countenv.c
-#   csw.c
-#   execs.c
-#   forks.c
-#   gausspage.c
-#   nulljob.c
-#   pipeback.c
-#   pipediscard.c
-#   pipeself.c
-#   randbread.c
-#   random.c
-#   randpage.c
-#   randread.c
-#   randrewrite.c
-#   randwrite.c
-#   seqpage.c
-#   seqread.c
-#   seqrewrite.c
-#   seqwrite.c
-#   signocsw.c
-#   syscall.c
-#   udgback.c
-#   udgdiscard.c
-#   udgrand.c
-#   udgself.c
-#   valloc.c
-#   vexecs.c
-#   vforks.c
+# ---- NOT BUILT: source inventory (reference only) ----
+# subdirectories: bench-4.1/ inet/
+# include $(MAKEFILE_DIR_project_mk)/sys/legacy/tests/benchmarks/bench-4.1/config.mk
+# sys_legacy_tests_benchmarks_OBJS += ${sys_legacy_tests_benchmarks_bench_4.1_OBJS}
+# include $(MAKEFILE_DIR_project_mk)/sys/legacy/tests/benchmarks/inet/config.mk
+# sys_legacy_tests_benchmarks_OBJS += ${sys_legacy_tests_benchmarks_inet_OBJS}
 
-# subdirectories:
-#   bench-4.1/
-#   inet/
+sys_legacy_tests_benchmarks_OBJS :=
+
+clean::

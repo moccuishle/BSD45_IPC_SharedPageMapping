@@ -1,12 +1,20 @@
 # config.mk - kernel/arch/i386/floppy/rm
 #
-# Per-directory build configuration for the BSD45 kernel.
-# build_kernel.ps1 is the current driver; a kbuild-style build can
-# pick up obj-y/obj-m/dir-y from here.
+# kbuild-style per-directory config (tc216 Makefile/config.mk style).
+# This directory is NOT part of the current kernel build (legacy 4.5BSD
+# tree / placeholder). Sources are recorded as COMMENTS for reference.
+#
+# current file directory
+MAKEFILE_DIR_arch_i386_floppy_rm_mk := $(dir $(abspath $(lastword $(MAKEFILE_LIST))))
+arch_i386_floppy_rm_OBJ_DIR = $(patsubst ${MAKEFILE_DIR_project_mk}%,${OBJ_DIR}/%,$(MAKEFILE_DIR_arch_i386_floppy_rm_mk))
+$(shell mkdir -p ${arch_i386_floppy_rm_OBJ_DIR})
 
-# obj-y += 
-# obj-m += 
-# dir-y += 
+# CPPFLAGS
+CPPFLAGS := $(CPPFLAGS) -I$(MAKEFILE_DIR_arch_i386_floppy_rm_mk)
 
-# sources in this directory:
-#   rm.c
+# ---- NOT BUILT: source inventory (reference only) ----
+# (empty placeholder directory)
+
+arch_i386_floppy_rm_OBJS :=
+
+clean::

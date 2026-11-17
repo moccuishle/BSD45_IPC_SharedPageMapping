@@ -1,30 +1,20 @@
 # config.mk - kernel/arch/vax/vax
 #
-# Per-directory build configuration for the BSD45 kernel.
-# build_kernel.ps1 is the current driver; a kbuild-style build can
-# pick up obj-y/obj-m/dir-y from here.
+# kbuild-style per-directory config (tc216 Makefile/config.mk style).
+# This directory is NOT part of the current kernel build (legacy 4.5BSD
+# tree / placeholder). Sources are recorded as COMMENTS for reference.
+#
+# current file directory
+MAKEFILE_DIR_arch_vax_vax_mk := $(dir $(abspath $(lastword $(MAKEFILE_LIST))))
+arch_vax_vax_OBJ_DIR = $(patsubst ${MAKEFILE_DIR_project_mk}%,${OBJ_DIR}/%,$(MAKEFILE_DIR_arch_vax_vax_mk))
+$(shell mkdir -p ${arch_vax_vax_OBJ_DIR})
 
-# obj-y += 
-# obj-m += 
-# dir-y += 
+# CPPFLAGS
+CPPFLAGS := $(CPPFLAGS) -I$(MAKEFILE_DIR_arch_vax_vax_mk)
 
-# sources in this directory:
-#   autoconf.c
-#   conf.c
-#   cpudata.c
-#   crl.c
-#   dkbad.c
-#   emulate.s
-#   genassym.c
-#   in_cksum.c
-#   ka630.c
-#   ka650.c
-#   ka730.c
-#   ka750.c
-#   ka780.c
-#   ka820.c
-#   ka860.c
-#   mscp.c
-#   ns_cksum.c
-#   rx50.c
-#   swapgeneric.c
+# ---- NOT BUILT: source inventory (reference only) ----
+# (empty placeholder directory)
+
+arch_vax_vax_OBJS :=
+
+clean::

@@ -1,21 +1,20 @@
 # config.mk - kernel/arch/luna68k/dev
 #
-# Per-directory build configuration for the BSD45 kernel.
-# build_kernel.ps1 is the current driver; a kbuild-style build can
-# pick up obj-y/obj-m/dir-y from here.
+# kbuild-style per-directory config (tc216 Makefile/config.mk style).
+# This directory is NOT part of the current kernel build (legacy 4.5BSD
+# tree / placeholder). Sources are recorded as COMMENTS for reference.
+#
+# current file directory
+MAKEFILE_DIR_arch_luna68k_dev_mk := $(dir $(abspath $(lastword $(MAKEFILE_LIST))))
+arch_luna68k_dev_OBJ_DIR = $(patsubst ${MAKEFILE_DIR_project_mk}%,${OBJ_DIR}/%,$(MAKEFILE_DIR_arch_luna68k_dev_mk))
+$(shell mkdir -p ${arch_luna68k_dev_OBJ_DIR})
 
-# obj-y += 
-# obj-m += 
-# dir-y += 
+# CPPFLAGS
+CPPFLAGS := $(CPPFLAGS) -I$(MAKEFILE_DIR_arch_luna68k_dev_mk)
 
-# sources in this directory:
-#   bmc.c
-#   bmd.c
-#   dbgprf.c
-#   fb.c
-#   if_le.c
-#   kbd.c
-#   sc.c
-#   sd.c
-#   sio.c
-#   st.c
+# ---- NOT BUILT: source inventory (reference only) ----
+# (empty placeholder directory)
+
+arch_luna68k_dev_OBJS :=
+
+clean::

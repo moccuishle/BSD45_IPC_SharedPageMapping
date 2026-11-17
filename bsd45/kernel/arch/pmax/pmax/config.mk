@@ -1,27 +1,20 @@
 # config.mk - kernel/arch/pmax/pmax
 #
-# Per-directory build configuration for the BSD45 kernel.
-# build_kernel.ps1 is the current driver; a kbuild-style build can
-# pick up obj-y/obj-m/dir-y from here.
+# kbuild-style per-directory config (tc216 Makefile/config.mk style).
+# This directory is NOT part of the current kernel build (legacy 4.5BSD
+# tree / placeholder). Sources are recorded as COMMENTS for reference.
+#
+# current file directory
+MAKEFILE_DIR_arch_pmax_pmax_mk := $(dir $(abspath $(lastword $(MAKEFILE_LIST))))
+arch_pmax_pmax_OBJ_DIR = $(patsubst ${MAKEFILE_DIR_project_mk}%,${OBJ_DIR}/%,$(MAKEFILE_DIR_arch_pmax_pmax_mk))
+$(shell mkdir -p ${arch_pmax_pmax_OBJ_DIR})
 
-# obj-y += 
-# obj-m += 
-# dir-y += 
+# CPPFLAGS
+CPPFLAGS := $(CPPFLAGS) -I$(MAKEFILE_DIR_arch_pmax_pmax_mk)
 
-# sources in this directory:
-#   autoconf.c
-#   clock.c
-#   conf.c
-#   cons.c
-#   fp.s
-#   genassym.c
-#   kadb.c
-#   locore.s
-#   machdep.c
-#   mem.c
-#   pmap.c
-#   procfs_machdep.c
-#   swapgeneric.c
-#   sys_machdep.c
-#   trap.c
-#   vm_machdep.c
+# ---- NOT BUILT: source inventory (reference only) ----
+# (empty placeholder directory)
+
+arch_pmax_pmax_OBJS :=
+
+clean::

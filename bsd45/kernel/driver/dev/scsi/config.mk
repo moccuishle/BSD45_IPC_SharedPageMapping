@@ -1,13 +1,20 @@
 # config.mk - kernel/driver/dev/scsi
 #
-# Per-directory build configuration for the BSD45 kernel.
-# build_kernel.ps1 is the current driver; a kbuild-style build can
-# pick up obj-y/obj-m/dir-y from here.
+# kbuild-style per-directory config (tc216 Makefile/config.mk style).
+# This directory is NOT part of the current kernel build (legacy 4.5BSD
+# tree / placeholder). Sources are recorded as COMMENTS for reference.
+#
+# current file directory
+MAKEFILE_DIR_driver_dev_scsi_mk := $(dir $(abspath $(lastword $(MAKEFILE_LIST))))
+driver_dev_scsi_OBJ_DIR = $(patsubst ${MAKEFILE_DIR_project_mk}%,${OBJ_DIR}/%,$(MAKEFILE_DIR_driver_dev_scsi_mk))
+$(shell mkdir -p ${driver_dev_scsi_OBJ_DIR})
 
-# obj-y += 
-# obj-m += 
-# dir-y += 
+# CPPFLAGS
+CPPFLAGS := $(CPPFLAGS) -I$(MAKEFILE_DIR_driver_dev_scsi_mk)
 
-# sources in this directory:
-#   scsi_subr.c
-#   sd.c
+# ---- NOT BUILT: source inventory (reference only) ----
+# (empty placeholder directory)
+
+driver_dev_scsi_OBJS :=
+
+clean::

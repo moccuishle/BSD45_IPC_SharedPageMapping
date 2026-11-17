@@ -1,24 +1,20 @@
-# config.mk - kernel/other/tests/nfs/billboard/src
+# config.mk - kernel/sys/legacy/tests/nfs/billboard/src
 #
-# Per-directory build configuration for the BSD45 kernel.
-# build_kernel.ps1 is the current driver; a kbuild-style build can
-# pick up obj-y/obj-m/dir-y from here.
+# kbuild-style per-directory config (tc216 Makefile/config.mk style).
+# This directory is NOT part of the current kernel build (legacy 4.5BSD
+# tree / placeholder). Sources are recorded as COMMENTS for reference.
+#
+# current file directory
+MAKEFILE_DIR_sys_legacy_tests_nfs_billboard_src_mk := $(dir $(abspath $(lastword $(MAKEFILE_LIST))))
+sys_legacy_tests_nfs_billboard_src_OBJ_DIR = $(patsubst ${MAKEFILE_DIR_project_mk}%,${OBJ_DIR}/%,$(MAKEFILE_DIR_sys_legacy_tests_nfs_billboard_src_mk))
+$(shell mkdir -p ${sys_legacy_tests_nfs_billboard_src_OBJ_DIR})
 
-# obj-y += 
-# obj-m += 
-# dir-y += 
+# CPPFLAGS
+CPPFLAGS := $(CPPFLAGS) -I$(MAKEFILE_DIR_sys_legacy_tests_nfs_billboard_src_mk)
 
-# sources in this directory:
-#   bb_board.c
-#   bb_codata.c
-#   bb_grid.c
-#   bb_hash.c
-#   bb_ip.c
-#   bb_list.c
-#   bb_passwd.c
-#   bb_phase.c
-#   bb_server.c
-#   bb_set.c
-#   billboard.c
-#   billboard_rpc.c
-#   billboard_util.c
+# ---- NOT BUILT: source inventory (reference only) ----
+# (empty placeholder directory)
+
+sys_legacy_tests_nfs_billboard_src_OBJS :=
+
+clean::

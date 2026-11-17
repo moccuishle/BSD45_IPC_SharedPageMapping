@@ -1,19 +1,20 @@
 # config.mk - kernel/arch/hp/dev
 #
-# Per-directory build configuration for the BSD45 kernel.
-# build_kernel.ps1 is the current driver; a kbuild-style build can
-# pick up obj-y/obj-m/dir-y from here.
+# kbuild-style per-directory config (tc216 Makefile/config.mk style).
+# This directory is NOT part of the current kernel build (legacy 4.5BSD
+# tree / placeholder). Sources are recorded as COMMENTS for reference.
+#
+# current file directory
+MAKEFILE_DIR_arch_hp_dev_mk := $(dir $(abspath $(lastword $(MAKEFILE_LIST))))
+arch_hp_dev_OBJ_DIR = $(patsubst ${MAKEFILE_DIR_project_mk}%,${OBJ_DIR}/%,$(MAKEFILE_DIR_arch_hp_dev_mk))
+$(shell mkdir -p ${arch_hp_dev_OBJ_DIR})
 
-# obj-y += 
-# obj-m += 
-# dir-y += 
+# CPPFLAGS
+CPPFLAGS := $(CPPFLAGS) -I$(MAKEFILE_DIR_arch_hp_dev_mk)
 
-# sources in this directory:
-#   cons.c
-#   dca.c
-#   grf.c
-#   hil.c
-#   hil_keymaps.c
-#   hil_subr.c
-#   ite.c
-#   ite_subr.c
+# ---- NOT BUILT: source inventory (reference only) ----
+# (empty placeholder directory)
+
+arch_hp_dev_OBJS :=
+
+clean::

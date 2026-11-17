@@ -1,22 +1,22 @@
 # config.mk - kernel/net/netiso/xebec
 #
-# Per-directory build configuration for the BSD45 kernel.
-# build_kernel.ps1 is the current driver; a kbuild-style build can
-# pick up obj-y/obj-m/dir-y from here.
+# kbuild-style per-directory config (tc216 Makefile/config.mk style).
+# This directory is NOT part of the current kernel build (legacy 4.5BSD
+# tree / placeholder). Sources are recorded as COMMENTS for reference.
+#
+# current file directory
+MAKEFILE_DIR_net_netiso_xebec_mk := $(dir $(abspath $(lastword $(MAKEFILE_LIST))))
+net_netiso_xebec_OBJ_DIR = $(patsubst ${MAKEFILE_DIR_project_mk}%,${OBJ_DIR}/%,$(MAKEFILE_DIR_net_netiso_xebec_mk))
+$(shell mkdir -p ${net_netiso_xebec_OBJ_DIR})
 
-# obj-y += 
-# obj-m += 
-# dir-y += 
+# CPPFLAGS
+CPPFLAGS := $(CPPFLAGS) -I$(MAKEFILE_DIR_net_netiso_xebec_mk)
 
-# sources in this directory:
-#   llparse.c
-#   llscan.c
-#   main.c
-#   malloc.c
-#   procs.c
-#   putdriver.c
-#   sets.c
-#   xebec.c
+# ---- NOT BUILT: source inventory (reference only) ----
+# subdirectories: test/
+# include $(MAKEFILE_DIR_project_mk)/net/netiso/xebec/test/config.mk
+# net_netiso_xebec_OBJS += ${net_netiso_xebec_test_OBJS}
 
-# subdirectories:
-#   test/
+net_netiso_xebec_OBJS :=
+
+clean::

@@ -1,48 +1,26 @@
-﻿# config.mk - kernel/lib
+# config.mk - kernel/lib
 #
-# Per-directory build configuration for the BSD45 kernel.
-# build_kernel.ps1 is the current driver; a kbuild-style build can
-# pick up obj-y/obj-m/dir-y from here.
+# kbuild-style per-directory config (tc216 Makefile/config.mk style).
+# THIS DIRECTORY PARTICIPATES IN THE KERNEL BUILD.
+#
+# current file directory
+MAKEFILE_DIR_lib_mk := $(dir $(abspath $(lastword $(MAKEFILE_LIST))))
+lib_OBJ_DIR = $(patsubst ${MAKEFILE_DIR_project_mk}%,${OBJ_DIR}/%,$(MAKEFILE_DIR_lib_mk))
+$(shell mkdir -p ${lib_OBJ_DIR})
 
-# obj-y += 
-# obj-m += 
-# dir-y += 
+# CPPFLAGS
+CPPFLAGS := $(CPPFLAGS) -I$(MAKEFILE_DIR_lib_mk)
 
-# sources in this directory:
-#   adddi3.c
-#   anddi3.c
-#   ashldi3.c
-#   ashrdi3.c
-#   bcmp.c
-#   cmpdi2.c
-#   divdi3.c
-#   ffs.c
-#   iordi3.c
-#   locc.c
-#   lshldi3.c
-#   lshrdi3.c
-#   mcount.c
-#   moddi3.c
-#   muldi3.c
-#   negdi2.c
-#   notdi2.c
-#   qdivrem.c
-#   random.c
-#   rindex.c
-#   scanc.c
-#   skpc.c
-#   strcat.c
-#   strcmp.c
-#   strcpy.c
-#   strlen.c
-#   strncpy.c
-#   subdi3.c
-#   ucmpdi2.c
-#   udivdi3.c
-#   umoddi3.c
-#   xordi3.c
+# C sources (explicit; 4.5BSD tree has legacy files that must not build)
+lib_CSRCS := bcmp.c strcmp.c strlen.c strings.c kstr.c
+lib_COBJS := $(patsubst %.c,$(lib_OBJ_DIR)/%.o,$(lib_CSRCS))
+lib_ASMSRC := 
+lib_ASMOBJS := $(patsubst %.s,$(lib_OBJ_DIR)/%.o,$(patsubst %.asm,$(lib_OBJ_DIR)/%.o,$(lib_ASMSRC)))
 
-# subdirectories:
-#   sparc/
-#   kstr.c
-#   strings.c
+lib_OBJS := $(lib_COBJS) $(lib_ASMOBJS)
+
+$(lib_COBJS):$(OBJ_DIR)/%.o:%.c
+	@echo ---------------------[build $<]----------------------------------
+	$(CC) $(CFLAGS) -c $(CPPFLAGS) $< -o $@
+
+clean::
