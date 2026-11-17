@@ -2471,16 +2471,51 @@ unsigned sched_switches;
  * process, then round-robins a thread within it (affinity: last me's proc
  * wins ties, preserving cache locality).
  */
-#define	ESTCPU_DECAY_SHIFT	2	/* divide-by-4 periodic decay */
+/*
+ * 4.4BSD estcpu model (McKusick).  estcpu is charged +1 each tick a process
+ * runs, and decayed ONCE PER SECOND by:
+ *     estcpu = (2*loadavg * estcpu) / (2*loadavg + 1) + nice
+ * so decay = 2L/(2L+1): a busy system decays slowly (L large -> decay~1),
+ * an idle one decays fast (L=1 -> 2/3).  This is what makes interactive
+ * (mostly-sleeping) processes keep a low estcpu and wake up at high priority.
+ * The old code decayed by >>2 EVERY tick, which drove estcpu to 0 (bug).
+ */
+#define	ESTCPU_HZ	100		/* PIT Hz: one decay per 100 ticks */
+#define	ESTCPU_MAX	255
 
+static unsigned estcpu_tick_count;	/* ticks since last 1-second decay */
+
+static int tcb_runnable(struct kthread *t);	/* forward decl */
+
+/* EN: Approximate loadavg as the number of runnable threads (min 1). */
+static int
+estcpu_loadavg(void)
+{
+	int i, n = 0;
+
+	for (i = 0; i < NKTHREAD; i++)
+		if (tcb_runnable(&kthreads[i]))
+			n++;
+	return (n < 1 ? 1 : n);
+}
+
+/* EN: One-second BSD decay of every process's estcpu. */
 static void
 estcpu_decay_all(void)
 {
-	int i;
+	int i, L2 = 2 * estcpu_loadavg();	/* 2 * loadavg */
 
-	for (i = 0; i < NPROC; i++)
-		if (procs[i].uk_state != P_FREE)
-			procs[i].uk_estcpu >>= ESTCPU_DECAY_SHIFT;
+	for (i = 0; i < NPROC; i++) {
+		struct proc *p = &procs[i];
+
+		if (p->uk_state == P_FREE)
+			continue;
+		/* estcpu = estcpu * 2L/(2L+1) + nice */
+		p->uk_estcpu = (p->uk_estcpu * L2) / (L2 + 1) +
+		    (unsigned)(p->p_nice > 0 ? p->p_nice : 0);
+		if (p->uk_estcpu > ESTCPU_MAX)
+			p->uk_estcpu = ESTCPU_MAX;
+	}
 }
 
 /* EN: Is a TCB currently runnable (TCB state + whole-process block rule)? */
@@ -2514,8 +2549,10 @@ sched_interaction_penalty(struct kthread *t)
 
 	if (t == 0 || (p = t->t_proc) == 0)
 		return (0);
-	penalty = (int)(p->uk_estcpu >> 8);	/* every 256 CPU ticks = -1 */
-	penalty += (int)p->p_nice >> 2;		/* nice in 4-point steps */
+	/* 4.4BSD: usrpri = PUSER + estcpu/4 + 2*nice.  estcpu (0..255)
+	 * contributes 0..63; compress into a few priority levels here. */
+	penalty = (int)(p->uk_estcpu / 32);	/* estcpu/4 scaled to levels */
+	penalty += 2 * (int)(p->p_nice > 0 ? p->p_nice : 0) / 4; /* 2*nice */
 	if (penalty > 8)
 		penalty = 8;
 	return (penalty);
@@ -2587,9 +2624,14 @@ sched_tick(struct sysregs *r)
 		me->t_regs = *r;
 
 	/* charge this tick: process CPU accounting + thread quantum/counters */
-	mp->uk_estcpu++;
+	if (mp->uk_estcpu < ESTCPU_MAX)
+		mp->uk_estcpu++;		/* BSD: running process accumulates */
 	sched_on_tick(me);			/* quantum + CPU-bound detection */
-	estcpu_decay_all();
+	/* BSD: decay once per second (100 PIT ticks), not every tick */
+	if (++estcpu_tick_count >= ESTCPU_HZ) {
+		estcpu_tick_count = 0;
+		estcpu_decay_all();
+	}
 
 	/* anti-starvation: every waiting-but-runnable thread ages upward */
 	{
