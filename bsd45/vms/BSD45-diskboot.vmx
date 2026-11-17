@@ -1,0 +1,47 @@
+.encoding = "windows-1252"
+config.version = "8"
+virtualHW.version = "12"
+displayName = "BSD45 - boot from installed disk"
+guestOS = "other"
+memsize = "64"
+numvcpus = "1"
+
+# ---- installed BSD45 virtual disk on ide0:0 (primary master) ----
+ide0:0.present = "TRUE"
+ide0:0.deviceType = "disk"
+ide0:0.fileName = "BSD45-installed.vmdk"
+ide0:0.startConnected = "TRUE"
+
+# No CD: glue.c detects the ATA disk and mounts the FFS root from it.
+ide1:0.present = "FALSE"
+
+usb.present = "FALSE"
+keyboard.vusb.enable = "FALSE"
+mouse.vusb.enable = "FALSE"
+keyboard.allowBothIRQs = "FALSE"
+
+bios.bootOrder = "hdd"
+
+serial0.present = "TRUE"
+serial0.fileType = "file"
+serial0.fileName = "bsd45-boot-serial.log"
+
+extendedConfigFile = "BSD45-diskboot.vmxf"
+virtualHW.productCompatibility = "hosted"
+ide0:1.present = "FALSE"
+ide1:1.present = "FALSE"
+floppy0.present = "FALSE"
+ethernet0.present = "FALSE"
+sound.present = "FALSE"
+vmxstats.filename = "BSD45-diskboot.scoreboard"
+numa.autosize.cookie = "10001"
+numa.autosize.vcpu.maxPerVirtualNode = "1"
+uuid.bios = "56 4d d2 1c 72 af df eb-d3 7a 66 07 f2 db e0 f6"
+uuid.location = "56 4d d2 1c 72 af df eb-d3 7a 66 07 f2 db e0 f6"
+ide0:0.redo = ""
+svga.vramSize = "134217728"
+vmotion.checkpointFBSize = "134217728"
+vmotion.checkpointSVGAPrimarySize = "134217728"
+monitor.phys_bits_used = "42"
+cleanShutdown = "TRUE"
+softPowerOff = "FALSE"

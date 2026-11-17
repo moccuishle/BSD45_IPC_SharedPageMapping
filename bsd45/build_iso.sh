@@ -6,7 +6,8 @@ ws="$(cd "$(dirname "$0")" && pwd)"
 
 kernel="${1:-$ws/build/bsd45.elf}"
 out_iso="${2:-$ws/out/BSD45-ELF-x86.iso}"
-kernel_lba="${3:-2048}"
+# Keep in sync with build_iso.ps1 default (4096).
+kernel_lba="${3:-4096}"
 bld="$ws/build"
 boot="$ws/boot"
 out="$ws/out"
@@ -19,14 +20,16 @@ rm -rf "$isodir"; mkdir -p "$isodir"
 
 build_stage() {   # build_stage <src> <text> <name> <entry>
     local src="$1" text="$2" name="$3" entry="$4"
-    gcc -m32 -c -x assembler-with-cpp -o "$bld/$name.o" "$src" || exit 1
-    ld -m elf_i386 -Ttext "$text" -e "$entry" -o "$bld/$name.elf" "$bld/$name.o" || exit 1
-    objcopy -O binary --only-section=.text "$bld/$name.elf" "$bld/$name.bin" || exit 1
+    # NOTE: this runs inside $(...) (a subshell), so use `return`, not `exit`
+    # (exit would only kill the subshell and leave an empty $s1/$s2).
+    gcc -m32 -c -x assembler-with-cpp -o "$bld/$name.o" "$src" || return 1
+    ld -m elf_i386 -Ttext "$text" -e "$entry" -o "$bld/$name.elf" "$bld/$name.o" || return 1
+    objcopy -O binary --only-section=.text "$bld/$name.elf" "$bld/$name.bin" || return 1
     echo "$bld/$name.bin"
 }
 
-s1="$(build_stage "$boot/i386/stage1.s" 0x7C00  stage1 _start)"
-s2="$(build_stage "$boot/i386/stage2.s" 0x90000 stage2 _start32)"
+s1="$(build_stage "$boot/i386/stage1.s" 0x7C00  stage1 _start)" || { echo "stage1 build failed" >&2; exit 1; }
+s2="$(build_stage "$boot/i386/stage2.s" 0x90000 stage2 _start32)" || { echo "stage2 build failed" >&2; exit 1; }
 n1=$(stat -c%s "$s1" 2>/dev/null || wc -c < "$s1")
 n2=$(stat -c%s "$s2" 2>/dev/null || wc -c < "$s2")
 [ "$n1" -eq 512 ] || { echo "stage1 must be 512 bytes, got $n1" >&2; exit 1; }
@@ -63,12 +66,33 @@ for pair in "sh:bin/SH.ELF" "init:sbin/INIT.ELF" "hello:HELLO.ELF" "test:TEST.EL
             "uname:bin/UNAME.ELF" "true:bin/TRUE.ELF" "false:bin/FALSE.ELF" \
             "date:bin/DATE.ELF" "vmstat:bin/VMSTAT.ELF" \
             "mmaptest:bin/MMAPTEST.ELF" "subtest:bin/SUBTEST.ELF" \
+            "pthread:bin/PTHREAD.ELF" \
             "spin:bin/SPIN.ELF" "cowtest:bin/COWTEST.ELF" \
             "crash:bin/CRASH.ELF" "badptr:bin/BADPTR.ELF" \
             "aiotest:bin/AIOTEST.ELF" "uring:bin/uring.ELF"; do
     name="${pair%%:*}"; dst="${pair#*:}"
     [ -f "$ws/out/userland/$name.elf" ] && cp -f "$ws/out/userland/$name.elf" "$isodir/$dst"
 done
+
+# S-install: build the FFS image that the in-guest `install` command writes
+# to the VMware virtual disk, and ship it on the ISO as BSD45.FFS.
+# This is the Ubuntu equivalent of the Get-Python block in build_iso.ps1.
+if command -v python3 >/dev/null 2>&1; then
+    if python3 "$ws/hdd/make_install_ffs.py" "$ws/hdd/BSD45.FFS"; then
+        ffs_img="$ws/hdd/BSD45.FFS"
+        if [ -f "$ffs_img" ]; then
+            cp -f "$ffs_img" "$isodir/BSD45.FFS"
+            echo "BSD45.FFS: $(stat -c%s "$ffs_img" 2>/dev/null || wc -c < "$ffs_img") bytes"
+        fi
+    else
+        echo "ERROR: make_install_ffs.py failed, BSD45.FFS not shipped" >&2
+        exit 1
+    fi
+else
+    echo "ERROR: python3 not found, BSD45.FFS not generated (install would be unavailable)" >&2
+    exit 1
+fi
+
 cp -f "$img" "$isodir/boot.img"
 
 # rootfs_overlay/ is copied on top of the ISO root
@@ -91,11 +115,16 @@ esac || { echo "mkisofs failed" >&2; exit 1; }
 iso_size=$(stat -c%s "$out_iso" 2>/dev/null || wc -c < "$out_iso")
 target=$((kernel_lba * 2048))
 [ "$iso_size" -le "$target" ] || { echo "ISO already larger than kernel LBA" >&2; exit 1; }
-dd if=/dev/zero bs=1 count=$((target - iso_size)) status=none >> "$out_iso"
+# Pad in 4 KiB blocks (bs=1 over ~8 MB would take millions of writes).
+pad_bytes=$((target - iso_size))
+pad_blocks=$((pad_bytes / 4096))
+pad_rest=$((pad_bytes % 4096))
+[ "$pad_blocks" -gt 0 ] && dd if=/dev/zero bs=4096 count="$pad_blocks" status=none >> "$out_iso"
+[ "$pad_rest" -gt 0 ] && dd if=/dev/zero bs=1 count="$pad_rest" status=none >> "$out_iso"
 cat "$kernel" >> "$out_iso"
 kbytes=$(stat -c%s "$kernel" 2>/dev/null || wc -c < "$kernel")
 pad2=$(( (2048 - (kbytes % 2048)) % 2048 ))
-[ "$pad2" -gt 0 ] && dd if=/dev/zero bs=1 count="$pad2" status=none >> "$out_iso"
+[ "$pad2" -gt 0 ] && dd if=/dev/zero bs="$pad2" count=1 status=none >> "$out_iso"
 
 echo "ISO: $out_iso ($(stat -c%s "$out_iso" 2>/dev/null || wc -c < "$out_iso") bytes), kernel at LBA $kernel_lba"
 

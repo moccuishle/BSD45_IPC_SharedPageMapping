@@ -4,7 +4,8 @@ param(
     [switch]$NoLink,
     [string]$Only = "",
     [switch]$Unicode,
-    [string]$Arch = "i386"
+    [string]$Arch = "i386",
+    [string]$Define = ""
 )
 
 $ErrorActionPreference = "Continue"
@@ -193,6 +194,7 @@ $cflags = @(
     "-isystem", $gccinc, "-DKERNEL", "-DARCH_$Arch", "-B", $ccb
 )
 if ($Unicode) { $cflags += "-DKERNEL_UNICODE=1" }
+if ($Define) { foreach ($d in ($Define -split ',')) { $cflags += "-D$d" } }
 
 function Compile-C([string]$file, [string]$out) {
     $args = $cflags + @("-c", "-o", $out, $file)

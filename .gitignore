@@ -47,3 +47,6 @@ __pycache__/
 **/bsd45/vms/*.vmem
 **/bsd45/vms/*.vmsn
 **/bsd45/vms/*.vmss
+
+# ---- VMware virtual disks (generated/installed artifacts) ----
+*.vmdk

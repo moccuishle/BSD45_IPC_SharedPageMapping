@@ -307,6 +307,15 @@ monitor(void)
 	/* verification build only: run the S10.1 stress without a keyboard */
 	cmd_vstress();
 #endif
+#ifdef VM_INSTALL_AUTOTEST
+	/* verification build only: run the ISO->disk install without a keyboard.
+	 * VMware serial pipes cannot be read reliably from the host, so the
+	 * install is triggered in-kernel and the console is captured to a file. */
+	if (install_to_disk() == 0)
+		printf("AUTOINSTALL: SUCCESS\n");
+	else
+		printf("AUTOINSTALL: FAILED\n");
+#endif
 
 	for (;;) {
 		printf("bsd45> ");
