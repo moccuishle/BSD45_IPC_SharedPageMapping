@@ -27,7 +27,7 @@
 #define	KSTACK_VA	0xFEA00000
 #define	KSTACK_SIZE	8192
 
-struct uproc;
+struct proc;
 
 struct kthread {
 	int		t_state;
@@ -39,8 +39,16 @@ struct kthread {
 	unsigned	t_stack_top;
 	void		*t_stack_va;
 	int		t_used;
-	/* user threads: t_proc != NULL */
-	struct uproc	*t_proc;
+	/* KLT: threads belonging to a process form a list via t_next;
+	 * t_proc points back to the owning kernel process object. */
+	struct proc	*t_proc;
+	struct kthread	*t_next;	/* next thread in proc->uk_p_threads list */
+	struct kthread	*t_rqnext;	/* next TCB in the scheduler run queue */
+	int		t_onrq;		/* 1 if currently linked on the run queue */
+	/* Scheduling: the quantum is per-thread, fairness is per-process. */
+	int		t_ticks;	/* ticks consumed in current quantum */
+	int		t_lastcpu;	/* affinity: last CPU this thread ran on */
+	void		*t_wchan;	/* non-NULL => blocked on this channel */
 	struct sysregs	t_regs;
 	int		t_wait_pid;
 	unsigned	t_wait_status;
@@ -67,7 +75,7 @@ extern struct kthread kthreads[NKTHREAD];
 void	kthread_init(void);
 struct kthread *kthread_spawn(const char *name, void (*entry)(void *),
 	    void *arg);
-struct kthread *kthread_user_spawn(struct uproc *p, int tid);
+struct kthread *kthread_user_spawn(struct proc *p, int tid);
 struct kthread *kthread_user_find(int tid);
 void	kthread_user_free(struct kthread *t);
 void	kthread_exit(void);

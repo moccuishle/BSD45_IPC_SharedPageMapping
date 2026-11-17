@@ -44,6 +44,7 @@
 #include <machine/proc.h>		/* Machine-dependent proc substruct. */
 #include <sys/select.h>			/* For struct selinfo. */
 #include <sys/queue.h>
+#include <sys/kproc.h>			/* Kernel-mode process runtime state + KLT list */
 
 /*
  * One structure allocated per session.
@@ -169,6 +170,54 @@ struct	proc {
 	u_short	p_xstat;	/* Exit status for wait; also stop signal. */
 	u_short	p_acflag;	/* Accounting flags. */
 	struct	rusage *p_ru;	/* Exit information. XXX */
+
+	/*
+	 * BSD45-port process runtime state, appended at the tail so legacy
+	 * offsets used by genassym.c/machdep.c stay valid.  struct proc is the
+	 * authoritative kernel process object: it owns the address space (uk_pd),
+	 * resources and a KLT list (uk_threads).  The uk_ prefix avoids colliding
+	 * with legacy BSD p_* fields.
+	 */
+	int		uk_state;
+	int		uk_pipeidx;
+	int		uk_piperw;
+	unsigned	uk_pipeat;
+	unsigned	uk_pipelen;
+	int		uk_pid;
+	int		uk_ppid;
+	unsigned	uk_pd;			/* page directory = address space */
+	unsigned	uk_brk_mapped;
+	struct kfd	uk_fds[KPROC_NFD];
+	struct sysregs	uk_regs;	/* main thread's resume context */
+	int		uk_exitcode;
+	int		uk_wait_pid;
+	unsigned	uk_wait_status;
+	int		uk_vfork_wait;
+	int		uk_vfork_child;
+	unsigned	uk_p_sig;
+	unsigned	uk_p_sigmask;
+	unsigned	uk_p_sigignore;
+	unsigned	uk_p_sigcatch;
+	unsigned	uk_p_sighand[KPROC_NSIG];
+	int		uk_p_pgrp;
+	char		uk_p_cwd[KPROC_CWDLEN];
+	char		uk_p_comm[KPROC_MAXCOMMLEN];
+	int		uk_p_stopsig;
+	int		uk_p_termsig;
+	int		uk_p_cont;
+	unsigned	uk_wait_options;
+	unsigned	uk_p_mmap_base;
+	struct kvma	uk_p_vma[KPROC_NMAP];
+	struct kthread	*uk_p_thread;	/* running thread of this process */
+	struct kthread	*uk_p_threads;	/* head of this process's KLT list */
+	int		uk_p_nthreads;
+	int		uk_p_next_tid;
+	int		uk_aio_wait_token;
+	int		uk_uring_wait;
+	/* Process-level fairness (BSD estcpu style): decayed CPU usage is
+	 * charged here so a process with 100 threads does not get 100x CPU. */
+	unsigned	uk_estcpu;	/* decayed per-process CPU usage */
+	int		uk_rq_threads;	/* runnable threads this process has on the RQ */
 };
 
 #define	p_session	p_pgrp->pg_session

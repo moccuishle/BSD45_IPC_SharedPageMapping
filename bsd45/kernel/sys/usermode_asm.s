@@ -75,7 +75,10 @@ _resume_user:
 	movw	%dx, %es
 	movw	%dx, %fs
 	movw	%dx, %gs
+	testl	%eax, %eax		/* pd == 0 means same address space: keep CR3 */
+	jz	1f
 	movl	%eax, %cr3
+1:
 	movl	20(%esp), %eax		/* user eax */
 	iret
 

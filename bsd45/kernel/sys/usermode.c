@@ -149,33 +149,9 @@ static struct file ramfs[] = {
 #define	MMAP_BASE	0x10000000
 #define	MMAP_LIMIT	0x30000000
 #define	MMAP_MAXLEN	0x400000	/* 4 MB per mapping */
-#define	NMAP		8
+#define	NMAP		KPROC_NMAP
 
-struct vma {
-	int		used;
-	unsigned	start;
-	unsigned	len;
-	unsigned	off;
-	unsigned	vid;		/* vnode id at map time */
-	struct vnode	*vp;
-	int		prot;
-	int		flags;
-};
-
-struct fd {
-	const unsigned char	*d;
-	unsigned		len;
-	unsigned		off;
-	int			used;
-	int			type;		/* FD_FILE, FD_DIR or FD_PIPE */
-	unsigned		lba;		/* directory start lba */
-	unsigned		dsize;		/* directory size in bytes */
-	unsigned		dpos;		/* next directory record offset */
-	int			pipeidx;	/* pipe table slot */
-	int			rw;		/* 1 = read end, 2 = write end */
-	int			node;		/* tmpfs node index */
-	struct vnode		*vp;		/* file/dir through the VFS */
-};
+/* struct kvma / struct kfd are defined in sys/kproc.h (via sys/proc.h). */
 
 /* saved user context (struct sysregs) is declared in sys/platform.h */
 
@@ -217,51 +193,30 @@ struct fd {
 
 #define	SIG_TO_MASK(s)	(1u << (s))
 
-struct uproc {
-	int		state;
-	int		pipeidx;	/* pipe we are blocked on */
-	int		piperw;		/* 1 = read, 2 = write */
-	unsigned	pipeat;		/* pending user buffer */
-	unsigned	pipelen;	/* pending user length */
-	int		pid;		/* 1 = init */
-	int		ppid;
-	unsigned	pd;		/* page directory */
-	unsigned	brk_mapped;	/* next heap page to map */
-	struct fd	fds[NFD];
-	struct sysregs	regs;		/* context to resume */
-	int		exitcode;
-	int		wait_pid;	/* pid being waited for (0 = any) */
-	unsigned	wait_status;	/* user status pointer for wait4 */
-	int		vfork_wait;	/* blocked in vfork() */
-	int		vfork_child;	/* shares the parent's address space */
-	/* S10.2: signals and process groups */
-	unsigned	p_sig;		/* pending signals */
-	unsigned	p_sigmask;	/* blocked signals */
-	unsigned	p_sigignore;	/* SIG_IGN set */
-	unsigned	p_sigcatch;	/* handler installed */
-	unsigned	p_sighand[NSIG]; /* user handler addresses */
-	int		p_pgrp;		/* process group */
-	char		p_cwd[128];	/* current working directory */
-	char		p_comm[16];	/* S15: executable basename for /dev/ps */
-	int		p_stopsig;	/* signal that stopped us (0 = running) */
-	int		p_termsig;	/* signal that killed us (0 = exited) */
-	int		p_cont;		/* SIGCONT arrived while stopped */
-	unsigned	wait_options;	/* wait4 options while blocked */
-	/* S17: mmap bookkeeping */
-	unsigned	p_mmap_base;	/* next unused VA for a non-FIXED map */
-	struct vma	p_vma[NMAP];
-	struct kthread	*p_thread;
-	struct kthread	*p_threads;
-	int		p_nthreads;
-	int		p_next_tid;
-	int		aio_wait_token;	/* token this process is blocked on */
-	int		uring_wait;	/* blocked in uring_enter */
-};
+/* struct proc (sys/proc.h) is the authoritative kernel process object;
+ * its tail carries the process runtime state (uk_ prefix). */
 
-static struct uproc	procs[NPROC];
-static struct uproc	*cur;		/* current process */
+static struct proc	procs[NPROC];
+static struct proc	*cur;		/* current process (kernel object) */
 static struct kthread	*cur_thread;	/* current execution flow */
+static unsigned	cur_pd;		/* currently loaded page directory (CR3) */
 static int		next_pid = 2;
+
+/*
+ * KLT address-space switch: only reload CR3 when the selected thread belongs
+ * to a different process.  Threads of one process share the page directory,
+ * so a same-process switch updates only the TCB (kernel stack / registers).
+ * resume_user() treats a pd of 0 as "keep current CR3".
+ */
+static unsigned
+switch_pd_for(struct proc *p)
+{
+	if (p->uk_pd != cur_pd) {
+		cur_pd = p->uk_pd;
+		return (cur_pd);
+	}
+	return (0);			/* same address space: do not touch CR3 */
+}
 
 static unsigned next_pa = 0x200000;
 static unsigned page_alloc(void);
@@ -276,7 +231,7 @@ static int ucopyout(void *kaddr, void *udaddr, unsigned len);
  * link, reached through the scratch window), so open/close/exec loops reuse
  * memory instead of growing the pool without bound.
  */
-static void sig_deliver(struct uproc *, struct sysregs *);
+static void sig_deliver(struct proc *, struct sysregs *);
 static int console_fg_pgrp;
 
 static unsigned page_free_list;
@@ -674,40 +629,40 @@ user_getpa(unsigned pdpa, unsigned va)
 
 /* 中文：为进程 p 分配一个空闲的 VMA 槽位，用完返回 0 */
 /* EN: Allocate a free VMA slot for process p, returning 0 when none is available */
-static struct vma *
-vma_alloc(struct uproc *p)
+static struct kvma *
+vma_alloc(struct proc *p)
 {
 	int i;
 
 	for (i = 0; i < NMAP; i++)
-		if (!p->p_vma[i].used)
-			return (&p->p_vma[i]);
+		if (!p->uk_p_vma[i].used)
+			return (&p->uk_p_vma[i]);
 	return (0);
 }
 
 /* 中文：查找包含地址 addr 的 VMA 槽位，找到返回指针，否则返回 0 */
 /* EN: Find the VMA slot containing address addr, returning its pointer or 0 if none */
-static struct vma *
-vma_find(struct uproc *p, unsigned addr)
+static struct kvma *
+vma_find(struct proc *p, unsigned addr)
 {
 	int i;
 
 	for (i = 0; i < NMAP; i++)
-		if (p->p_vma[i].used && addr >= p->p_vma[i].start &&
-		    addr < p->p_vma[i].start + p->p_vma[i].len)
-			return (&p->p_vma[i]);
+		if (p->uk_p_vma[i].used && addr >= p->uk_p_vma[i].start &&
+		    addr < p->uk_p_vma[i].start + p->uk_p_vma[i].len)
+			return (&p->uk_p_vma[i]);
 	return (0);
 }
 
 /* 中文：检查 [start, start+len) 是否与进程 p 的任何已有 VMA 区间重叠 */
 /* EN: Check whether [start, start+len) overlaps any existing VMA of process p */
 static int
-vma_overlaps(struct uproc *p, unsigned start, unsigned len)
+vma_overlaps(struct proc *p, unsigned start, unsigned len)
 {
 	int i;
 
 	for (i = 0; i < NMAP; i++) {
-		struct vma *v = &p->p_vma[i];
+		struct kvma *v = &p->uk_p_vma[i];
 
 		if (!v->used)
 			continue;
@@ -725,7 +680,7 @@ vma_overlaps(struct uproc *p, unsigned start, unsigned len)
 static int
 do_mmap(unsigned addr, unsigned len, int prot, int flags, int fd)
 {
-	struct vma *v;
+	struct kvma *v;
 	struct vnode *vp = 0;
 	unsigned vid = 0, start;
 	int share = flags & (MAP_SHARED | MAP_PRIVATE);
@@ -739,11 +694,11 @@ do_mmap(unsigned addr, unsigned len, int prot, int flags, int fd)
 	if ((flags & MAP_FIXED) && (addr & (PAGE_SIZE - 1)))
 		return (-EINVAL);
 	if (file) {
-		if (fd < 0 || fd >= NFD || !cur->fds[fd].used ||
-		    cur->fds[fd].vp == 0 ||
-		    cur->fds[fd].vp->type != VREG)
+		if (fd < 0 || fd >= NFD || !cur->uk_fds[fd].used ||
+		    cur->uk_fds[fd].vp == 0 ||
+		    cur->uk_fds[fd].vp->type != VREG)
 			return (-EBADF);
-		vp = cur->fds[fd].vp;
+		vp = cur->uk_fds[fd].vp;
 		if (share == MAP_SHARED && vp->ops->write == 0 && prot &
 		    PROT_WRITE)
 			return (-EROFS);
@@ -759,7 +714,7 @@ do_mmap(unsigned addr, unsigned len, int prot, int flags, int fd)
 			return (-EINVAL);
 		}
 	} else {
-		start = (cur->p_mmap_base + PAGE_SIZE - 1) &
+		start = (cur->uk_p_mmap_base + PAGE_SIZE - 1) &
 		    ~(PAGE_SIZE - 1);
 		if (start + len > MMAP_LIMIT) {
 			if (vp)
@@ -790,7 +745,7 @@ do_mmap(unsigned addr, unsigned len, int prot, int flags, int fd)
 	v->prot = prot;
 	v->flags = flags;
 	if (!(flags & MAP_FIXED))
-		cur->p_mmap_base = start + len;
+		cur->uk_p_mmap_base = start + len;
 	return ((int)start);
 }
 
@@ -799,7 +754,7 @@ do_mmap(unsigned addr, unsigned len, int prot, int flags, int fd)
 static int
 mmap_fault(unsigned va)
 {
-	struct vma *v = vma_find(cur, va);
+	struct kvma *v = vma_find(cur, va);
 	unsigned idx, pa;
 	unsigned char *src;
 
@@ -810,7 +765,7 @@ mmap_fault(unsigned va)
 		/* anonymous mapping: zero page on first touch */
 		pa = page_alloc();
 		zero_page(pa);
-		user_map_prot(cur->pd, va, pa, v->prot);
+		user_map_prot(cur->uk_pd, va, pa, v->prot);
 		return (1);
 	}
 	pa = pagecache_get(v->vp, idx, &src);
@@ -818,7 +773,7 @@ mmap_fault(unsigned va)
 		return (0);
 	if (v->flags & MAP_SHARED) {
 		/* shared file page: map the page-cache page itself */
-		user_map_prot(cur->pd, va, pa, v->prot);
+		user_map_prot(cur->uk_pd, va, pa, v->prot);
 		return (1);
 	}
 	/* private file page: copy the cache page into a process-owned page */
@@ -828,7 +783,7 @@ mmap_fault(unsigned va)
 
 		zero_page(pa2);
 		bcopy(src, dst, PAGE_SIZE);
-		user_map_prot(cur->pd, va, pa2, v->prot);
+		user_map_prot(cur->uk_pd, va, pa2, v->prot);
 		pagecache_unref(v->vp, idx);
 	}
 	return (1);
@@ -843,7 +798,7 @@ zcomp_refault(unsigned va)
 	unsigned pti, slot, pa;
 	char *dst;
 
-	pti = user_pte_ptr(cur->pd, va & ~(PAGE_SIZE - 1), &pt);
+	pti = user_pte_ptr(cur->uk_pd, va & ~(PAGE_SIZE - 1), &pt);
 	if (pt == 0 || (pt[pti] & PG_V) != 0 ||
 	    (pt[pti] & PG_ZCOMP) == 0)
 		return (0);
@@ -856,7 +811,7 @@ zcomp_refault(unsigned va)
 		return (0);
 	}
 	pt[pti] = pa | PG_V | PG_RW | PG_u;
-	hal_address_space_activate(cur->pd);
+	hal_address_space_activate(cur->uk_pd);
 	return (1);
 }
 
@@ -895,7 +850,7 @@ struct aio_slot {
 	unsigned a_user_data;	/* ring CQE payload */
 	void		*a_ring;	/* struct uring_ring * when from a ring */
 	unsigned char	*a_kbuf;
-	struct uproc	*a_proc;
+	struct proc	*a_proc;
 	struct kiocb	 a_ki;
 };
 
@@ -905,7 +860,7 @@ struct aio_slot {
 
 struct uring_ring {
 	int		 r_used;
-	struct uproc	*r_proc;
+	struct proc	*r_proc;
 	unsigned	 r_pd;
 	unsigned	 r_uva;
 	unsigned	 r_pa;
@@ -956,7 +911,7 @@ static void
 aio_complete_kiocb(struct kiocb *ki, int r)
 {
 	struct aio_slot *s = (struct aio_slot *)ki->ki_private;
-	struct uproc *save = cur;
+	struct proc *save = cur;
 	unsigned savepd = hal_address_space_current();
 
 	if (s == 0)
@@ -966,7 +921,7 @@ aio_complete_kiocb(struct kiocb *ki, int r)
 	if (s->a_op == KI_READ && r > 0) {
 		cur = s->a_proc;
 		if (cur != 0) {
-			hal_address_space_activate(cur->pd);
+			hal_address_space_activate(cur->uk_pd);
 			if (user_ok_w(s->a_ubuf, (unsigned)r))
 				bcopy(s->a_kbuf, (void *)s->a_ubuf,
 				    (unsigned)r);
@@ -990,7 +945,7 @@ static void
 aio_soft(void *arg)
 {
 	struct aio_slot *s = (struct aio_slot *)arg;
-	struct uproc *p = 0;
+	struct proc *p = 0;
 	int i;
 
 	if (s == 0 || s->a_woken)
@@ -998,15 +953,15 @@ aio_soft(void *arg)
 	if (s->a_ring != 0)
 		return;			/* ring completion woke the caller */
 	for (i = 0; i < NPROC; i++)
-		if (procs[i].state != P_FREE && procs[i].pid == s->a_pid) {
+		if (procs[i].uk_state != P_FREE && procs[i].uk_pid == s->a_pid) {
 			p = &procs[i];
 			break;
 		}
-	if (p != 0 && p->state == P_BLOCKED &&
-	    p->aio_wait_token == s->a_token) {
-		p->aio_wait_token = 0;
-		p->regs.eax = (unsigned)s->a_result;
-		p->state = P_RUN;
+	if (p != 0 && p->uk_state == P_BLOCKED &&
+	    p->uk_aio_wait_token == s->a_token) {
+		p->uk_aio_wait_token = 0;
+		p->uk_regs.eax = (unsigned)s->a_result;
+		p->uk_state = P_RUN;
 		vn_put(s->a_ki.ki_vp);
 		s->a_used = 0;
 		s->a_woken = 1;
@@ -1022,10 +977,10 @@ aio_submit_sys(int fd, int op, unsigned ubuf, unsigned len, unsigned off)
 	struct vnode *vp;
 	int i, token, r;
 
-	if (fd < 0 || fd >= NFD || !cur->fds[fd].used ||
-	    cur->fds[fd].vp == 0)
+	if (fd < 0 || fd >= NFD || !cur->uk_fds[fd].used ||
+	    cur->uk_fds[fd].vp == 0)
 		return (-EBADF);
-	vp = cur->fds[fd].vp;
+	vp = cur->uk_fds[fd].vp;
 	if (len == 0 || len > PAGE_SIZE)
 		return (-EINVAL);
 	if (op == KI_READ ? !user_ok_w(ubuf, len) : !user_ok(ubuf, len))
@@ -1049,7 +1004,7 @@ aio_submit_sys(int fd, int op, unsigned ubuf, unsigned len, unsigned off)
 		aio_next_token = 1;
 	s->a_token = token;
 	s->a_op = op;
-	s->a_pid = cur->pid;
+	s->a_pid = cur->uk_pid;
 	s->a_proc = cur;
 	s->a_ubuf = ubuf;
 	s->a_len = len;
@@ -1104,12 +1059,12 @@ found:
 	}
 	/*
 	 * Block the calling process; aio_soft() writes the result into
-	 * p->regs.eax and makes it runnable again.
-	 * 阻塞调用进程；aio_soft() 把结果写进 p->regs.eax 并让它重新可运行。
+	 * p->uk_regs.eax and makes it runnable again.
+	 * 阻塞调用进程；aio_soft() 把结果写进 p->uk_regs.eax 并让它重新可运行。
 	 */
-	cur->aio_wait_token = token;
-	cur->regs = *r;
-	cur->state = P_BLOCKED;
+	cur->uk_aio_wait_token = token;
+	cur->uk_regs = *r;
+	cur->uk_state = P_BLOCKED;
 	proc_sched();
 	return (0);
 }
@@ -1159,7 +1114,7 @@ uring_cqe_push(struct uring_ring *rg, unsigned user_data, int result)
 static void
 uring_wake(struct uring_ring *rg)
 {
-	struct uproc *p = 0;
+	struct proc *p = 0;
 	int i;
 
 	if (rg->r_wait_pid == 0)
@@ -1167,14 +1122,14 @@ uring_wake(struct uring_ring *rg)
 	if (rg->r_done < rg->r_expected)
 		return;
 	for (i = 0; i < NPROC; i++)
-		if (procs[i].state != P_FREE && procs[i].pid == rg->r_wait_pid) {
+		if (procs[i].uk_state != P_FREE && procs[i].uk_pid == rg->r_wait_pid) {
 			p = &procs[i];
 			break;
 		}
-	if (p != 0 && p->state == P_BLOCKED) {
-		p->uring_wait = 0;
-		p->regs.eax = (unsigned)rg->r_wait_result;
-		p->state = P_RUN;
+	if (p != 0 && p->uk_state == P_BLOCKED) {
+		p->uk_uring_wait = 0;
+		p->uk_regs.eax = (unsigned)rg->r_wait_result;
+		p->uk_state = P_RUN;
 	}
 	rg->r_wait_pid = 0;
 }
@@ -1208,12 +1163,12 @@ uring_setup_sys(unsigned entries)
 	    (vm_offset_t)pa + PAGE_SIZE, VM_PROT_READ | VM_PROT_WRITE);
 	bzero((void *)kva, PAGE_SIZE);
 	uva = URING_UVA + (unsigned)i * 0x10000;
-	user_map_prot(cur->pd, uva, pa, PROT_READ | PROT_WRITE);
-	hal_address_space_activate(cur->pd);
+	user_map_prot(cur->uk_pd, uva, pa, PROT_READ | PROT_WRITE);
+	hal_address_space_activate(cur->uk_pd);
 
 	rg->r_used = 1;
 	rg->r_proc = cur;
-	rg->r_pd = cur->pd;
+	rg->r_pd = cur->uk_pd;
 	rg->r_uva = uva;
 	rg->r_pa = pa;
 	rg->r_entries = entries;
@@ -1284,11 +1239,11 @@ uring_enter_sys(unsigned to_submit, int wait, struct sysregs *r)
 	}
 	if (wait && rg->r_done < submitted) {
 		rg->r_expected = (int)submitted;
-		rg->r_wait_pid = cur->pid;
+		rg->r_wait_pid = cur->uk_pid;
 		rg->r_wait_result = (int)submitted;
-		cur->uring_wait = 1;
-		cur->regs = *r;
-		cur->state = P_BLOCKED;
+		cur->uk_uring_wait = 1;
+		cur->uk_regs = *r;
+		cur->uk_state = P_BLOCKED;
 		proc_sched();
 	}
 	return ((int)submitted);
@@ -1309,11 +1264,11 @@ uring_teardown_sys(void)
 		}
 	if (rg == 0)
 		return (-EINVAL);
-	user_unmap(cur->pd, rg->r_uva);
+	user_unmap(cur->uk_pd, rg->r_uva);
 	vfs_page_unmap(URING_KVA + (unsigned)i * PAGE_SIZE);
 	page_free(rg->r_pa);
 	rg->r_used = 0;
-	hal_address_space_activate(cur->pd);
+	hal_address_space_activate(cur->uk_pd);
 	return (0);
 }
 
@@ -1328,7 +1283,7 @@ zcomp_reclaim(int n)
 	if (in_zcomp || cur == 0)
 		return (0);
 	in_zcomp = 1;
-	pd = map_page(SCRATCH_PD, cur->pd);
+	pd = map_page(SCRATCH_PD, cur->uk_pd);
 	for (i = 0; i < 0x3f6 && n > 0; i++) {
 		unsigned *pt;
 		unsigned pte;
@@ -1361,7 +1316,7 @@ zcomp_reclaim(int n)
 			done++;
 			n--;
 		}
-		hal_address_space_activate(cur->pd);
+		hal_address_space_activate(cur->uk_pd);
 	}
 	in_zcomp = 0;
 	return (done);
@@ -1372,7 +1327,7 @@ zcomp_reclaim(int n)
 static int
 do_munmap(unsigned addr, unsigned len)
 {
-	struct vma *v = vma_find(cur, addr);
+	struct kvma *v = vma_find(cur, addr);
 	unsigned i;
 
 	if (v == 0 || addr != v->start)
@@ -1384,16 +1339,16 @@ do_munmap(unsigned addr, unsigned len)
 		unsigned va = addr + i;
 
 		if (v->vp != 0 && (v->flags & MAP_SHARED)) {
-			unsigned pa = user_getpa(cur->pd, va);
+			unsigned pa = user_getpa(cur->uk_pd, va);
 
-			user_unmap(cur->pd, va);
+			user_unmap(cur->uk_pd, va);
 			if (pa)
 				pagecache_unref_key(v->vid, i / PAGE_SIZE);
 		} else {
 			/* private/anon page is owned by the process */
-			unsigned pa = user_getpa(cur->pd, va);
+			unsigned pa = user_getpa(cur->uk_pd, va);
 
-			user_unmap(cur->pd, va);
+			user_unmap(cur->uk_pd, va);
 			if (pa)
 				page_free(pa);
 		}
@@ -1419,7 +1374,7 @@ do_munmap(unsigned addr, unsigned len)
 static int
 do_msync(unsigned addr, unsigned len)
 {
-	struct vma *v = vma_find(cur, addr);
+	struct kvma *v = vma_find(cur, addr);
 	unsigned i;
 
 	if (v == 0)
@@ -1461,21 +1416,21 @@ do_msync(unsigned addr, unsigned len)
 /* 中文：地址空间销毁前清理所有映射：共享页解除映射并释放页缓存引用，私有页留给 free_address_space 处理 */
 /* EN: Drop all mappings before the address space goes away: unmap shared pages and drop cache references, leaving private pages to free_address_space */
 static void
-mmap_teardown(struct uproc *p)
+mmap_teardown(struct proc *p)
 {
 	int i;
 	unsigned k;
 
 	for (i = 0; i < NMAP; i++) {
-		struct vma *v = &p->p_vma[i];
+		struct kvma *v = &p->uk_p_vma[i];
 
 		if (!v->used)
 			continue;
 		if (v->vp != 0 && (v->flags & MAP_SHARED)) {
 			for (k = 0; k < v->len; k += PAGE_SIZE) {
-				if (user_getpa(p->pd, v->start + k) == 0)
+				if (user_getpa(p->uk_pd, v->start + k) == 0)
 					continue;
-				user_unmap(p->pd, v->start + k);
+				user_unmap(p->uk_pd, v->start + k);
 				pagecache_unref_key(v->vid,
 				    v->off / PAGE_SIZE + k / PAGE_SIZE);
 			}
@@ -1484,7 +1439,7 @@ mmap_teardown(struct uproc *p)
 			vn_put(v->vp);
 		bzero(v, sizeof(*v));
 	}
-	p->p_mmap_base = MMAP_BASE;
+	p->uk_p_mmap_base = MMAP_BASE;
 }
 
 /* 中文：把 ELF 映像的 PT_LOAD 段按程序头逐页映射到指定页目录，设置保护权限并回写入口地址 */
@@ -1625,7 +1580,7 @@ user_str(unsigned p, char *dst, int max)
 	if (p < USER_LOAD || p >= 0xC0000000 || max <= 1)
 		return (-1);
 	for (i = 0; i < max - 1; i++) {
-		if (user_getpa(cur->pd, (p + i) & ~(PAGE_SIZE - 1)) == 0)
+		if (user_getpa(cur->uk_pd, (p + i) & ~(PAGE_SIZE - 1)) == 0)
 			return (-1);
 		dst[i] = ((const char *)p)[i];
 		if (dst[i] == 0)
@@ -1677,18 +1632,18 @@ fd_alloc(struct file *f)
 	int i;
 
 	for (i = 3; i < NFD; i++) {
-		if (!cur->fds[i].used) {
-			cur->fds[i].used = 1;
-			cur->fds[i].type = FD_FILE;
-			cur->fds[i].d = f->f_data;
-			cur->fds[i].len = *f->f_len;
-			cur->fds[i].off = 0;
-			cur->fds[i].lba = 0;
-			cur->fds[i].dsize = 0;
-			cur->fds[i].dpos = 0;
-			cur->fds[i].pipeidx = -1;
-			cur->fds[i].rw = 0;
-			cur->fds[i].node = -1;
+		if (!cur->uk_fds[i].used) {
+			cur->uk_fds[i].used = 1;
+			cur->uk_fds[i].type = FD_FILE;
+			cur->uk_fds[i].d = f->f_data;
+			cur->uk_fds[i].len = *f->f_len;
+			cur->uk_fds[i].off = 0;
+			cur->uk_fds[i].lba = 0;
+			cur->uk_fds[i].dsize = 0;
+			cur->uk_fds[i].dpos = 0;
+			cur->uk_fds[i].pipeidx = -1;
+			cur->uk_fds[i].rw = 0;
+			cur->uk_fds[i].node = -1;
 			return (i);
 		}
 	}
@@ -1703,16 +1658,16 @@ fd_alloc_vnode(struct vnode *vp, int rw, unsigned off)
 	int i;
 
 	for (i = 3; i < NFD; i++) {
-		if (!cur->fds[i].used) {
-			bzero(&cur->fds[i], sizeof(cur->fds[i]));
-			cur->fds[i].used = 1;
-			cur->fds[i].type = (vp->type == VDIR) ? FD_DIR :
+		if (!cur->uk_fds[i].used) {
+			bzero(&cur->uk_fds[i], sizeof(cur->uk_fds[i]));
+			cur->uk_fds[i].used = 1;
+			cur->uk_fds[i].type = (vp->type == VDIR) ? FD_DIR :
 			    FD_FILE;
-			cur->fds[i].vp = vp;
-			cur->fds[i].rw = rw;
-			cur->fds[i].off = off;
-			cur->fds[i].pipeidx = -1;
-			cur->fds[i].node = -1;
+			cur->uk_fds[i].vp = vp;
+			cur->uk_fds[i].rw = rw;
+			cur->uk_fds[i].off = off;
+			cur->uk_fds[i].pipeidx = -1;
+			cur->uk_fds[i].node = -1;
 			return (i);
 		}
 	}
@@ -1727,18 +1682,18 @@ fd_alloc_dir(unsigned lba, unsigned size)
 	int i;
 
 	for (i = 3; i < NFD; i++) {
-		if (!cur->fds[i].used) {
-			cur->fds[i].used = 1;
-			cur->fds[i].type = FD_DIR;
-			cur->fds[i].d = 0;
-			cur->fds[i].len = size;
-			cur->fds[i].off = 0;
-			cur->fds[i].lba = lba;
-			cur->fds[i].dsize = size;
-			cur->fds[i].dpos = 0;
-			cur->fds[i].pipeidx = -1;
-			cur->fds[i].rw = 0;
-			cur->fds[i].node = -1;
+		if (!cur->uk_fds[i].used) {
+			cur->uk_fds[i].used = 1;
+			cur->uk_fds[i].type = FD_DIR;
+			cur->uk_fds[i].d = 0;
+			cur->uk_fds[i].len = size;
+			cur->uk_fds[i].off = 0;
+			cur->uk_fds[i].lba = lba;
+			cur->uk_fds[i].dsize = size;
+			cur->uk_fds[i].dpos = 0;
+			cur->uk_fds[i].pipeidx = -1;
+			cur->uk_fds[i].rw = 0;
+			cur->uk_fds[i].node = -1;
 			return (i);
 		}
 	}
@@ -1876,15 +1831,15 @@ fd_alloc_tmpfile(struct tmpfs_node *n, int rw, unsigned off)
 	int i;
 
 	for (i = 3; i < NFD; i++) {
-		if (!cur->fds[i].used) {
-			bzero(&cur->fds[i], sizeof(cur->fds[i]));
-			cur->fds[i].used = 1;
-			cur->fds[i].type = FD_TMPFILE;
-			cur->fds[i].node = n - tmpfs;
-			cur->fds[i].rw = rw;
-			cur->fds[i].off = off;
-			cur->fds[i].len = n->size;
-			cur->fds[i].pipeidx = -1;
+		if (!cur->uk_fds[i].used) {
+			bzero(&cur->uk_fds[i], sizeof(cur->uk_fds[i]));
+			cur->uk_fds[i].used = 1;
+			cur->uk_fds[i].type = FD_TMPFILE;
+			cur->uk_fds[i].node = n - tmpfs;
+			cur->uk_fds[i].rw = rw;
+			cur->uk_fds[i].off = off;
+			cur->uk_fds[i].len = n->size;
+			cur->uk_fds[i].pipeidx = -1;
 			return (i);
 		}
 	}
@@ -1899,13 +1854,13 @@ fd_alloc_tmpdir(void)
 	int i;
 
 	for (i = 3; i < NFD; i++) {
-		if (!cur->fds[i].used) {
-			bzero(&cur->fds[i], sizeof(cur->fds[i]));
-			cur->fds[i].used = 1;
-			cur->fds[i].type = FD_TMPDIR;
-			cur->fds[i].dpos = 0;
-			cur->fds[i].node = -1;
-			cur->fds[i].pipeidx = -1;
+		if (!cur->uk_fds[i].used) {
+			bzero(&cur->uk_fds[i], sizeof(cur->uk_fds[i]));
+			cur->uk_fds[i].used = 1;
+			cur->uk_fds[i].type = FD_TMPDIR;
+			cur->uk_fds[i].dpos = 0;
+			cur->uk_fds[i].node = -1;
+			cur->uk_fds[i].pipeidx = -1;
 			return (i);
 		}
 	}
@@ -1914,7 +1869,7 @@ fd_alloc_tmpdir(void)
 
 /* ---------------------------------------------------------------- pipes */
 
-static struct uproc *proc_find(int pid);
+static struct proc *proc_find(int pid);
 static void proc_sched(void);
 
 #define	NPIPE	8
@@ -1975,33 +1930,33 @@ pipe_copy(unsigned pd, unsigned va, const void *kbuf, unsigned n, int touser)
 static void
 pipe_wake_reader(struct pipe *pp, int eof)
 {
-	struct uproc *p;
+	struct proc *p;
 	unsigned n, first;
 
 	if (pp->rpid == 0)
 		return;
 	p = proc_find(pp->rpid);
 	pp->rpid = 0;
-	if (p == 0 || p->state != P_BLOCKED || p->pipeidx != pp - pipes)
+	if (p == 0 || p->uk_state != P_BLOCKED || p->uk_pipeidx != pp - pipes)
 		return;
 	if (eof) {
-		p->regs.eax = 0;
-		p->state = P_RUN;
+		p->uk_regs.eax = 0;
+		p->uk_state = P_RUN;
 		return;
 	}
 	n = pp->count;
-	if (n > p->pipelen)
-		n = p->pipelen;
+	if (n > p->uk_pipelen)
+		n = p->uk_pipelen;
 	first = PIPESZ - pp->rpos;
 	if (first > n)
 		first = n;
-	pipe_copy(p->pd, p->pipeat, pp->buf + pp->rpos, first, 1);
+	pipe_copy(p->uk_pd, p->uk_pipeat, pp->buf + pp->rpos, first, 1);
 	if (n > first)
-		pipe_copy(p->pd, p->pipeat + first, pp->buf, n - first, 1);
+		pipe_copy(p->uk_pd, p->uk_pipeat + first, pp->buf, n - first, 1);
 	pp->rpos = (pp->rpos + n) % PIPESZ;
 	pp->count -= n;
-	p->regs.eax = n;
-	p->state = P_RUN;
+	p->uk_regs.eax = n;
+	p->uk_state = P_RUN;
 }
 
 /* 中文：把管道数据在写者上下文拷入阻塞读者缓冲，处理环形回绕并置结果唤醒；epipe 时返回 -EPIPE */
@@ -2009,34 +1964,34 @@ pipe_wake_reader(struct pipe *pp, int eof)
 static void
 pipe_wake_writer(struct pipe *pp, int epipe)
 {
-	struct uproc *p;
+	struct proc *p;
 	unsigned space, n, first;
 
 	if (pp->wpid == 0)
 		return;
 	p = proc_find(pp->wpid);
 	pp->wpid = 0;
-	if (p == 0 || p->state != P_BLOCKED || p->pipeidx != pp - pipes)
+	if (p == 0 || p->uk_state != P_BLOCKED || p->uk_pipeidx != pp - pipes)
 		return;
 	if (epipe) {
-		p->regs.eax = (unsigned)-EPIPE;
-		p->state = P_RUN;
+		p->uk_regs.eax = (unsigned)-EPIPE;
+		p->uk_state = P_RUN;
 		return;
 	}
 	space = PIPESZ - pp->count;
-	n = p->pipelen;
+	n = p->uk_pipelen;
 	if (n > space)
 		n = space;
 	first = PIPESZ - pp->wpos;
 	if (first > n)
 		first = n;
-	pipe_copy(p->pd, p->pipeat, pp->buf + pp->wpos, first, 0);
+	pipe_copy(p->uk_pd, p->uk_pipeat, pp->buf + pp->wpos, first, 0);
 	if (n > first)
-		pipe_copy(p->pd, p->pipeat + first, pp->buf, n - first, 0);
+		pipe_copy(p->uk_pd, p->uk_pipeat + first, pp->buf, n - first, 0);
 	pp->wpos = (pp->wpos + n) % PIPESZ;
 	pp->count += n;
-	p->regs.eax = n;
-	p->state = P_RUN;
+	p->uk_regs.eax = n;
+	p->uk_state = P_RUN;
 }
 
 /* 中文：关闭文件描述符：管道端减少读/写者计数并按需唤醒对端，释放 vnode 引用，最后标记 fd 空闲 */
@@ -2044,12 +1999,12 @@ pipe_wake_writer(struct pipe *pp, int epipe)
 static void
 fd_close(int fd)
 {
-	struct fd *fp;
+	struct kfd *fp;
 	struct pipe *pp;
 
-	if (fd < 0 || fd >= NFD || !cur->fds[fd].used)
+	if (fd < 0 || fd >= NFD || !cur->uk_fds[fd].used)
 		return;
-	fp = &cur->fds[fd];
+	fp = &cur->uk_fds[fd];
 	if (fp->type == FD_PIPE && fp->pipeidx >= 0 &&
 	    fp->pipeidx < NPIPE) {
 		pp = &pipes[fp->pipeidx];
@@ -2077,7 +2032,7 @@ fd_close(int fd)
 /* 中文：为 fd 结构持有的 vnode 增加一次引用计数 */
 /* EN: Increment the reference count of the vnode held by an fd structure */
 static void
-fd_ref(struct fd *fp)
+fd_ref(struct kfd *fp)
 {
 
 	if (fp->vp != 0)
@@ -2202,7 +2157,7 @@ demand_page(unsigned va)
 
 	if (cur == 0)
 		return (0);
-	if (page >= USER_HEAP_START && page < cur->brk_mapped)
+	if (page >= USER_HEAP_START && page < cur->uk_brk_mapped)
 		;			/* heap */
 	else if (page >= USER_STACK_TOP - USER_STACK_SIZE &&
 	    page < USER_STACK_TOP)
@@ -2211,8 +2166,8 @@ demand_page(unsigned va)
 		return (0);
 	pa = page_alloc();
 	zero_page(pa);
-	user_map(cur->pd, page, pa);
-	hal_address_space_activate(cur->pd);
+	user_map(cur->uk_pd, page, pa);
+	hal_address_space_activate(cur->uk_pd);
 	return (1);
 }
 
@@ -2238,7 +2193,7 @@ user_page_fault(unsigned va, unsigned err)
 		    mmap_fault(va & ~(PAGE_SIZE - 1)));
 	if ((err & 7) != 7)		/* present + write + user */
 		return (0);
-	pti = user_pte_ptr(cur->pd, va & ~(PAGE_SIZE - 1), &pt);
+	pti = user_pte_ptr(cur->uk_pd, va & ~(PAGE_SIZE - 1), &pt);
 	if (pt == 0 || (pt[pti] & PG_V) == 0 || (pt[pti] & PG_COW) == 0)
 		return (0);
 	pa = pt[pti] & PG_FRAME;
@@ -2255,7 +2210,7 @@ user_page_fault(unsigned va, unsigned err)
 		pt[pti] = npa | PG_V | PG_RW | PG_u;
 		cow_copies++;
 	}
-	hal_address_space_activate(cur->pd);
+	hal_address_space_activate(cur->uk_pd);
 	return (1);
 }
 
@@ -2272,40 +2227,40 @@ cow_print(void)
 /* 中文：为进程 p 生成用户态内核执行载体线程（主线程），初始化线程与线程链表指针 */
 /* EN: Spawn the main user-mode kernel thread for process p and initialize its thread list pointers */
 static struct kthread *
-proc_add_thread(struct uproc *p, int tid)
+proc_add_thread(struct proc *p, int tid)
 {
 	struct kthread *t;
 
 	t = kthread_user_spawn(p, tid);
 	if (t == 0)
 		return (0);
-	p->p_thread = t;
-	p->p_threads = t;
-	p->p_nthreads = 1;
+	/* kthread_user_spawn already linked t into p->uk_p_threads and
+	 * bumped uk_p_nthreads; just record it as the running thread. */
+	p->uk_p_thread = t;
 	return (t);
 }
 
 /* 中文：分配一个空闲进程槽并初始化：设置 cwd、mmap 基址及 0/1/2 三个控制台 fd，返回进程指针或 0 */
 /* EN: Allocate and init a free process slot: set cwd, mmap base and console fds 0/1/2, returning its pointer or 0 */
-static struct uproc *
+static struct proc *
 proc_alloc(void)
 {
 	int i;
 
 	for (i = 0; i < NPROC; i++)
-		if (procs[i].state == P_FREE) {
+		if (procs[i].uk_state == P_FREE) {
 			int fd;
 
 			bzero(&procs[i], sizeof(procs[i]));
-			procs[i].p_cwd[0] = '/';
-			procs[i].p_cwd[1] = 0;
-			procs[i].p_mmap_base = MMAP_BASE;
+			procs[i].uk_p_cwd[0] = '/';
+			procs[i].uk_p_cwd[1] = 0;
+			procs[i].uk_p_mmap_base = MMAP_BASE;
 			for (fd = 0; fd < 3; fd++) {
-				procs[i].fds[fd].used = 1;
-				procs[i].fds[fd].type = FD_CONSOLE;
-				procs[i].fds[fd].rw = (fd == 0) ? 1 : 2;
-				procs[i].fds[fd].pipeidx = -1;
-				procs[i].fds[fd].node = -1;
+				procs[i].uk_fds[fd].used = 1;
+				procs[i].uk_fds[fd].type = FD_CONSOLE;
+				procs[i].uk_fds[fd].rw = (fd == 0) ? 1 : 2;
+				procs[i].uk_fds[fd].pipeidx = -1;
+				procs[i].uk_fds[fd].node = -1;
 			}
 			return (&procs[i]);
 		}
@@ -2319,7 +2274,7 @@ proc_alloc(void)
 /* 中文：记录进程的可执行文件基名到 p_comm（用于 /dev/ps），内核不保留 argv */
 /* EN: Record the executable basename of a path into p_comm for /dev/ps; the kernel does not keep argv */
 static void
-proc_setcomm(struct uproc *p, const char *path)
+proc_setcomm(struct proc *p, const char *path)
 {
 	const char *base, *s;
 	int i;
@@ -2328,20 +2283,20 @@ proc_setcomm(struct uproc *p, const char *path)
 	for (s = path; *s; s++)
 		if (*s == '/')
 			base = s + 1;
-	bzero(p->p_comm, sizeof(p->p_comm));
-	for (i = 0; i < (int)sizeof(p->p_comm) - 1 && base[i] != 0; i++)
-		p->p_comm[i] = base[i];
+	bzero(p->uk_p_comm, sizeof(p->uk_p_comm));
+	for (i = 0; i < (int)sizeof(p->uk_p_comm) - 1 && base[i] != 0; i++)
+		p->uk_p_comm[i] = base[i];
 }
 
 /* 中文：按 pid 查找进程：找到返回进程指针，否则 0 */
 /* EN: Find a process by pid, returning its pointer or 0 */
-static struct uproc *
+static struct proc *
 proc_find(int pid)
 {
 	int i;
 
 	for (i = 0; i < NPROC; i++)
-		if (procs[i].state != P_FREE && procs[i].pid == pid)
+		if (procs[i].uk_state != P_FREE && procs[i].uk_pid == pid)
 			return (&procs[i]);
 	return (0);
 }
@@ -2354,7 +2309,7 @@ proc_children(int pid)
 	int i, n = 0;
 
 	for (i = 0; i < NPROC; i++)
-		if (procs[i].state != P_FREE && procs[i].ppid == pid)
+		if (procs[i].uk_state != P_FREE && procs[i].uk_ppid == pid)
 			n++;
 	return (n);
 }
@@ -2368,11 +2323,12 @@ proc_children(int pid)
 static void
 proc_sched(void)
 {
-	struct uproc *me = cur;
+	struct proc *me = cur;
 	struct kthread *mt = cur_thread;
 	int i;
 
 	for (;;) {
+		unsigned pd_to_load;
 		/*
 		 * S21: kernel threads (softirq, page reclaim, IRP workers)
 		 * get their own execution carrier first.
@@ -2385,40 +2341,44 @@ proc_sched(void)
 		 */
 		for (i = 0; i < NKTHREAD; i++) {
 			struct kthread *t = &kthreads[i];
-			struct uproc *p;
+			struct proc *p;
 			struct sysregs *regs;
 			int main_thread;
 
 			if (!t->t_used || t->t_proc == 0 || t == mt)
 				continue;
 			p = t->t_proc;
-			main_thread = (t->t_tid == p->pid);
+			main_thread = (t->t_tid == p->uk_pid);
 			if (main_thread) {
-				if (p->state != P_RUN)
+				if (p->uk_state != P_RUN)
 					continue;
-				regs = &p->regs;
+				regs = &p->uk_regs;
 			} else {
-				if (p->state == P_ZOMBIE ||
+				if (p->uk_state == P_ZOMBIE ||
 				    t->t_state != KT_RUN)
 					continue;
 				regs = &t->t_regs;
 			}
 			cur = p;
 			cur_thread = t;
-			hal_address_space_activate(p->pd);
+			/* KLT: pass 0 to resume_user when staying in the same
+			 * address space (it then keeps CR3); a nonzero pd both
+			 * updates cur_pd and is loaded by resume_user. */
+			pd_to_load = switch_pd_for(p);
 			hal_kernel_stack_set(t->t_stack_top);
 			sig_deliver(p, regs);
-			if (main_thread ? p->state == P_RUN :
+			if (main_thread ? p->uk_state == P_RUN :
 			    t->t_state == KT_RUN)
-				resume_user(p->pd, regs);
+				resume_user(pd_to_load, regs);
 		}
-		if (me->state == P_RUN && mt != 0) {
+		if (me->uk_state == P_RUN && mt != 0) {
 			cur = me;
 			cur_thread = mt;
+			pd_to_load = switch_pd_for(me);
 			hal_kernel_stack_set(mt->t_stack_top);
-			sig_deliver(me, &me->regs);
-			if (me->state == P_RUN)
-				resume_user(me->pd, &me->regs);
+			sig_deliver(me, &me->uk_regs);
+			if (me->uk_state == P_RUN)
+				resume_user(pd_to_load, &me->uk_regs);
 		}
 		/* nothing runnable: let deferred work drain, then halt */
 		kthread_run();
@@ -2444,14 +2404,66 @@ proc_sched(void)
 int	need_resched;
 unsigned sched_switches;
 
-/* 中文：时钟中断抢占处理：保存被中断用户线程的上下文，按轮转选中下一可运行线程并改写中断帧，iret 直接进入新线程 */
-/* EN: Clock-tick preemption: save the interrupted user context, round-robin pick the next runnable thread and rewrite the frame so iret enters it */
+/*
+ * Process-level fairness (BSD estcpu style).  CPU usage is charged to the
+ * PROCESS, not the thread, so one process with 100 runnable threads cannot
+ * take 100 shares.  pick_next first chooses the least-charged runnable
+ * process, then round-robins a thread within it (affinity: last me's proc
+ * wins ties, preserving cache locality).
+ */
+#define	ESTCPU_DECAY_SHIFT	2	/* divide-by-4 periodic decay */
+
+static void
+estcpu_decay_all(void)
+{
+	int i;
+
+	for (i = 0; i < NPROC; i++)
+		if (procs[i].uk_state != P_FREE)
+			procs[i].uk_estcpu >>= ESTCPU_DECAY_SHIFT;
+}
+
+/* EN: Pick a runnable TCB: least-charged process first, then round-robin within it. */
+static struct kthread *
+fair_pick_next(struct kthread *me)
+{
+	struct kthread *best = 0;
+	struct proc *bestp = 0;
+	int i, start;
+
+	start = (me != 0) ? (me - kthreads) : 0;
+	/* first pass: find the runnable process with the lowest estcpu */
+	for (i = 0; i < NKTHREAD; i++) {
+		struct kthread *t = &kthreads[(start + i + 1) % NKTHREAD];
+		struct proc *p;
+
+		if (!t->t_used || t->t_proc == 0 || t == me)
+			continue;
+		p = t->t_proc;
+		if (p->uk_state == P_FREE || p->uk_state == P_ZOMBIE)
+			continue;
+		if ((p->uk_state != P_RUN && t->t_tid != p->uk_pid) ||
+		    (t->t_tid != p->uk_pid && t->t_state != KT_RUN))
+			continue;
+		if (bestp == 0 || p->uk_estcpu < bestp->uk_estcpu) {
+			bestp = p;
+			best = t;
+		}
+	}
+	return (best);
+}
+
+/* 中文：时钟中断抢占处理：保存被中断用户线程的上下文，按进程公平选中下一线程并改写中断帧，iret 直接进入新线程 */
+/* EN: Clock-tick preemption: save context, pick the next thread with process-level fairness and rewrite the frame so iret enters it */
 void
 sched_tick(struct sysregs *r)
 {
 	struct kthread *me = cur_thread;
-	struct uproc *mp = cur;
-	int start, k;
+	struct proc *mp = cur;
+	struct kthread *t;
+	struct sysregs *regs;
+	struct proc *p;
+	int main_thread;
 
 	if (cur == 0 || me == 0 || r == 0 || !hal_intr_from_user(r))
 		return;
@@ -2459,51 +2471,45 @@ sched_tick(struct sysregs *r)
 		return;
 
 	/* save the interrupted context */
-	if (me->t_tid == mp->pid)
-		mp->regs = *r;
+	if (me->t_tid == mp->uk_pid)
+		mp->uk_regs = *r;
 	else
 		me->t_regs = *r;
+
+	/* charge this tick to the interrupted process (fairness accounting) */
+	mp->uk_estcpu++;
+	me->t_ticks++;
 
 	if (!need_resched)
 		return;
 	need_resched = 0;
+	estcpu_decay_all();
 
-	start = me - kthreads;
-	for (k = 1; k < NKTHREAD; k++) {
-		struct kthread *t = &kthreads[(start + k) % NKTHREAD];
-		struct uproc *p;
-		struct sysregs *regs;
-		int main_thread;
-
-		if (!t->t_used || t->t_proc == 0 || t == me)
-			continue;
-		p = t->t_proc;
-		if (p->state == P_FREE || p->state == P_ZOMBIE)
-			continue;
-		main_thread = (t->t_tid == p->pid);
-		if (main_thread) {
-			if (p->state != P_RUN)
-				continue;
-			regs = &p->regs;
-		} else {
-			if (t->t_state != KT_RUN)
-				continue;
-			regs = &t->t_regs;
-		}
-		cur = p;
-		cur_thread = t;
-		hal_address_space_activate(p->pd);
-		hal_kernel_stack_set(t->t_stack_top);
-		*r = *regs;
-		hal_intr_user_resume(r);
-		sched_switches++;
+	t = fair_pick_next(me);
+	if (t == 0) {
+		/* nobody else runnable: current thread keeps the CPU */
+		if (me->t_tid == mp->uk_pid)
+			mp->uk_regs = *r;
+		else
+			me->t_regs = *r;
 		return;
 	}
-	/* nobody else runnable: current thread keeps the CPU */
-	if (me->t_tid == mp->pid)
-		mp->regs = *r;
-	else
-		me->t_regs = *r;
+	p = t->t_proc;
+	main_thread = (t->t_tid == p->uk_pid);
+	regs = main_thread ? &p->uk_regs : &t->t_regs;
+	cur = p;
+	cur_thread = t;
+	/* KLT: irq0's iret does not reload CR3, so switch it here —
+	 * but only when the selected thread is from another process.
+	 * Same-process thread switches keep the current page table. */
+	if (p->uk_pd != cur_pd) {
+		cur_pd = p->uk_pd;
+		hal_address_space_activate(cur_pd);
+	}
+	hal_kernel_stack_set(t->t_stack_top);
+	*r = *regs;
+	hal_intr_user_resume(r);
+	sched_switches++;
 }
 
 /* 中文：fork 实现：分配子进程、COW 克隆地址空间、继承 fd/管道/工作目录、复制上下文，子进程返回 0，父进程返回子 pid */
@@ -2511,46 +2517,46 @@ sched_tick(struct sysregs *r)
 static int
 do_fork(struct sysregs *r)
 {
-	struct uproc *p;
+	struct proc *p;
 	unsigned pd;
 
 	if ((p = proc_alloc()) == 0)
 		return (-EAGAIN);
-	pd = copy_address_space_cow(cur->pd);
+	pd = copy_address_space_cow(cur->uk_pd);
 	if (pd == 0) {
-		p->state = P_FREE;
+		p->uk_state = P_FREE;
 		return (-ENOMEM);
 	}
-	hal_address_space_activate(cur->pd);		/* flush the parent's stale writable TLBs */
-	p->state = P_RUN;
-	p->pid = next_pid++;
-	p->ppid = cur->pid;
-	p->pd = pd;
-	(void)proc_add_thread(p, p->pid);
-	p->p_next_tid = p->pid + 100;
-	p->brk_mapped = cur->brk_mapped;
-	bcopy(cur->p_cwd, p->p_cwd, sizeof(p->p_cwd));
-	bcopy(cur->p_comm, p->p_comm, sizeof(p->p_comm));
-	bcopy(cur->fds, p->fds, sizeof(p->fds));
+	hal_address_space_activate(cur->uk_pd);		/* flush the parent's stale writable TLBs */
+	p->uk_state = P_RUN;
+	p->uk_pid = next_pid++;
+	p->uk_ppid = cur->uk_pid;
+	p->uk_pd = pd;
+	(void)proc_add_thread(p, p->uk_pid);
+	p->uk_p_next_tid = p->uk_pid + 100;
+	p->uk_brk_mapped = cur->uk_brk_mapped;
+	bcopy(cur->uk_p_cwd, p->uk_p_cwd, sizeof(p->uk_p_cwd));
+	bcopy(cur->uk_p_comm, p->uk_p_comm, sizeof(p->uk_p_comm));
+	bcopy(cur->uk_fds, p->uk_fds, sizeof(p->uk_fds));
 	{
 		int i;
 
 		for (i = 0; i < NFD; i++)
-			if (p->fds[i].used && p->fds[i].vp != 0)
-				p->fds[i].vp->ref++;
+			if (p->uk_fds[i].used && p->uk_fds[i].vp != 0)
+				p->uk_fds[i].vp->ref++;
 		for (i = 0; i < NFD; i++)
-			if (p->fds[i].used && p->fds[i].type == FD_PIPE &&
-			    p->fds[i].pipeidx >= 0) {
-				if (p->fds[i].rw == 1)
-					pipes[p->fds[i].pipeidx].readers++;
-				else if (p->fds[i].rw == 2)
-					pipes[p->fds[i].pipeidx].writers++;
+			if (p->uk_fds[i].used && p->uk_fds[i].type == FD_PIPE &&
+			    p->uk_fds[i].pipeidx >= 0) {
+				if (p->uk_fds[i].rw == 1)
+					pipes[p->uk_fds[i].pipeidx].readers++;
+				else if (p->uk_fds[i].rw == 2)
+					pipes[p->uk_fds[i].pipeidx].writers++;
 			}
 	}
-	p->regs = *r;
-	p->regs.eax = 0;		/* the child returns 0 from fork() */
+	p->uk_regs = *r;
+	p->uk_regs.eax = 0;		/* the child returns 0 from fork() */
 
-	return (p->pid);
+	return (p->uk_pid);
 }
 
 /* 中文：vfork 实现：用 COW 私有拷贝共享地址空间，父进程阻塞直到子进程 exec/exit，子进程返回 0 */
@@ -2558,7 +2564,7 @@ do_fork(struct sysregs *r)
 static int
 do_vfork(struct sysregs *r)
 {
-	struct uproc *p;
+	struct proc *p;
 	unsigned pd;
 
 	if ((p = proc_alloc()) == 0)
@@ -2570,30 +2576,30 @@ do_vfork(struct sysregs *r)
 	 * "parent waits for exec/exit" rule is a safe superset.  The private
 	 * copy is COW, so vfork is cheap until either side writes.
 	 */
-	pd = copy_address_space_cow(cur->pd);
+	pd = copy_address_space_cow(cur->uk_pd);
 	if (pd == 0) {
-		p->state = P_FREE;
+		p->uk_state = P_FREE;
 		return (-ENOMEM);
 	}
-	hal_address_space_activate(cur->pd);
-	p->state = P_RUN;
-	p->pid = next_pid++;
-	p->ppid = cur->pid;
-	p->pd = pd;
-	(void)proc_add_thread(p, p->pid);
-	p->p_next_tid = p->pid + 100;
-	p->brk_mapped = cur->brk_mapped;
-	bcopy(cur->p_cwd, p->p_cwd, sizeof(p->p_cwd));
-	bcopy(cur->p_comm, p->p_comm, sizeof(p->p_comm));
-	bcopy(cur->fds, p->fds, sizeof(p->fds));
-	p->regs = *r;
-	p->regs.eax = 0;
-	p->vfork_child = 1;
+	hal_address_space_activate(cur->uk_pd);
+	p->uk_state = P_RUN;
+	p->uk_pid = next_pid++;
+	p->uk_ppid = cur->uk_pid;
+	p->uk_pd = pd;
+	(void)proc_add_thread(p, p->uk_pid);
+	p->uk_p_next_tid = p->uk_pid + 100;
+	p->uk_brk_mapped = cur->uk_brk_mapped;
+	bcopy(cur->uk_p_cwd, p->uk_p_cwd, sizeof(p->uk_p_cwd));
+	bcopy(cur->uk_p_comm, p->uk_p_comm, sizeof(p->uk_p_comm));
+	bcopy(cur->uk_fds, p->uk_fds, sizeof(p->uk_fds));
+	p->uk_regs = *r;
+	p->uk_regs.eax = 0;
+	p->uk_vfork_child = 1;
 
 	/* the parent blocks until the child execs or exits */
-	cur->regs = *r;
-	cur->state = P_BLOCKED;
-	cur->vfork_wait = 1;
+	cur->uk_regs = *r;
+	cur->uk_state = P_BLOCKED;
+	cur->uk_vfork_wait = 1;
 	proc_sched();
 	return (0);
 }
@@ -2603,31 +2609,31 @@ do_vfork(struct sysregs *r)
 static void
 proc_exit(int code)
 {
-	struct uproc *p;
+	struct proc *p;
 	int i, reaped = 0;
 
 	for (i = 0; i < NPROC; i++) {
 		p = &procs[i];
-		if (p->state != P_BLOCKED || p->pid != cur->ppid)
+		if (p->uk_state != P_BLOCKED || p->uk_pid != cur->uk_ppid)
 			continue;
-		if (p->vfork_wait) {
-			p->vfork_wait = 0;
-			p->regs.eax = cur->pid;
-			p->state = P_RUN;
+		if (p->uk_vfork_wait) {
+			p->uk_vfork_wait = 0;
+			p->uk_regs.eax = cur->uk_pid;
+			p->uk_state = P_RUN;
 			continue;
 		}
-		if (p->wait_pid != 0 && p->wait_pid != cur->pid)
+		if (p->uk_wait_pid != 0 && p->uk_wait_pid != cur->uk_pid)
 			continue;
-		if (p->wait_status != 0 && user_ok(p->wait_status, 4)) {
-			unsigned save = cur->pd;
+		if (p->uk_wait_status != 0 && user_ok(p->uk_wait_status, 4)) {
+			unsigned save = cur->uk_pd;
 
-			hal_address_space_activate(p->pd);
-			*(int *)p->wait_status = cur->p_termsig ?
-			    (cur->p_termsig & 0x7f) : ((code & 0xff) << 8);
+			hal_address_space_activate(p->uk_pd);
+			*(int *)p->uk_wait_status = cur->uk_p_termsig ?
+			    (cur->uk_p_termsig & 0x7f) : ((code & 0xff) << 8);
 			hal_address_space_activate(save);
 		}
-		p->regs.eax = cur->pid;
-		p->state = P_RUN;
+		p->uk_regs.eax = cur->uk_pid;
+		p->uk_state = P_RUN;
 		reaped = 1;		/* the parent's wait4 gets the status */
 	}
 
@@ -2635,13 +2641,13 @@ proc_exit(int code)
 		int fd;
 
 		for (fd = 0; fd < NFD; fd++)
-			if (cur->fds[fd].used)
+			if (cur->uk_fds[fd].used)
 				fd_close(fd);
 	}
 	/* release the process's main thread slot */
-	if (cur->p_thread != 0) {
-		kthread_user_free(cur->p_thread);
-		cur->p_thread = 0;
+	if (cur->uk_p_thread != 0) {
+		kthread_user_free(cur->uk_p_thread);
+		cur->uk_p_thread = 0;
 	}
 	/*
 	 * S17: release mmap bookkeeping first.  Shared page-cache pages must
@@ -2655,17 +2661,17 @@ proc_exit(int code)
 	 * still running on its kernel-stack mapping (0x3f6 is shared, so the
 	 * stack itself stays valid on IdlePTD).
 	 */
-	if (cur->pd != 0) {
-		unsigned save = cur->pd;
+	if (cur->uk_pd != 0) {
+		unsigned save = cur->uk_pd;
 
 		/* CR3 wants the *physical* address (IdlePTD), not pm_pdir's VA */
 		hal_address_space_activate((unsigned)IdlePTD);
 		free_address_space(save);
-		cur->pd = 0;
+		cur->uk_pd = 0;
 	}
-	cur->exitcode = code;
-	cur->state = reaped ? P_FREE : P_ZOMBIE;
-	if (cur->ppid == 0) {
+	cur->uk_exitcode = code;
+	cur->uk_state = reaped ? P_FREE : P_ZOMBIE;
+	if (cur->uk_ppid == 0) {
 		printf("\n[user exit %d]\n", code);
 		for (;;)
 			hal_cpu_halt();
@@ -2693,13 +2699,13 @@ user_fault(int sig, unsigned eip, unsigned va)
 			hal_cpu_halt();
 	}
 	printf("\nuser fault: pid %d sig %d eip %x va %x\n",
-	    cur->pid, sig, eip, va);
-	cur->p_termsig = sig;
+	    cur->uk_pid, sig, eip, va);
+	cur->uk_p_termsig = sig;
 	/* a thread-fatal signal ends the whole process (os.md 9.2/9.4) */
 	for (i = 0; i < NKTHREAD; i++) {
 		struct kthread *t = &kthreads[i];
 
-		if (t->t_used && t->t_proc == cur && t->t_tid != cur->pid) {
+		if (t->t_used && t->t_proc == cur && t->t_tid != cur->uk_pid) {
 			t->t_state = KT_ZOMBIE;
 			t->t_exitcode = 128 + sig;
 		}
@@ -2744,24 +2750,24 @@ sig_default(int sig)
 /* 中文：向进程 p 发送信号：SIGCONT 恢复停止进程，否则置挂起位；阻塞进程被置可运行并收到 -EINTR */
 /* EN: Send a signal to process p: SIGCONT resumes a stopped process, else set the pending bit; a blocked process becomes runnable with -EINTR */
 static void
-sig_send(struct uproc *p, int sig)
+sig_send(struct proc *p, int sig)
 {
 
-	if (p == 0 || p->state == P_FREE || sig <= 0 || sig >= NSIG)
+	if (p == 0 || p->uk_state == P_FREE || sig <= 0 || sig >= NSIG)
 		return;
 	if (sig == SIGCONT) {
-		if (p->state == P_STOPPED) {
-			p->state = P_RUN;
-			p->p_stopsig = 0;
-			p->p_cont = 1;
+		if (p->uk_state == P_STOPPED) {
+			p->uk_state = P_RUN;
+			p->uk_p_stopsig = 0;
+			p->uk_p_cont = 1;
 		}
 		return;
 	}
-	p->p_sig |= SIG_TO_MASK(sig);
+	p->uk_p_sig |= SIG_TO_MASK(sig);
 	/* a blocked process gets EINTR and is made runnable again */
-	if (p->state == P_BLOCKED) {
-		p->state = P_RUN;
-		p->regs.eax = (unsigned)-EINTR;
+	if (p->uk_state == P_BLOCKED) {
+		p->uk_state = P_RUN;
+		p->uk_regs.eax = (unsigned)-EINTR;
 	}
 }
 
@@ -2773,7 +2779,7 @@ sig_send_pgrp(int pgrp, int sig)
 	int i;
 
 	for (i = 0; i < NPROC; i++)
-		if (procs[i].state != P_FREE && procs[i].p_pgrp == pgrp)
+		if (procs[i].uk_state != P_FREE && procs[i].p_pgrp == pgrp)
 			sig_send(&procs[i], sig);
 }
 
@@ -2782,7 +2788,7 @@ sig_send_pgrp(int pgrp, int sig)
 static void
 sig_send_pid(int pid, int sig)
 {
-	struct uproc *p = proc_find(pid);
+	struct proc *p = proc_find(pid);
 
 	if (p != 0)
 		sig_send(p, sig);
@@ -2792,7 +2798,7 @@ sig_send_pid(int pid, int sig)
 /* 中文：在用户栈上压入 sigframe 与返回跳板（sigreturn 系统调用），把上下文改为信号处理入口；栈无效返回 -1 */
 /* EN: Push a sigframe and sigreturn trampoline on the user stack and redirect context to the handler; returns -1 for a bad stack */
 static int
-sig_setup(struct uproc *p, struct sysregs *r, int sig)
+sig_setup(struct proc *p, struct sysregs *r, int sig)
 {
 	static const unsigned char tramp[8] = {
 		0xb8, 0x67, 0x00, 0x00, 0x00,	/* movl $103,%eax	*/
@@ -2810,7 +2816,7 @@ sig_setup(struct uproc *p, struct sysregs *r, int sig)
 	fp = (struct sigframe *)sp;
 	fp->magic = SIGFRAME_MAGIC;
 	fp->sig = sig;
-	fp->mask = p->p_sigmask;
+	fp->mask = p->uk_p_sigmask;
 	fp->eax = r->eax; fp->ebx = r->ebx; fp->ecx = r->ecx; fp->edx = r->edx;
 	fp->esi = r->esi; fp->edi = r->edi; fp->ebp = r->ebp;
 	fp->ds = r->ds; fp->es = r->es;
@@ -2831,32 +2837,32 @@ sig_setup(struct uproc *p, struct sysregs *r, int sig)
 	*(unsigned *)sp = stub;			/* return address -> trampoline */
 
 	r->uesp = sp;
-	r->eip = p->p_sighand[sig];
+	r->eip = p->uk_p_sighand[sig];
 	r->eax = (unsigned)sig;
 	/* the handler runs with the signal blocked (no SA_NODEFER) */
-	p->p_sigmask |= SIG_TO_MASK(sig);
+	p->uk_p_sigmask |= SIG_TO_MASK(sig);
 	return (0);
 }
 
 /* 中文：停止进程：置 P_STOPPED 与停止信号，并唤醒带 WUNTRACED 等待的父进程写入停止状态 */
 /* EN: Stop a process: set P_STOPPED and the stop signal, then wake a WUNTRACED-waiting parent with the stop status */
 static void
-sig_stop(struct uproc *p, int sig)
+sig_stop(struct proc *p, int sig)
 {
-	struct uproc *pp;
+	struct proc *pp;
 
-	p->state = P_STOPPED;
-	p->p_stopsig = sig;
-	pp = proc_find(p->ppid);
-	if (pp != 0 && pp->state == P_BLOCKED && pp->wait_status != 0 &&
-	    (pp->wait_options & WUNTRACED) &&
-	    (pp->wait_pid == 0 || pp->wait_pid == p->pid) &&
-	    user_ok(pp->wait_status, 4)) {
-		hal_address_space_activate(pp->pd);
-		*(int *)pp->wait_status = ((sig & 0xff) << 8) | 0x7f;
-		hal_address_space_activate(cur->pd);
-		pp->regs.eax = p->pid;
-		pp->state = P_RUN;
+	p->uk_state = P_STOPPED;
+	p->uk_p_stopsig = sig;
+	pp = proc_find(p->uk_ppid);
+	if (pp != 0 && pp->uk_state == P_BLOCKED && pp->uk_wait_status != 0 &&
+	    (pp->uk_wait_options & WUNTRACED) &&
+	    (pp->uk_wait_pid == 0 || pp->uk_wait_pid == p->uk_pid) &&
+	    user_ok(pp->uk_wait_status, 4)) {
+		hal_address_space_activate(pp->uk_pd);
+		*(int *)pp->uk_wait_status = ((sig & 0xff) << 8) | 0x7f;
+		hal_address_space_activate(cur->uk_pd);
+		pp->uk_regs.eax = p->uk_pid;
+		pp->uk_state = P_RUN;
 	}
 }
 
@@ -2867,7 +2873,7 @@ sig_stop(struct uproc *p, int sig)
 /* 中文：返回用户态前投递至多一个信号：处理 SIGCONT/忽略/捕获/默认动作，默认终止则退出或置僵尸；调用前须已加载目标页目录 */
 /* EN: Deliver at most one pending signal before returning to user mode: handle SIGCONT/ignore/catch/default, terminating or zombifying as needed; caller must have the target PD loaded */
 static void
-sig_deliver(struct uproc *p, struct sysregs *r)
+sig_deliver(struct proc *p, struct sysregs *r)
 {
 	int sig;
 	unsigned pend, mask;
@@ -2875,12 +2881,12 @@ sig_deliver(struct uproc *p, struct sysregs *r)
 
 	if (cur_thread != 0 && cur_thread->t_proc == p)
 		t = cur_thread;
-	else if (p->p_thread != 0)
-		t = p->p_thread;
-	mask = (t != 0) ? t->t_sigmask : p->p_sigmask;
+	else if (p->uk_p_thread != 0)
+		t = p->uk_p_thread;
+	mask = (t != 0) ? t->t_sigmask : p->uk_p_sigmask;
 	for (;;) {
-		pend = (p->p_sig | (t != 0 ? t->t_sig : 0)) & ~mask;
-		pend |= (p->p_sig | (t != 0 ? t->t_sig : 0)) &
+		pend = (p->uk_p_sig | (t != 0 ? t->t_sig : 0)) & ~mask;
+		pend |= (p->uk_p_sig | (t != 0 ? t->t_sig : 0)) &
 		    (SIG_TO_MASK(SIGKILL) | SIG_TO_MASK(SIGSTOP));
 		if (pend == 0)
 			return;
@@ -2889,20 +2895,20 @@ sig_deliver(struct uproc *p, struct sysregs *r)
 				break;
 		if (sig >= NSIG)
 			return;
-		p->p_sig &= ~SIG_TO_MASK(sig);
+		p->uk_p_sig &= ~SIG_TO_MASK(sig);
 		if (t != 0)
 			t->t_sig &= ~SIG_TO_MASK(sig);
 
 		if (sig == SIGCONT) {
-			if (p->p_stopsig != 0) {
-				p->p_stopsig = 0;
-				p->state = P_RUN;
+			if (p->uk_p_stopsig != 0) {
+				p->uk_p_stopsig = 0;
+				p->uk_state = P_RUN;
 			}
 			continue;
 		}
-		if (p->p_sigignore & SIG_TO_MASK(sig))
+		if (p->uk_p_sigignore & SIG_TO_MASK(sig))
 			continue;
-		if ((p->p_sigcatch & SIG_TO_MASK(sig)) && r != 0 &&
+		if ((p->uk_p_sigcatch & SIG_TO_MASK(sig)) && r != 0 &&
 		    sig_setup(p, r, sig) == 0)
 			return;
 		if (sig_default(sig) == 2) {
@@ -2912,11 +2918,11 @@ sig_deliver(struct uproc *p, struct sysregs *r)
 		if (sig_default(sig) == 0)
 			continue;
 		/* terminate */
-		p->p_termsig = sig;
+		p->uk_p_termsig = sig;
 		if (p == cur)
 			proc_exit(sig);		/* never returns */
-		p->exitcode = sig;
-		p->state = P_ZOMBIE;
+		p->uk_exitcode = sig;
+		p->uk_state = P_ZOMBIE;
 		return;
 	}
 }
@@ -2925,34 +2931,34 @@ sig_deliver(struct uproc *p, struct sysregs *r)
 static int
 do_wait4(int want, unsigned statusp, int options, struct sysregs *r)
 {
-	struct uproc *p;
+	struct proc *p;
 	int i, pid;
 
 	for (i = 0; i < NPROC; i++) {
 		p = &procs[i];
-		if (p->state == P_FREE || p->ppid != cur->pid)
+		if (p->uk_state == P_FREE || p->uk_ppid != cur->uk_pid)
 			continue;
-		if (want > 0 && p->pid != want)
+		if (want > 0 && p->uk_pid != want)
 			continue;
-		pid = p->pid;
-		if (p->state == P_ZOMBIE) {
+		pid = p->uk_pid;
+		if (p->uk_state == P_ZOMBIE) {
 			if (statusp != 0 && user_ok(statusp, 4))
-				*(int *)statusp = p->p_termsig ?
-				    (p->p_termsig & 0x7f) :
-				    ((p->exitcode & 0xff) << 8);
-			p->state = P_FREE;
+				*(int *)statusp = p->uk_p_termsig ?
+				    (p->uk_p_termsig & 0x7f) :
+				    ((p->uk_exitcode & 0xff) << 8);
+			p->uk_state = P_FREE;
 			r->eax = pid;
 			return (0);
 		}
-		if (p->state == P_STOPPED && (options & WUNTRACED)) {
+		if (p->uk_state == P_STOPPED && (options & WUNTRACED)) {
 			if (statusp != 0 && user_ok(statusp, 4))
 				*(int *)statusp =
-				    ((p->p_stopsig & 0xff) << 8) | 0x7f;
+				    ((p->uk_p_stopsig & 0xff) << 8) | 0x7f;
 			r->eax = pid;
 			return (0);
 		}
 	}
-	if (proc_children(cur->pid) == 0) {
+	if (proc_children(cur->uk_pid) == 0) {
 		r->eax = (unsigned)-ECHILD;
 		return (0);
 	}
@@ -2960,11 +2966,11 @@ do_wait4(int want, unsigned statusp, int options, struct sysregs *r)
 		r->eax = 0;
 		return (0);
 	}
-	cur->regs = *r;
-	cur->wait_pid = (want > 0) ? want : 0;
-	cur->wait_status = statusp;
-	cur->wait_options = options;
-	cur->state = P_BLOCKED;
+	cur->uk_regs = *r;
+	cur->uk_wait_pid = (want > 0) ? want : 0;
+	cur->uk_wait_status = statusp;
+	cur->uk_wait_options = options;
+	cur->uk_state = P_BLOCKED;
 	proc_sched();
 	r->eax = 0;
 	return (0);
@@ -3014,24 +3020,24 @@ proc_list_text(char *buf, unsigned len)
 	for (i = 0; i < NPROC; i++) {
 		const char *st;
 
-		if (procs[i].state == P_FREE)
+		if (procs[i].uk_state == P_FREE)
 			continue;
-		switch (procs[i].state) {
+		switch (procs[i].uk_state) {
 		case P_RUN:	st = "RUN"; break;
 		case P_BLOCKED:	st = "BLOCK"; break;
 		case P_ZOMBIE:	st = "ZOMB"; break;
 		case P_STOPPED:	st = "STOP"; break;
 		default:	st = "?"; break;
 		}
-		o = ps_num(buf, o, len, (unsigned)procs[i].pid);
+		o = ps_num(buf, o, len, (unsigned)procs[i].uk_pid);
 		o = ps_str(buf, o, len, " ");
-		o = ps_num(buf, o, len, (unsigned)procs[i].ppid);
+		o = ps_num(buf, o, len, (unsigned)procs[i].uk_ppid);
 		o = ps_str(buf, o, len, " ");
 		o = ps_num(buf, o, len, (unsigned)procs[i].p_pgrp);
 		o = ps_str(buf, o, len, " ");
 		o = ps_str(buf, o, len, st);
 		o = ps_str(buf, o, len, " ");
-		o = ps_str(buf, o, len, procs[i].p_comm);
+		o = ps_str(buf, o, len, procs[i].uk_p_comm);
 		o = ps_str(buf, o, len, "\n");
 	}
 	if (o < len)
@@ -3050,7 +3056,7 @@ path_arg(unsigned uptr, char *buf, unsigned len)
 
 	if (user_str(uptr, rel, sizeof(rel)) < 0)
 		return (-EFAULT);
-	return (vfs_absolutize(cur->p_cwd, rel, buf, len));
+	return (vfs_absolutize(cur->uk_p_cwd, rel, buf, len));
 }
 
 
@@ -3077,7 +3083,7 @@ user_ok(unsigned p, unsigned len)
 		unsigned *pt;
 		unsigned pti;
 
-		pti = user_pte_ptr(cur->pd, a, &pt);
+		pti = user_pte_ptr(cur->uk_pd, a, &pt);
 		if (pt == 0 || (pt[pti] & PG_V) == 0) {
 			/*
 			 * A legal heap address below brk is demand-paged here,
@@ -3089,7 +3095,7 @@ user_ok(unsigned p, unsigned len)
 			if (!zcomp_refault(a) && !demand_page(a) &&
 			    !mmap_fault(a & ~(PAGE_SIZE - 1)))
 				return (0);
-			pti = user_pte_ptr(cur->pd, a, &pt);
+			pti = user_pte_ptr(cur->uk_pd, a, &pt);
 			if (pt == 0 || (pt[pti] & PG_V) == 0)
 				return (0);
 		}
@@ -3097,7 +3103,7 @@ user_ok(unsigned p, unsigned len)
 			/* output paths write here: give the page a private copy */
 			if (!user_page_fault(a, 7))
 				return (0);
-			pti = user_pte_ptr(cur->pd, a, &pt);
+			pti = user_pte_ptr(cur->uk_pd, a, &pt);
 			if (pt == 0 || (pt[pti] & PG_V) == 0)
 				return (0);
 		}
@@ -3117,7 +3123,7 @@ user_ok_w(unsigned p, unsigned len)
 		return (0);
 	for (a = p; a < p + len; a = (a + PAGE_SIZE) & ~(PAGE_SIZE - 1)) {
 		unsigned *pt;
-		unsigned pti = user_pte_ptr(cur->pd, a, &pt);
+		unsigned pti = user_pte_ptr(cur->uk_pd, a, &pt);
 
 		if (pt == 0 || (pt[pti] & PG_RW) == 0)
 			return (0);
@@ -3315,29 +3321,29 @@ exec_image(const char *path, unsigned uargv, unsigned uenvp, struct sysregs *r)
 	pd = build_image(img, len, &entry, argv, argc, envp, envc, &esp);
 	/* S17: the old address space is replaced, drop its mmap references */
 	mmap_teardown(cur);
-	cur->pd = pd;
-	cur->brk_mapped = USER_HEAP_START;
+	cur->uk_pd = pd;
+	cur->uk_brk_mapped = USER_HEAP_START;
 	printf("execve %s: entry %x esp %x pd %x argc %d\n",
 	    path, entry, esp, pd, argc);
 	hal_address_space_activate(pd);
 	r->eip = entry;
 	r->uesp = esp;
 	r->eax = 0;
-	if (cur->vfork_child) {
-		struct uproc *pp = proc_find(cur->ppid);
+	if (cur->uk_vfork_child) {
+		struct proc *pp = proc_find(cur->uk_ppid);
 
-		cur->vfork_child = 0;
-		if (pp != 0 && pp->state == P_BLOCKED && pp->vfork_wait) {
-			pp->vfork_wait = 0;
-			pp->regs.eax = cur->pid;
-			pp->state = P_RUN;
-			cur->regs = *r;
-			cur->state = P_RUN;
+		cur->uk_vfork_child = 0;
+		if (pp != 0 && pp->uk_state == P_BLOCKED && pp->uk_vfork_wait) {
+			pp->uk_vfork_wait = 0;
+			pp->uk_regs.eax = cur->uk_pid;
+			pp->uk_state = P_RUN;
+			cur->uk_regs = *r;
+			cur->uk_state = P_RUN;
 			cur = pp;
-			cur_thread = pp->p_thread;
+			cur_thread = pp->uk_p_thread;
 			if (cur_thread != 0)
 				hal_kernel_stack_set(cur_thread->t_stack_top);
-			resume_user(pp->pd, &pp->regs);
+			resume_user(pp->uk_pd, &pp->uk_regs);
 		}
 	}
 	return (0);
@@ -3469,7 +3475,7 @@ console_termios(unsigned arg, int get)
  * switch internals.
  */
 /*
- * S25: user threads.  The main thread's context remains in uproc.regs (so
+ * S25: user threads.  The main thread's context remains in proc->regs (so
  * the existing fork/wait/pipe paths are unchanged); additional threads keep
  * their context in kthread.t_regs and are scheduled by the thread table.
  */
@@ -3482,14 +3488,14 @@ thread_create(struct sysregs *r)
 	int tid;
 	unsigned sva, top;
 
-	tid = cur->p_next_tid++;
+	tid = cur->uk_p_next_tid++;
 	if (r->edx != 0)
 		top = r->edx;
 	else {
 		/* per-thread user stack: 2 pages below the main stack */
 		sva = 0xBFA00000u + ((unsigned)(tid & 0xf) << 16);
-		user_map(cur->pd, sva, page_alloc());
-		user_map(cur->pd, sva + PAGE_SIZE, page_alloc());
+		user_map(cur->uk_pd, sva, page_alloc());
+		user_map(cur->uk_pd, sva + PAGE_SIZE, page_alloc());
 		top = sva + 2 * PAGE_SIZE - 16;
 	}
 	t = kthread_user_spawn(cur, tid);
@@ -3501,9 +3507,9 @@ thread_create(struct sysregs *r)
 	t->t_regs.uesp = top;		/* user stack top */
 	t->t_regs.ebp = 0;
 	t->t_sigmask = (cur_thread != 0) ? cur_thread->t_sigmask :
-	    cur->p_sigmask;
+	    cur->uk_p_sigmask;
 	t->t_state = KT_RUN;
-	cur->p_nthreads++;
+	/* kthread_user_spawn already linked t and bumped uk_p_nthreads */
 	return (tid);
 }
 
@@ -3515,30 +3521,30 @@ thread_exit_current(int code)
 	struct kthread *t = cur_thread;
 	int i;
 
-	if (t == 0 || t->t_tid == cur->pid) {
-		if (cur->p_nthreads <= 1) {
+	if (t == 0 || t->t_tid == cur->uk_pid) {
+		if (cur->uk_p_nthreads <= 1) {
 			proc_exit(code);
 			return;
 		}
 		/* main thread exits, other threads keep the process alive */
 		t->t_exitcode = code;
 		t->t_state = KT_ZOMBIE;
-		cur->state = P_BLOCKED;
+		cur->uk_state = P_BLOCKED;
 		proc_sched();
 		return;
 	}
 	t->t_exitcode = code;
 	t->t_state = KT_ZOMBIE;
-	cur->p_nthreads--;
+	cur->uk_p_nthreads--;
 	for (i = 0; i < NKTHREAD; i++) {
 		struct kthread *j = &kthreads[i];
 
 		if (!j->t_used || j->t_join_tid != t->t_tid)
 			continue;
 		j->t_join_tid = 0;
-		if (j->t_tid == j->t_proc->pid) {
-			j->t_proc->regs.eax = code;
-			j->t_proc->state = P_RUN;
+		if (j->t_tid == j->t_proc->uk_pid) {
+			j->t_proc->uk_regs.eax = code;
+			j->t_proc->uk_state = P_RUN;
 		} else {
 			j->t_regs.eax = code;
 			j->t_state = KT_RUN;
@@ -3581,15 +3587,15 @@ thread_join(int tid, struct sysregs *r)
 	if (t->t_state == KT_ZOMBIE) {
 		code = t->t_exitcode;
 		kthread_user_free(t);
-		if (cur->p_nthreads > 1)
-			cur->p_nthreads--;
+		if (cur->uk_p_nthreads > 1)
+			cur->uk_p_nthreads--;
 		return (code);
 	}
 	jt = cur_thread;
 	jt->t_join_tid = tid;
-	if (jt->t_tid == cur->pid) {
-		cur->regs = *r;
-		cur->state = P_BLOCKED;
+	if (jt->t_tid == cur->uk_pid) {
+		cur->uk_regs = *r;
+		cur->uk_state = P_BLOCKED;
 	} else {
 		jt->t_regs = *r;
 		jt->t_state = KT_BLOCK;
@@ -3604,7 +3610,7 @@ static int
 thread_self(void)
 {
 
-	return (cur_thread != 0 ? cur_thread->t_tid : cur->pid);
+	return (cur_thread != 0 ? cur_thread->t_tid : cur->uk_pid);
 }
 
 /* 中文：线程让出 CPU：保存当前上下文并置为可运行，然后调度其它线程 */
@@ -3615,9 +3621,9 @@ thread_yield(struct sysregs *r)
 
 	if (cur_thread == 0)
 		return;
-	if (cur_thread->t_tid == cur->pid) {
-		cur->regs = *r;
-		cur->state = P_RUN;
+	if (cur_thread->t_tid == cur->uk_pid) {
+		cur->uk_regs = *r;
+		cur->uk_state = P_RUN;
 	} else {
 		cur_thread->t_regs = *r;
 		cur_thread->t_state = KT_RUN;
@@ -3678,7 +3684,7 @@ bsd45_syscall(struct sysregs *r)
 			r->eax = (unsigned)-EBADF;
 			break;
 		}
-		if (cur->fds[fd].used && cur->fds[fd].vp != 0) {
+		if (cur->uk_fds[fd].used && cur->uk_fds[fd].vp != 0) {
 			int n2;
 
 			/*
@@ -3687,16 +3693,16 @@ bsd45_syscall(struct sysregs *r)
 			 * 同步 VFS 写：vfs_write_sync() 在本地上下文执行后端；
 			 * 异步走 vfs_write_async。
 			 */
-			n2 = vfs_write_sync(cur->fds[fd].vp,
-			    cur->fds[fd].off, (const void *)buf, len);
+			n2 = vfs_write_sync(cur->uk_fds[fd].vp,
+			    cur->uk_fds[fd].off, (const void *)buf, len);
 			if (n2 > 0)
-				cur->fds[fd].off += n2;
+				cur->uk_fds[fd].off += n2;
 			r->eax = (unsigned)n2;
 			break;
 		}
-		if (cur->fds[fd].used && cur->fds[fd].type == FD_TMPFILE) {
-			struct tmpfs_node *n = &tmpfs[cur->fds[fd].node];
-			unsigned off = cur->fds[fd].off, n2 = len;
+		if (cur->uk_fds[fd].used && cur->uk_fds[fd].type == FD_TMPFILE) {
+			struct tmpfs_node *n = &tmpfs[cur->uk_fds[fd].node];
+			unsigned off = cur->uk_fds[fd].off, n2 = len;
 
 			if (off >= TMPFS_DATASZ) {
 				r->eax = (unsigned)-ENOSPC;
@@ -3705,18 +3711,18 @@ bsd45_syscall(struct sysregs *r)
 			if (n2 > TMPFS_DATASZ - off)
 				n2 = TMPFS_DATASZ - off;
 			bcopy((char *)buf, n->data + off, n2);
-			cur->fds[fd].off = off + n2;
-			if (cur->fds[fd].off > n->size)
-				n->size = cur->fds[fd].off;
-			cur->fds[fd].len = n->size;
+			cur->uk_fds[fd].off = off + n2;
+			if (cur->uk_fds[fd].off > n->size)
+				n->size = cur->uk_fds[fd].off;
+			cur->uk_fds[fd].len = n->size;
 			r->eax = n2;
 			break;
 		}
-		if (cur->fds[fd].used && cur->fds[fd].type == FD_PIPE) {
-			struct pipe *pp = &pipes[cur->fds[fd].pipeidx];
+		if (cur->uk_fds[fd].used && cur->uk_fds[fd].type == FD_PIPE) {
+			struct pipe *pp = &pipes[cur->uk_fds[fd].pipeidx];
 			unsigned space, n, first;
 
-			if (cur->fds[fd].rw != 2) {
+			if (cur->uk_fds[fd].rw != 2) {
 				r->eax = (unsigned)-EBADF;
 				break;
 			}
@@ -3726,13 +3732,13 @@ bsd45_syscall(struct sysregs *r)
 			}
 			space = PIPESZ - pp->count;
 			if (space == 0) {
-				cur->regs = *r;
-				cur->state = P_BLOCKED;
-				cur->pipeidx = pp - pipes;
-				cur->piperw = 2;
-				cur->pipeat = buf;
-				cur->pipelen = len;
-				pp->wpid = cur->pid;
+				cur->uk_regs = *r;
+				cur->uk_state = P_BLOCKED;
+				cur->uk_pipeidx = pp - pipes;
+				cur->uk_piperw = 2;
+				cur->uk_pipeat = buf;
+				cur->uk_pipelen = len;
+				pp->wpid = cur->uk_pid;
 				proc_sched();
 				break;		/* resumed by the reader */
 			}
@@ -3751,14 +3757,14 @@ bsd45_syscall(struct sysregs *r)
 			r->eax = n;
 			break;
 		}
-		if (cur->fds[fd].used &&
-		    (cur->fds[fd].type == FD_NULL ||
-		     cur->fds[fd].type == FD_ZERO)) {
+		if (cur->uk_fds[fd].used &&
+		    (cur->uk_fds[fd].type == FD_NULL ||
+		     cur->uk_fds[fd].type == FD_ZERO)) {
 			r->eax = len;		/* discard */
 			break;
 		}
-		if (!cur->fds[fd].used ||
-		    cur->fds[fd].type != FD_CONSOLE) {	/* not writable */
+		if (!cur->uk_fds[fd].used ||
+		    cur->uk_fds[fd].type != FD_CONSOLE) {	/* not writable */
 			r->eax = (unsigned)-EBADF;
 			break;
 		}
@@ -3779,24 +3785,24 @@ bsd45_syscall(struct sysregs *r)
 			r->eax = 0;
 			break;
 		}
-		if (fd >= NFD || !cur->fds[fd].used) {
+		if (fd >= NFD || !cur->uk_fds[fd].used) {
 			r->eax = (unsigned)-EBADF;
 			break;
 		}
-		if (cur->fds[fd].type == FD_NULL) {
+		if (cur->uk_fds[fd].type == FD_NULL) {
 			r->eax = 0;
 			break;
 		}
-		if (cur->fds[fd].type == FD_ZERO) {
+		if (cur->uk_fds[fd].type == FD_ZERO) {
 			for (i = 0; i < len; i++)
 				((char *)buf)[i] = 0;
 			r->eax = len;
 			break;
 		}
-		if (cur->fds[fd].type == FD_PS) {
+		if (cur->uk_fds[fd].type == FD_PS) {
 			static char pbuf[512];
 			static int plen = -1;
-			unsigned off = cur->fds[fd].off, n2;
+			unsigned off = cur->uk_fds[fd].off, n2;
 
 			if (plen < 0)
 				plen = proc_list_text(pbuf, sizeof(pbuf));
@@ -3808,14 +3814,14 @@ bsd45_syscall(struct sysregs *r)
 			if (n2 > len)
 				n2 = len;
 			bcopy(pbuf + off, (char *)buf, n2);
-			cur->fds[fd].off = off + n2;
+			cur->uk_fds[fd].off = off + n2;
 			r->eax = n2;
 			break;
 		}
-		if (cur->fds[fd].type == FD_MOUNTS) {
+		if (cur->uk_fds[fd].type == FD_MOUNTS) {
 			static char mbuf[256];
 			static int mlen = -1;
-			unsigned off = cur->fds[fd].off, n2;
+			unsigned off = cur->uk_fds[fd].off, n2;
 
 			if (mlen < 0)
 				mlen = vfs_mount_list(mbuf, sizeof(mbuf));
@@ -3827,18 +3833,18 @@ bsd45_syscall(struct sysregs *r)
 			if (n2 > len)
 				n2 = len;
 			bcopy(mbuf + off, (char *)buf, n2);
-			cur->fds[fd].off = off + n2;
+			cur->uk_fds[fd].off = off + n2;
 			r->eax = n2;
 			break;
 		}
-		if (cur->fds[fd].type == FD_VMSTAT) {
+		if (cur->uk_fds[fd].type == FD_VMSTAT) {
 			/*
 			 * S17: the counters are live, so re-render on every
 			 * read instead of caching a snapshot like /dev/ps.
 			 */
 			static char vbuf[512];
 			int vlen = vfs_cache_report(vbuf, sizeof(vbuf));
-			unsigned off = cur->fds[fd].off, n2;
+			unsigned off = cur->uk_fds[fd].off, n2;
 
 			if (off >= (unsigned)vlen) {
 				r->eax = 0;
@@ -3848,37 +3854,37 @@ bsd45_syscall(struct sysregs *r)
 			if (n2 > len)
 				n2 = len;
 			bcopy(vbuf + off, (char *)buf, n2);
-			cur->fds[fd].off = off + n2;
+			cur->uk_fds[fd].off = off + n2;
 			r->eax = n2;
 			break;
 		}
-		if (cur->fds[fd].type == FD_CONSOLE) {
+		if (cur->uk_fds[fd].type == FD_CONSOLE) {
 			r->eax = (unsigned)console_read((char *)buf, len);
 			break;
 		}
-		if (cur->fds[fd].type == FD_DIR) {
+		if (cur->uk_fds[fd].type == FD_DIR) {
 			r->eax = (unsigned)-EISDIR;
 			break;
 		}
-		if (cur->fds[fd].vp != 0) {
+		if (cur->uk_fds[fd].vp != 0) {
 			int n2;
 
-			if (cur->fds[fd].vp->type == VDIR) {
+			if (cur->uk_fds[fd].vp->type == VDIR) {
 				r->eax = (unsigned)-EISDIR;
 				break;
 			}
-			n2 = vfs_read_sync(cur->fds[fd].vp,
-			    cur->fds[fd].off, (void *)buf, len);
+			n2 = vfs_read_sync(cur->uk_fds[fd].vp,
+			    cur->uk_fds[fd].off, (void *)buf, len);
 			if (n2 > 0)
-				cur->fds[fd].off += n2;
+				cur->uk_fds[fd].off += n2;
 			r->eax = (unsigned)n2;
 			break;
 		}
-		if (cur->fds[fd].type == FD_TMPFILE) {
-			struct tmpfs_node *n = &tmpfs[cur->fds[fd].node];
-			unsigned off = cur->fds[fd].off, n2 = 0;
+		if (cur->uk_fds[fd].type == FD_TMPFILE) {
+			struct tmpfs_node *n = &tmpfs[cur->uk_fds[fd].node];
+			unsigned off = cur->uk_fds[fd].off, n2 = 0;
 
-			if (cur->fds[fd].rw != 1 && cur->fds[fd].rw != 2) {
+			if (cur->uk_fds[fd].rw != 1 && cur->uk_fds[fd].rw != 2) {
 				r->eax = (unsigned)-EBADF;
 				break;
 			}
@@ -3887,20 +3893,20 @@ bsd45_syscall(struct sysregs *r)
 				if (n2 > len)
 					n2 = len;
 				bcopy(n->data + off, (char *)buf, n2);
-				cur->fds[fd].off = off + n2;
+				cur->uk_fds[fd].off = off + n2;
 			}
 			r->eax = n2;
 			break;
 		}
-		if (cur->fds[fd].type == FD_TMPDIR) {
+		if (cur->uk_fds[fd].type == FD_TMPDIR) {
 			r->eax = (unsigned)-EISDIR;
 			break;
 		}
-		if (cur->fds[fd].type == FD_PIPE) {
-			struct pipe *pp = &pipes[cur->fds[fd].pipeidx];
+		if (cur->uk_fds[fd].type == FD_PIPE) {
+			struct pipe *pp = &pipes[cur->uk_fds[fd].pipeidx];
 			unsigned n, first;
 
-			if (cur->fds[fd].rw != 1) {
+			if (cur->uk_fds[fd].rw != 1) {
 				r->eax = (unsigned)-EBADF;
 				break;
 			}
@@ -3909,13 +3915,13 @@ bsd45_syscall(struct sysregs *r)
 					r->eax = 0;
 					break;
 				}
-				cur->regs = *r;
-				cur->state = P_BLOCKED;
-				cur->pipeidx = pp - pipes;
-				cur->piperw = 1;
-				cur->pipeat = buf;
-				cur->pipelen = len;
-				pp->rpid = cur->pid;
+				cur->uk_regs = *r;
+				cur->uk_state = P_BLOCKED;
+				cur->uk_pipeidx = pp - pipes;
+				cur->uk_piperw = 1;
+				cur->uk_pipeat = buf;
+				cur->uk_pipelen = len;
+				pp->rpid = cur->uk_pid;
 				proc_sched();
 				break;		/* resumed by the writer */
 			}
@@ -3934,8 +3940,8 @@ bsd45_syscall(struct sysregs *r)
 			r->eax = n;
 			break;
 		}
-		while (i < len && cur->fds[fd].off < cur->fds[fd].len)
-			((char *)buf)[i++] = cur->fds[fd].d[cur->fds[fd].off++];
+		while (i < len && cur->uk_fds[fd].off < cur->uk_fds[fd].len)
+			((char *)buf)[i++] = cur->uk_fds[fd].d[cur->uk_fds[fd].off++];
 		r->eax = i;
 		break;
 	}
@@ -3965,19 +3971,19 @@ bsd45_syscall(struct sysregs *r)
 			    (strcmp(path, "/dev/vmstat") == 0) ? FD_VMSTAT :
 			    FD_CONSOLE;
 			for (fd = 0; fd < NFD; fd++)
-				if (!cur->fds[fd].used)
+				if (!cur->uk_fds[fd].used)
 					break;
 			if (fd >= NFD) {
 				r->eax = (unsigned)-EMFILE;
 				break;
 			}
-			bzero(&cur->fds[fd], sizeof(cur->fds[fd]));
-			cur->fds[fd].used = 1;
-			cur->fds[fd].type = t;
-			cur->fds[fd].rw = ((flags & O_ACCMODE) == O_RDONLY) ? 1 : 2;
-			cur->fds[fd].pipeidx = -1;
-			cur->fds[fd].node = -1;
-			cur->fds[fd].vp = 0;
+			bzero(&cur->uk_fds[fd], sizeof(cur->uk_fds[fd]));
+			cur->uk_fds[fd].used = 1;
+			cur->uk_fds[fd].type = t;
+			cur->uk_fds[fd].rw = ((flags & O_ACCMODE) == O_RDONLY) ? 1 : 2;
+			cur->uk_fds[fd].pipeidx = -1;
+			cur->uk_fds[fd].node = -1;
+			cur->uk_fds[fd].vp = 0;
 			r->eax = (unsigned)fd;
 			break;
 		}
@@ -4048,16 +4054,16 @@ bsd45_syscall(struct sysregs *r)
 		 * 按需分页堆：这里只记录新的堆上限；首次访问 brk_mapped
 		 * 以下的地址时由 demand_page() 分配零页，本调用不分配物理页。
 		 */
-		if (a > cur->brk_mapped)
-			cur->brk_mapped = a;
+		if (a > cur->uk_brk_mapped)
+			cur->uk_brk_mapped = a;
 		r->eax = a;
 		break;
 	}
 	case 20:			/* getpid */
-		r->eax = cur->pid;
+		r->eax = cur->uk_pid;
 		break;
 	case 39:			/* getppid */
-		r->eax = cur->ppid;
+		r->eax = cur->uk_ppid;
 		break;
 	case 24: case 25: case 43: case 47:	/* uid/gid */
 		r->eax = 0;
@@ -4066,14 +4072,14 @@ bsd45_syscall(struct sysregs *r)
 		r->eax = (unsigned)cur->p_pgrp;
 		break;
 	case 82: {			/* setpgid(pid, pgid) */
-		struct uproc *p = (r->ebx == 0) ? cur :
+		struct proc *p = (r->ebx == 0) ? cur :
 		    proc_find((int)r->ebx);
 
 		if (p == 0) {
 			r->eax = (unsigned)-ESRCH;
 			break;
 		}
-		p->p_pgrp = (r->ecx == 0) ? p->pid : (int)r->ecx;
+		p->p_pgrp = (r->ecx == 0) ? p->uk_pid : (int)r->ecx;
 		r->eax = 0;
 		break;
 	}
@@ -4098,17 +4104,17 @@ bsd45_syscall(struct sysregs *r)
 			break;
 		}
 		for (i = 0; i < NPROC; i++) {
-			struct uproc *p = &procs[i];
+			struct proc *p = &procs[i];
 			int hit;
 
-			if (p->state == P_FREE)
+			if (p->uk_state == P_FREE)
 				continue;
 			if (pid > 0)
-				hit = (p->pid == pid);
+				hit = (p->uk_pid == pid);
 			else if (pid == 0)
 				hit = (p->p_pgrp == cur->p_pgrp);
 			else if (pid == -1)
-				hit = (p->pid != 1);
+				hit = (p->uk_pid != 1);
 			else
 				hit = (p->p_pgrp == -pid);
 			if (hit) {
@@ -4135,8 +4141,8 @@ bsd45_syscall(struct sysregs *r)
 				r->eax = (unsigned)-EFAULT;
 				break;
 			}
-			old.handler = cur->p_sighand[sig];
-			old.mask = cur->p_sigmask;
+			old.handler = cur->uk_p_sighand[sig];
+			old.mask = cur->uk_p_sigmask;
 			old.flags = 0;
 			bcopy(&old, (void *)osa, sizeof(sa));
 		}
@@ -4149,20 +4155,20 @@ bsd45_syscall(struct sysregs *r)
 			break;
 		}
 		bcopy((void *)nsa, &sa, sizeof(sa));
-		cur->p_sighand[sig] = sa.handler;
-		cur->p_sigcatch &= ~SIG_TO_MASK(sig);
-		cur->p_sigignore &= ~SIG_TO_MASK(sig);
+		cur->uk_p_sighand[sig] = sa.handler;
+		cur->uk_p_sigcatch &= ~SIG_TO_MASK(sig);
+		cur->uk_p_sigignore &= ~SIG_TO_MASK(sig);
 		if (sa.handler == SIG_IGN)
-			cur->p_sigignore |= SIG_TO_MASK(sig);
+			cur->uk_p_sigignore |= SIG_TO_MASK(sig);
 		else if (sa.handler != SIG_DFL)
-			cur->p_sigcatch |= SIG_TO_MASK(sig);
+			cur->uk_p_sigcatch |= SIG_TO_MASK(sig);
 		r->eax = 0;
 		break;
 	}
 	case 48: {			/* sigprocmask(how, set, oset) */
 		unsigned how = r->ebx, set = r->ecx, oset = r->edx;
 		unsigned m = 0, old;
-		unsigned *maskp = &cur->p_sigmask;
+		unsigned *maskp = &cur->uk_p_sigmask;
 
 		if (cur_thread != 0 && cur_thread->t_proc == cur)
 			maskp = &cur_thread->t_sigmask;
@@ -4194,8 +4200,8 @@ bsd45_syscall(struct sysregs *r)
 				r->eax = (unsigned)-EINVAL;
 				break;
 			}
-			if (cur_thread == cur->p_thread)
-				cur->p_sigmask = cur_thread->t_sigmask;
+			if (cur_thread == cur->uk_p_thread)
+				cur->uk_p_sigmask = cur_thread->t_sigmask;
 		}
 		r->eax = 0;
 		break;
@@ -4225,7 +4231,7 @@ bsd45_syscall(struct sysregs *r)
 		r->ebp = fp->ebp; r->ds = fp->ds; r->es = fp->es;
 		r->eip = fp->eip; r->cs = fp->cs; r->eflags = fp->eflags;
 		r->uesp = fp->uesp; r->ss = fp->ss;
-		cur->p_sigmask = fp->mask;
+		cur->uk_p_sigmask = fp->mask;
 		break;
 	}
 	case 52:			/* sigpending */
@@ -4322,46 +4328,46 @@ bsd45_syscall(struct sysregs *r)
 			r->eax = 0;
 			break;
 		}
-		if (r->ebx >= NFD || !cur->fds[r->ebx].used) {
+		if (r->ebx >= NFD || !cur->uk_fds[r->ebx].used) {
 			r->eax = (unsigned)-EBADF;
 			break;
 		}
-		if (cur->fds[r->ebx].vp != 0) {
+		if (cur->uk_fds[r->ebx].vp != 0) {
 			unsigned mode = 0, size = 0;
 
-			cur->fds[r->ebx].vp->ops->getattr(
-			    cur->fds[r->ebx].vp, &mode, &size);
+			cur->uk_fds[r->ebx].vp->ops->getattr(
+			    cur->uk_fds[r->ebx].vp, &mode, &size);
 			fill_stat(mode, size, (unsigned *)r->ecx);
 			r->eax = 0;
 			break;
 		}
-		if (cur->fds[r->ebx].type == FD_TMPFILE) {
+		if (cur->uk_fds[r->ebx].type == FD_TMPFILE) {
 			fill_stat(0100644,
-			    tmpfs[cur->fds[r->ebx].node].size,
+			    tmpfs[cur->uk_fds[r->ebx].node].size,
 			    (unsigned *)r->ecx);
 			r->eax = 0;
 			break;
 		}
-		if (cur->fds[r->ebx].type == FD_TMPDIR) {
+		if (cur->uk_fds[r->ebx].type == FD_TMPDIR) {
 			fill_stat(0040755, 4096, (unsigned *)r->ecx);
 			r->eax = 0;
 			break;
 		}
-		fill_stat(cur->fds[r->ebx].type == FD_DIR ? 0040755 : 0100755,
-		    cur->fds[r->ebx].len, (unsigned *)r->ecx);
+		fill_stat(cur->uk_fds[r->ebx].type == FD_DIR ? 0040755 : 0100755,
+		    cur->uk_fds[r->ebx].len, (unsigned *)r->ecx);
 		r->eax = 0;
 		break;
 	}
 	case 196: {			/* getdirentries(fd, buf, n, basep) */
 		unsigned fd = r->ebx, buf = r->ecx, nb = r->edx, basep = r->esi;
-		struct fd *fp;
+		struct kfd *fp;
 		char name[48];
 		unsigned elba, esize, pos;
 		int eflags, rv, namlen, reclen;
 
-		if (fd >= NFD || !cur->fds[fd].used ||
-		    (cur->fds[fd].type != FD_DIR &&
-		     cur->fds[fd].type != FD_TMPDIR)) {
+		if (fd >= NFD || !cur->uk_fds[fd].used ||
+		    (cur->uk_fds[fd].type != FD_DIR &&
+		     cur->uk_fds[fd].type != FD_TMPDIR)) {
 			r->eax = (unsigned)-EBADF;
 			break;
 		}
@@ -4369,7 +4375,7 @@ bsd45_syscall(struct sysregs *r)
 			r->eax = (unsigned)-EINVAL;
 			break;
 		}
-		fp = &cur->fds[fd];
+		fp = &cur->uk_fds[fd];
 		if (fp->vp != 0) {
 			int rv2, namlen2, reclen2, isd2 = 0;
 
@@ -4461,57 +4467,57 @@ bsd45_syscall(struct sysregs *r)
 	case 199: {			/* lseek(fd, off, whence) */
 		unsigned fd = r->ebx, off = r->ecx, wh = r->edx;
 
-		if (fd >= NFD || !cur->fds[fd].used) {
+		if (fd >= NFD || !cur->uk_fds[fd].used) {
 			r->eax = (unsigned)-EBADF;
 			break;
 		}
-		if (cur->fds[fd].vp != 0) {
+		if (cur->uk_fds[fd].vp != 0) {
 			unsigned mode = 0, size = 0;
 
-			cur->fds[fd].vp->ops->getattr(cur->fds[fd].vp,
+			cur->uk_fds[fd].vp->ops->getattr(cur->uk_fds[fd].vp,
 			    &mode, &size);
 			if (wh == 0)
-				cur->fds[fd].off = off;
+				cur->uk_fds[fd].off = off;
 			else if (wh == 1)
-				cur->fds[fd].off += off;
+				cur->uk_fds[fd].off += off;
 			else
-				cur->fds[fd].off = size;
-			r->eax = cur->fds[fd].off;
+				cur->uk_fds[fd].off = size;
+			r->eax = cur->uk_fds[fd].off;
 			break;
 		}
-		if (cur->fds[fd].type == FD_TMPFILE) {
+		if (cur->uk_fds[fd].type == FD_TMPFILE) {
 			if (wh == 0)
-				cur->fds[fd].off = off;
+				cur->uk_fds[fd].off = off;
 			else if (wh == 1)
-				cur->fds[fd].off += off;
+				cur->uk_fds[fd].off += off;
 			else
-				cur->fds[fd].off = tmpfs[cur->fds[fd].node].size;
-			r->eax = cur->fds[fd].off;
+				cur->uk_fds[fd].off = tmpfs[cur->uk_fds[fd].node].size;
+			r->eax = cur->uk_fds[fd].off;
 			break;
 		}
-		if (cur->fds[fd].type == FD_TMPDIR) {
-			cur->fds[fd].dpos = (wh == 1) ? cur->fds[fd].dpos + off
+		if (cur->uk_fds[fd].type == FD_TMPDIR) {
+			cur->uk_fds[fd].dpos = (wh == 1) ? cur->uk_fds[fd].dpos + off
 			    : 0;
-			r->eax = cur->fds[fd].dpos;
+			r->eax = cur->uk_fds[fd].dpos;
 			break;
 		}
-		if (cur->fds[fd].type == FD_DIR) {
+		if (cur->uk_fds[fd].type == FD_DIR) {
 			if (wh == 0)
-				cur->fds[fd].dpos = off;
+				cur->uk_fds[fd].dpos = off;
 			else if (wh == 1)
-				cur->fds[fd].dpos += off;
+				cur->uk_fds[fd].dpos += off;
 			else
-				cur->fds[fd].dpos = cur->fds[fd].dsize;
-			r->eax = cur->fds[fd].dpos;
+				cur->uk_fds[fd].dpos = cur->uk_fds[fd].dsize;
+			r->eax = cur->uk_fds[fd].dpos;
 			break;
 		}
 		if (wh == 0)
-			cur->fds[fd].off = off;
+			cur->uk_fds[fd].off = off;
 		else if (wh == 1)
-			cur->fds[fd].off += off;
+			cur->uk_fds[fd].off += off;
 		else
-			cur->fds[fd].off = cur->fds[fd].len;
-		r->eax = cur->fds[fd].off;
+			cur->uk_fds[fd].off = cur->uk_fds[fd].len;
+		r->eax = cur->uk_fds[fd].off;
 		break;
 	}
 	case 89:			/* getdtablesize */
@@ -4545,7 +4551,7 @@ bsd45_syscall(struct sysregs *r)
 	case 92: {			/* fcntl(fd, cmd, arg) */
 		int fd = (int)r->ebx, cmd = (int)r->ecx, arg = (int)r->edx;
 
-		if (fd < 0 || fd >= NFD || !cur->fds[fd].used) {
+		if (fd < 0 || fd >= NFD || !cur->uk_fds[fd].used) {
 			r->eax = (unsigned)-EBADF;
 			break;
 		}
@@ -4553,20 +4559,20 @@ bsd45_syscall(struct sysregs *r)
 			int newfd;
 
 			for (newfd = arg; newfd < NFD; newfd++)
-				if (!cur->fds[newfd].used)
+				if (!cur->uk_fds[newfd].used)
 					break;
 			if (newfd >= NFD) {
 				r->eax = (unsigned)-EMFILE;
 				break;
 			}
-			cur->fds[newfd] = cur->fds[fd];
-			fd_ref(&cur->fds[newfd]);
-			if (cur->fds[newfd].type == FD_PIPE &&
-			    cur->fds[newfd].pipeidx >= 0) {
-				if (cur->fds[newfd].rw == 1)
-					pipes[cur->fds[newfd].pipeidx].readers++;
+			cur->uk_fds[newfd] = cur->uk_fds[fd];
+			fd_ref(&cur->uk_fds[newfd]);
+			if (cur->uk_fds[newfd].type == FD_PIPE &&
+			    cur->uk_fds[newfd].pipeidx >= 0) {
+				if (cur->uk_fds[newfd].rw == 1)
+					pipes[cur->uk_fds[newfd].pipeidx].readers++;
 				else
-					pipes[cur->fds[newfd].pipeidx].writers++;
+					pipes[cur->uk_fds[newfd].pipeidx].writers++;
 			}
 			r->eax = newfd;
 			break;
@@ -4581,24 +4587,24 @@ bsd45_syscall(struct sysregs *r)
 	case 41: {			/* dup(fd) */
 		int from = (int)r->ebx, to;
 
-		if (from < 0 || from >= NFD || !cur->fds[from].used) {
+		if (from < 0 || from >= NFD || !cur->uk_fds[from].used) {
 			r->eax = (unsigned)-EBADF;
 			break;
 		}
 		for (to = 3; to < NFD; to++)
-			if (!cur->fds[to].used)
+			if (!cur->uk_fds[to].used)
 				break;
 		if (to >= NFD) {
 			r->eax = (unsigned)-EMFILE;
 			break;
 		}
-		cur->fds[to] = cur->fds[from];
-		fd_ref(&cur->fds[to]);
-		if (cur->fds[to].type == FD_PIPE && cur->fds[to].pipeidx >= 0) {
-			if (cur->fds[to].rw == 1)
-				pipes[cur->fds[to].pipeidx].readers++;
+		cur->uk_fds[to] = cur->uk_fds[from];
+		fd_ref(&cur->uk_fds[to]);
+		if (cur->uk_fds[to].type == FD_PIPE && cur->uk_fds[to].pipeidx >= 0) {
+			if (cur->uk_fds[to].rw == 1)
+				pipes[cur->uk_fds[to].pipeidx].readers++;
 			else
-				pipes[cur->fds[to].pipeidx].writers++;
+				pipes[cur->uk_fds[to].pipeidx].writers++;
 		}
 		r->eax = to;
 		break;
@@ -4620,19 +4626,19 @@ bsd45_syscall(struct sysregs *r)
 		pp->readers = 1;
 		pp->writers = 1;
 		for (i = 3; i < NFD && nfd < 2; i++) {
-			if (!cur->fds[i].used) {
+			if (!cur->uk_fds[i].used) {
 				fds[nfd++] = i;
-				bzero(&cur->fds[i], sizeof(cur->fds[i]));
-				cur->fds[i].used = 1;
-				cur->fds[i].type = FD_PIPE;
-				cur->fds[i].pipeidx = pp - pipes;
-				cur->fds[i].d = 0;
-				cur->fds[i].len = 0;
-				cur->fds[i].off = 0;
-				cur->fds[i].lba = 0;
-				cur->fds[i].dsize = 0;
-				cur->fds[i].dpos = 0;
-				cur->fds[i].rw = (nfd == 1) ? 1 : 2;
+				bzero(&cur->uk_fds[i], sizeof(cur->uk_fds[i]));
+				cur->uk_fds[i].used = 1;
+				cur->uk_fds[i].type = FD_PIPE;
+				cur->uk_fds[i].pipeidx = pp - pipes;
+				cur->uk_fds[i].d = 0;
+				cur->uk_fds[i].len = 0;
+				cur->uk_fds[i].off = 0;
+				cur->uk_fds[i].lba = 0;
+				cur->uk_fds[i].dsize = 0;
+				cur->uk_fds[i].dpos = 0;
+				cur->uk_fds[i].rw = (nfd == 1) ? 1 : 2;
 			}
 		}
 		if (nfd < 2) {
@@ -4649,7 +4655,7 @@ bsd45_syscall(struct sysregs *r)
 		int from = (int)r->ebx, to = (int)r->ecx;
 
 		if (from < 0 || from >= NFD || to < 0 || to >= NFD ||
-		    !cur->fds[from].used) {
+		    !cur->uk_fds[from].used) {
 			r->eax = (unsigned)-EBADF;
 			break;
 		}
@@ -4658,13 +4664,13 @@ bsd45_syscall(struct sysregs *r)
 			break;
 		}
 		fd_close(to);
-		cur->fds[to] = cur->fds[from];
-		fd_ref(&cur->fds[to]);
-		if (cur->fds[to].type == FD_PIPE && cur->fds[to].pipeidx >= 0) {
-			if (cur->fds[to].rw == 1)
-				pipes[cur->fds[to].pipeidx].readers++;
+		cur->uk_fds[to] = cur->uk_fds[from];
+		fd_ref(&cur->uk_fds[to]);
+		if (cur->uk_fds[to].type == FD_PIPE && cur->uk_fds[to].pipeidx >= 0) {
+			if (cur->uk_fds[to].rw == 1)
+				pipes[cur->uk_fds[to].pipeidx].readers++;
 			else
-				pipes[cur->fds[to].pipeidx].writers++;
+				pipes[cur->uk_fds[to].pipeidx].writers++;
 		}
 		r->eax = to;
 		break;
@@ -4741,13 +4747,13 @@ bsd45_syscall(struct sysregs *r)
 			break;
 		}
 		vn_put(vp);
-		bcopy(path, cur->p_cwd, sizeof(cur->p_cwd));
+		bcopy(path, cur->uk_p_cwd, sizeof(cur->uk_p_cwd));
 		r->eax = 0;
 		break;
 	}
 	case 326: {			/* getcwd(buf, len) */
 		unsigned buf = r->ebx, len = r->ecx;
-		unsigned n = strlen(cur->p_cwd) + 1;
+		unsigned n = strlen(cur->uk_p_cwd) + 1;
 
 		if (len < n) {
 			r->eax = (unsigned)-ERANGE;
@@ -4757,7 +4763,7 @@ bsd45_syscall(struct sysregs *r)
 			r->eax = (unsigned)-EFAULT;
 			break;
 		}
-		bcopy(cur->p_cwd, (void *)buf, n);
+		bcopy(cur->uk_p_cwd, (void *)buf, n);
 		r->eax = buf;
 		break;
 	}
@@ -4836,7 +4842,7 @@ bsd45_syscall(struct sysregs *r)
 		t->t_sig |= SIG_TO_MASK(sig);
 		if (t->t_state == KT_BLOCK)
 			t->t_state = KT_RUN;
-		t->t_proc->state = P_RUN;
+		t->t_proc->uk_state = P_RUN;
 		r->eax = 0;
 		break;
 	}
@@ -4909,9 +4915,9 @@ syscall_dispatch(struct sysregs *r)
 	if (need_resched && cur != 0 && cur_thread != 0 &&
 	    cur_thread->t_base_ipl == 0 && cur_thread->t_preemptable) {
 		need_resched = 0;
-		if (cur_thread->t_tid == cur->pid) {
-			cur->regs = *r;
-			cur->state = P_RUN;
+		if (cur_thread->t_tid == cur->uk_pid) {
+			cur->uk_regs = *r;
+			cur->uk_state = P_RUN;
 		} else {
 			cur_thread->t_regs = *r;
 			cur_thread->t_state = KT_RUN;
@@ -4983,31 +4989,31 @@ start_prog(const char *path, const char *script)
 	/* pid 1: the first user process, no parent */
 	bzero(procs, sizeof(procs));
 	cur = &procs[0];
-	cur->state = P_RUN;
-	cur->pid = 1;
-	cur->ppid = 0;
-	cur->pd = pd;
-	cur->brk_mapped = USER_HEAP_START;
-	cur->p_mmap_base = MMAP_BASE;
-	cur->p_cwd[0] = '/';
-	cur->p_cwd[1] = 0;
+	cur->uk_state = P_RUN;
+	cur->uk_pid = 1;
+	cur->uk_ppid = 0;
+	cur->uk_pd = pd;
+	cur->uk_brk_mapped = USER_HEAP_START;
+	cur->uk_p_mmap_base = MMAP_BASE;
+	cur->uk_p_cwd[0] = '/';
+	cur->uk_p_cwd[1] = 0;
 	proc_setcomm(cur, path);
 	{
 		int fd;
 
 		for (fd = 0; fd < 3; fd++) {
-			cur->fds[fd].used = 1;
-			cur->fds[fd].type = FD_CONSOLE;
-			cur->fds[fd].rw = (fd == 0) ? 1 : 2;
-			cur->fds[fd].pipeidx = -1;
-			cur->fds[fd].node = -1;
+			cur->uk_fds[fd].used = 1;
+			cur->uk_fds[fd].type = FD_CONSOLE;
+			cur->uk_fds[fd].rw = (fd == 0) ? 1 : 2;
+			cur->uk_fds[fd].pipeidx = -1;
+			cur->uk_fds[fd].node = -1;
 		}
 	}
 	next_pid = 2;
 	(void)proc_add_thread(cur, 1);
-	cur->p_next_tid = 101;
-	if (cur->p_thread != 0)
-		hal_kernel_stack_set(cur->p_thread->t_stack_top);
+	cur->uk_p_next_tid = 101;
+	if (cur->uk_p_thread != 0)
+		hal_kernel_stack_set(cur->uk_p_thread->t_stack_top);
 
 	syscall_gate_init();
 	printf("exec %s: entry %x pd %x\n", path, entry, pd);

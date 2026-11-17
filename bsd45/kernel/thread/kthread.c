@@ -11,6 +11,7 @@
 #include <sys/param.h>
 #include <sys/systm.h>
 
+#include <sys/proc.h>		/* struct proc: owning kernel process object */
 #include "thread/kthread.h"
 #include "sys/platform.h"
 
@@ -30,6 +31,56 @@ struct kthread	kthreads[NKTHREAD];
 static unsigned	sched_esp;
 struct kthread	*curk;
 unsigned	kthread_switches;
+
+/*
+ * Explicit run queue of TCBs.  The scheduler only ever looks at this queue;
+ * a struct proc is a resource container, never a scheduling entity.  A thread
+ * is enqueued when it becomes runnable and dequeued when it blocks/exits.
+ */
+static struct kthread *rq_head, *rq_tail;
+
+/* EN: Enqueue a TCB at the tail of the run queue (idempotent via t_onrq). */
+static void
+rq_enqueue(struct kthread *t)
+{
+
+	if (t == 0 || t->t_onrq)
+		return;
+	t->t_rqnext = 0;
+	t->t_onrq = 1;
+	if (rq_tail != 0)
+		rq_tail->t_rqnext = t;
+	else
+		rq_head = t;
+	rq_tail = t;
+	if (t->t_proc != 0)
+		t->t_proc->uk_rq_threads++;
+}
+
+/* EN: Remove a TCB from the run queue by walking with a predecessor pointer. */
+static void
+rq_dequeue(struct kthread *t)
+{
+	struct kthread *p, *prev = 0;
+
+	if (t == 0 || !t->t_onrq)
+		return;
+	for (p = rq_head; p != 0; prev = p, p = p->t_rqnext) {
+		if (p == t) {
+			if (prev != 0)
+				prev->t_rqnext = t->t_rqnext;
+			else
+				rq_head = t->t_rqnext;
+			if (rq_tail == t)
+				rq_tail = prev;
+			break;
+		}
+	}
+	t->t_rqnext = 0;
+	t->t_onrq = 0;
+	if (t->t_proc != 0 && t->t_proc->uk_rq_threads > 0)
+		t->t_proc->uk_rq_threads--;
+}
 
 /* 中文：内核线程入口跳板，调用线程的实际入口函数并在返回后退出线程 */
 /* EN: Kernel thread trampoline that calls the thread's real entry function and exits on return */
@@ -72,6 +123,7 @@ kthread_init(void)
 	curk = 0;
 	sched_esp = 0;
 	kthread_switches = 0;
+	rq_head = rq_tail = 0;
 	for (i = 0; i < NKTHREAD; i++) {
 		kthreads[i].t_state = KT_FREE;
 		kthreads[i].t_proc = 0;
@@ -119,6 +171,8 @@ kthread_spawn(const char *name, void (*entry)(void *), void *arg)
 	*--sp = 0;				/* esi */
 	*--sp = 0;				/* edi */
 	t->t_ksp = (unsigned)sp;
+	t->t_lastcpu = 0;		/* no affinity yet */
+	rq_enqueue(t);			/* runnable TCB enters the run queue */
 	printf("kthread: spawn %s tid %d\n", name, t->t_tid);
 	return (t);
 }
@@ -126,7 +180,7 @@ kthread_spawn(const char *name, void (*entry)(void *), void *arg)
 /* 中文：为一个用户进程创建用户线程槽位，分配独立内核栈并绑定进程与 tid */
 /* EN: Create a user-thread slot for a process, allocating a private kernel stack and binding proc/tid */
 struct kthread *
-kthread_user_spawn(struct uproc *p, int tid)
+kthread_user_spawn(struct proc *p, int tid)
 {
 	struct kthread *t = 0;
 	int i;
@@ -147,6 +201,15 @@ kthread_user_spawn(struct uproc *p, int tid)
 	t->t_base_ipl = 0;
 	t->t_eff_ipl = 0;
 	t->t_preemptable = 1;
+	/* KLT: link this thread into its owning process's thread list */
+	if (p != 0) {
+		struct kthread **pp = &p->uk_p_threads;
+		while (*pp != 0)
+			pp = &(*pp)->t_next;
+		*pp = t;
+		t->t_next = 0;
+		p->uk_p_nthreads++;
+	}
 	/*
 	 * Every user thread gets its own 8 KB kernel stack so a ring-3
 	 * interrupt or syscall for one thread can never overwrite another
@@ -180,11 +243,27 @@ kthread_user_find(int tid)
 void
 kthread_user_free(struct kthread *t)
 {
+	struct kthread **pp;
 
 	if (t == 0)
 		return;
+	/* KLT: unlink from the owning process's thread list */
+	if (t->t_proc != 0) {
+		for (pp = &t->t_proc->uk_p_threads; *pp != 0;
+		     pp = &(*pp)->t_next) {
+			if (*pp == t) {
+				*pp = t->t_next;
+				break;
+			}
+		}
+		if (t->t_proc->uk_p_nthreads > 0)
+			t->t_proc->uk_p_nthreads--;
+		if (t->t_proc->uk_p_thread == t)
+			t->t_proc->uk_p_thread = t->t_next;
+	}
 	t->t_state = KT_FREE;
 	t->t_proc = 0;
+	t->t_next = 0;
 	t->t_used = 0;
 }
 
@@ -197,6 +276,7 @@ kthread_block(void)
 
 	if (t == 0)
 		return;
+	rq_dequeue(t);			/* blocked TCB leaves the run queue */
 	t->t_state = KT_BLOCK;
 	hal_switch_stack(&t->t_ksp, sched_esp);
 }
@@ -207,8 +287,10 @@ void
 kthread_wake(struct kthread *t)
 {
 
-	if (t != 0 && t->t_state == KT_BLOCK)
+	if (t != 0 && t->t_state == KT_BLOCK) {
 		t->t_state = KT_RUN;
+		rq_enqueue(t);		/* affinity: re-enter at tail for now */
+	}
 }
 
 /* 中文：终止当前内核线程，释放槽位并切换回调度栈（不再返回） */
@@ -220,6 +302,7 @@ kthread_exit(void)
 
 	if (t == 0)
 		return;
+	rq_dequeue(t);			/* exiting TCB leaves the run queue */
 	t->t_state = KT_FREE;
 	t->t_used = 0;
 	hal_switch_stack(&t->t_ksp, sched_esp);
@@ -232,32 +315,27 @@ kthread_exit(void)
 int
 kthread_runnable(void)
 {
-	int i;
 
-	for (i = 0; i < NKTHREAD; i++)
-		if (kthreads[i].t_used && kthreads[i].t_proc == 0 &&
-		    kthreads[i].t_state == KT_RUN)
-			return (1);
-	return (0);
+	return (rq_head != 0);
 }
 
-/* 中文：选择一个可运行的内核线程并切换栈去运行它 */
-/* EN: Pick a runnable kernel thread and switch stacks to run it */
+/*
+ * Pick the runnable TCB at the head of the run queue and switch to it.
+ * This is the kernel-thread half of the unified scheduler: the run queue
+ * holds TCBs, never struct proc.  Affinity is honoured by re-enqueuing a
+ * woken thread on the CPU it last ran on (t_lastcpu) when SMP arrives.
+ */
 void
 kthread_poll(void)
 {
-	int i;
-	struct kthread *t = 0;
+	struct kthread *t;
 
-	for (i = 0; i < NKTHREAD; i++)
-		if (kthreads[i].t_used && kthreads[i].t_proc == 0 &&
-		    kthreads[i].t_state == KT_RUN) {
-			t = &kthreads[i];
-			break;
-		}
+	t = rq_head;
 	if (t == 0)
 		return;
+	rq_dequeue(t);			/* running: off the queue */
 	curk = t;
+	t->t_lastcpu = 0;		/* single CPU in this port */
 	kthread_switches++;
 	hal_switch_stack(&sched_esp, t->t_ksp);
 	curk = 0;
