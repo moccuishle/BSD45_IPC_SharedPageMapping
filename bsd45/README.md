@@ -237,8 +237,63 @@ Linux 上 `gcc -m32` 直接产出 ELF，`build_*.sh` 用 `ld -m elf_i386` 和
 在 Linux 上需要 `gcc-multilib`、`binutils`、`genisoimage`（或 `xorriso`）、
 `qemu-system-x86`、`bison`、`flex`。Windows 上的 `*.ps1` 流程保持不变。
 
+## 内核态进程 / 线程模型（KLT）与 ISO 安装到虚拟磁盘
 
-## 许可
+### 内核态进程模型：struct proc 挂 kthread
+
+内核里只有两个进程/线程对象：`struct proc`（`include/sys/proc.h`）和
+`struct kthread`（`thread/kthread.h`），**没有 `struct uproc`**。用户态不持有
+任何进程/线程模型——`pthread_create` 等只是 syscall（440–445），真正的线程
+对象、TCB、内核栈和调度全在内核。
+
+- `struct proc` 是权威进程对象：持有地址空间（`uk_pd` 页目录）、fd 表、信号、
+  mmap、以及线程链表 `uk_p_threads`。旧的 BSD `p_*` 字段保留在前面，避免
+  genassym/machdep 的偏移失效；运行时字段在尾部，用 `uk_` 前缀。
+- `struct kthread` 通过 `t_proc` 归属一个进程、`t_next` 挂进该进程的线程链表；
+  每个线程有独立 8 KiB 内核栈。
+- 调度器只认 **TCB**，不认进程：显式 run queue（TCB 入/出队），
+  `fair_pick_next()` 先选 CPU 记账最小（`uk_estcpu`，BSD 式衰减）的**进程**，
+  再在其线程里轮转——一个进程开 100 个线程也不会拿到 100 份 CPU。每线程
+  时间片记在 `t_ticks`，`t_lastcpu` 为将来 SMP 的亲和性留位。
+- 条件式 CR3：跨进程切换才换页表（`resume_user` 收到 pd=0 时跳过 `mov %cr3`），
+  **同进程线程切换不刷 TLB**。
+- 阻塞语义：单线程进程阻塞时整进程阻塞（`uk_state = P_BLOCKED`，兼容传统
+  wait/pipe）；多线程进程只挂起调用线程（`t_state = KT_BLOCK`），同进程
+  其它线程继续跑。唤醒由 `proc_wake()` 同步进程态与 TCB 态。
+
+相关文件：`include/sys/kproc.h`（kfd/kvma 类型）、`include/sys/platform.h`
+（struct sysregs 与平台钩子）、`thread/kthread.c`、`sys/usermode.c`、
+`sys/usermode_asm.s`。完整的原始实现备份在仓库外 `.ipl-hal-backup/`。
+
+### 从 ISO 安装到 VMware 虚拟磁盘
+
+`kernel/hal/`（IPL/抢占）、`kernel/arch/i386/hal/`、`kernel/subsys/`
+（personality 层）已删除；必需能力搬到 `arch/i386/io.h`、`ctx.c`、`timer.c`，
+软中断改为不依赖 IPL 的延迟队列。内存压缩 / 页缓存 / buffer cache / name
+cache / COW / demand paging 等机制不受影响。
+
+ISO→虚拟磁盘安装（QEMU 与 VMware 都实测通过）：
+
+1. `hdd/` 下三个 Python 工具已各有等价的 `.ps1`（Windows）和 `.sh`（Ubuntu）
+   版本，**不依赖 Python**，产物字节级一致：`mkffs`/`mkdisk`/`make_install_ffs`。
+2. 从 ISO 启动进 monitor，敲 `disk`、`install`，把 ISO 内的 FFS 文件系统
+   （`BSD45.FFS`）、内核 `BSD45.ELF`、stage1/stage2 与 MBR 写进虚拟磁盘。
+3. 断开 ISO，从该磁盘启动：内核检测 ATA 盘、挂 FFS root，日志出现
+   `ffs: mounted` / `root: FFS on ATA disk`，进入 `bsd45>` 提示符。
+
+`vms/` 提供 `BSD45-install.vmx`（挂 ISO + 空盘）与 `BSD45-diskboot.vmx`
+（从已装好的磁盘启动）；操作见 `vms/README-INSTALL.md`。
+
+### 验收（Windows + Ubuntu 双平台）
+
+- 两套 `build_all.ps1` / `build_all.sh` 均构建成功，产出 ISO 与 ELF 内核。
+- QEMU 回归全 PASSED：`test_s3`、`test_s9`、`test_pthread`、
+  `test_proc(S5)`、`test_s10`、`test_s10_3`、`test_s10_4`、`test_cache(S17)`、
+  `test_kthread(S21)`。
+- 代码同时推送到两个仓库：
+  `BSD_vfs_fs_iso_hdd_install`（历史仓库）与
+  `BSD45_proc-kthread_real_kernel`（本次 KLT 版本的新仓库），均在 `main`。
+
 ## 许可
 
 `bsd45/kernel/` 与 `bsd45/libc/arch/bsd/` 中的 4.5BSD 代码遵循其原始
