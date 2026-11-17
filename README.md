@@ -170,6 +170,28 @@ Windows 与 Ubuntu（26.04）双平台跑同一套 `*.ps1`/`*.sh`：
 `test_s10*`、`test_kthread`(S21)、`test_cache`(S17) 等均 PASSED。
 手动 KLT 抢占交错测试见 `vms/README-KLT-TEST.md`。
 
+## 待做项目（Future Work）
+
+### turnstile 优先级传播（`sched.md` 问题五机制 4）
+
+当前优先级继承是直接挂在 TCB 字段上（`t_inherit_prio` / `t_blocked_on`），
+已支持"一步到位提级、多等待者取 max、链式传播、join 场景接入"，
+但**没有独立的 turnstile 数据结构，也没有每把锁的 donor 队列**。
+这够用于现状（内核无可睡眠锁对象、无锁嵌套、无多线程争同一把锁），
+但若要升级到完整 BSD 级优先级传播，需要满足以下前提才值得上 turnstile：
+
+1. **有真正的可睡眠锁对象**（`struct lock` / mutex，竞争时会睡眠）——
+   自旋锁等者不睡眠，按 BSD 规则不使用 turnstile。
+2. **存在多个线程等同一把锁**——donor 队列才有意义。
+3. **存在锁嵌套**（如线程 A 持锁 1 又等锁 2）——需要链式传播 +
+   逐层恢复（释放一把锁后降到"剩余等待者中的最高优先级"）。
+4. **有实时性要求**（反转必须严格有界、可预测）——类似 `sched.md`
+   提到的 Mars Pathfinder 复位事故那类场景。
+
+只有同时具备这些条件，turnstile 的链表维护 / donor 排序 / 嵌套恢复
+开销才划算；否则当前 O(1) 的 TCB 标量继承更合适。
+（相关讨论见 [`sched.md`](sched.md) 问题三、问题五。）
+
 ## 恢复 / 重建
 
 仓库自带合并后的源码与全部脚本，构建不需要任何 tarball 或外部源码树；

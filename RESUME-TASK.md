@@ -213,3 +213,35 @@ ALL SUITES PASSED
 - [`docs/kernel-boundary.md`](docs/kernel-boundary.md)：内核边界与原语契约（S100.1）
 - [`docs/microkernel-design.md`](docs/microkernel-design.md)：微内核设计（S100.2）
 - [`shell.md`](shell.md)：PowerShell → bash 的固化写法与避坑
+
+---
+
+## 5. 待做项目：turnstile 优先级传播（调度机制升级）
+
+来源：`sched.md` 问题五机制 4；与 README.md「待做项目」章节同步。
+
+### 5.1 现状
+
+当前优先级继承直接挂在 TCB 字段上（`t_inherit_prio` / `t_blocked_on`），
+已具备：一步到位提到等待者级别（非 +1）、多等待者取 max、链式传播、
+`thread_join` 场景接入、释放后恢复 base。够用于现状——内核没有可睡眠锁
+对象、没有锁嵌套、没有多线程争同一把锁的 donor 队列。
+
+### 5.2 何时才值得上 turnstile（四个前提）
+
+只有同时满足以下条件，才应把 TCB 标量继承升级为独立的 turnstile：
+
+1. **有真正的可睡眠锁对象**（`struct lock` / mutex，竞争时睡眠）；
+   自旋锁的等待者不睡眠，按 BSD 规则不用 turnstile。
+2. **存在多个线程等同一把锁** —— donor 队列才有意义，取其中最高优先级。
+3. **存在锁嵌套**（如 A 持锁 1 又等锁 2）—— 需要链式传播 +
+   逐层恢复：释放一把锁后降到"剩余等待者中的最高"，全释放才回 base。
+4. **有实时性要求**，反转必须严格有界可预测（Mars Pathfinder 那类场景）。
+
+### 5.3 工程判断
+
+缺任一前提时，turnstile 的链表维护 / donor 排序 / 嵌套恢复是纯开销：
+本内核 `NKTHREAD=16`、`NPROC=8`、无锁嵌套、无实时保证需求，
+当前 O(1) TCB 标量继承更合适。**先不加，等引入可睡眠锁 + 锁嵌套再说。**
+
+相关讨论：`sched.md` 问题三（继承不能 +1）、问题五（四道防线）。
