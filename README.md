@@ -25,10 +25,12 @@
 | **任务恢复文档（最重要，先读这个）** | [`bsd45/RESUME-TASK.md`](bsd45/RESUME-TASK.md) |
 | KLT 手动测试指南 | [`bsd45/vms/README-KLT-TEST.md`](bsd45/vms/README-KLT-TEST.md) |
 | ISO→虚拟磁盘安装指南 | [`bsd45/vms/README-INSTALL.md`](bsd45/vms/README-INSTALL.md) |
-| 缓存 / mmap 设计 | [`docs/cache-mmap.md`](docs/cache-mmap.md) |
-| 调度 / 优先级设计 | [`docs/kernel-preemption.md`](docs/kernel-preemption.md)、[`sched.md`](sched.md) |
+| 缓存 / mmap / 地址空间设计 | [`docs/cache-mmap.md`](docs/cache-mmap.md)、[`os_vm.md`](os_vm.md) |
+| 调度 / 优先级实现 | [`docs/kernel-preemption.md`](docs/kernel-preemption.md)、[`os_sched.md`](os_sched.md) |
+| 文件系统实现清单（ISO9660/FFS/JLFS/tmpfs） | [`os_fs.md`](os_fs.md) |
+| 进程与线程实现（proc/TCB、fork/exec、KLT） | [`os_thread-process.md`](os_thread-process.md) |
 | 设计与路线（历史规划） | [`docs/object-kernel.md`](docs/object-kernel.md)、[`os.md`](os.md) |
-| Windows 环境安装记录（MSYS2 + qemu） | [`ai_install_gccenv.md`](ai_install_gccenv.md) |
+| Windows 环境安装记录（MSYS2 + qemu） | [`ai_install_gccenv.md`](ai_install_gccenv.md)、[`hole_trap.md`](hole_trap.md) |
 
 > 注：`docs/object-kernel.md` 是早期的**对象内核设计规划**，描述的目标
 > （对象管理器、统一命名空间、API personality 等）**尚未在内核中实现**，
@@ -172,7 +174,7 @@ Windows 与 Ubuntu（26.04）双平台跑同一套 `*.ps1`/`*.sh`：
 
 ## 待做项目（Future Work）
 
-### turnstile 优先级传播（`sched.md` 问题五机制 4）
+### turnstile 优先级传播（`os_sched.md` 问题五机制 4）
 
 当前优先级继承是直接挂在 TCB 字段上（`t_inherit_prio` / `t_blocked_on`），
 已支持"一步到位提级、多等待者取 max、链式传播、join 场景接入"，
@@ -185,12 +187,12 @@ Windows 与 Ubuntu（26.04）双平台跑同一套 `*.ps1`/`*.sh`：
 2. **存在多个线程等同一把锁**——donor 队列才有意义。
 3. **存在锁嵌套**（如线程 A 持锁 1 又等锁 2）——需要链式传播 +
    逐层恢复（释放一把锁后降到"剩余等待者中的最高优先级"）。
-4. **有实时性要求**（反转必须严格有界、可预测）——类似 `sched.md`
+4. **有实时性要求**（反转必须严格有界、可预测）——类似 `os_sched.md`
    提到的 Mars Pathfinder 复位事故那类场景。
 
 只有同时具备这些条件，turnstile 的链表维护 / donor 排序 / 嵌套恢复
 开销才划算；否则当前 O(1) 的 TCB 标量继承更合适。
-（相关讨论见 [`sched.md`](sched.md) 问题三、问题五。）
+（相关讨论见 [`os_sched.md`](os_sched.md) 问题三、问题五。）
 
 ## 恢复 / 重建
 
