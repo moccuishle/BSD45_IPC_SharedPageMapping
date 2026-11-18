@@ -122,6 +122,38 @@ C:/msys64/usr/bin/xorriso.exe --version
 - 或把 `C:\msys64\ucrt64\bin` 加入系统 PATH，任意终端可用
 - 装其它工具：`pacman -S --noconfirm mingw-w64-ucrt-x86_64-<包名>`（如 gdb、make、ninja）
 
+### 7. 可选：安装 mingw32（i686）工具链
+
+BSD45 内核需要 32 位工具链。默认装的 ucrt64 是 x86_64（gcc 靠 `-m32` 兼容），若要一套**原生 i686** 的 gcc/binutils，装 `mingw-w64-i686-gcc`（含 binutils 2.47，装在 `C:\msys64\mingw32\bin`）。MSYS2 的构建脚本 `tools-find.ps1` 会按 `mingw32 → ucrt64 → mingw64` 顺序找 gcc，装好后会自动优先用它。
+
+⚠️ **装这个包默认会失败**（`target not found` 或同步时报 404），因为 `pacman.conf` 里 `[mingw32]` 仓库默认是**注释掉**的，且现有的 `mirrorlist.mingw` 里只有 ucrt64 的 URL。按下面三步配好源再装：
+
+```bash
+# 1) 给 mingw32 建独立的镜像清单。TUNA 的 i686 路径实测 404，
+#    因此官方源放第一优先，TUNA 仅作备选。
+cat > C:/msys64/etc/pacman.d/mirrorlist.mingw32 <<'EOF'
+Server = https://repo.msys2.org/mingw/i686/
+Server = https://mirrors.tuna.tsinghua.edu.cn/msys2/mingw/i686/
+EOF
+
+# 2) 编辑 C:\msys64\etc\pacman.conf，把这两行的注释去掉/改成：
+#    [mingw32]
+#    Include = /etc/pacman.d/mirrorlist.mingw32
+
+# 3) 强制刷新数据库并安装
+C:/msys64/usr/bin/pacman.exe -Syy
+C:/msys64/usr/bin/pacman.exe -S --noconfirm --needed mingw-w64-i686-gcc
+```
+
+验证：
+
+```bash
+C:/msys64/mingw32/bin/gcc.exe --version
+C:/msys64/mingw32/bin/objcopy.exe --version   # GNU Binutils 2.47
+```
+
+> **重要结论（避坑）**：装了 i686 工具链后，BSD45 内核仍是 ~572 KB（`.bss` 仍只有 9 KB），与用 ucrt64 编译的结果一样。根因不是 CPU 位数，而是 **MinGW 的 PE target 与 Linux ELF target 对 `static buf[N]` 这类数组的段处理不同**——MinGW（无论 i686 还是 x86_64）都把大数组放进 `.data`（占磁盘），Linux ELF 工具链放进 `.bss`（不占磁盘）。所以**靠换 mingw32 解决不了"PE 内核过大导致虚拟机里 install 卡住"的问题**；要产出自举可用的内核 ISO，得用 Linux ELF 交叉工具链（Ubuntu 上 `i686-w64-mingw32-*` + `objcopy -O elf32-i386` 已实测可生成 123 KB 的精简内核）。 mingw32 工具链只是备着，日常 ucrt64 够用。
+
 ---
 
 ## 踩坑记录（新机器遇到同样问题时直接对号入座）
@@ -163,6 +195,16 @@ foreach ($n in @('http_proxy','https_proxy','no_proxy')) { Remove-Item "env:$n" 
 ```
 
 - 实测这样处理后 `build_all.ps1` 全链路通过，产出 `out\BSD45-ELF-x86.iso`（xorriso 打包）。ld 的 `section below image base` 是 PE 链接的无害警告，可忽略
+
+### 坑 8：装 i686 工具链报 `target not found: mingw-w64-i686-gcc`
+- **现象**：直接 `pacman -S mingw-w64-i686-gcc` 报 target not found；`-Ssq` 搜不到包；`-Sy` 同步时只下载 ucrt64/msys，没有 mingw32
+- **原因**：`C:\msys64\etc\pacman.conf` 里 `[mingw32]` 段整段被注释（`#` 开头），且共享的 `mirrorlist.mingw` 里只有 ucrt64 一行 URL，没有 i686 源。本机当初配环境只启用了 ucrt64 + msys 两个仓库
+- **对策**：见上面「7. 安装 mingw32」的三步——建独立 `mirrorlist.mingw32`、在 pacman.conf 取消 `[mingw32]` 注释并指过去、`-Syy` 强制刷新后再装。**注意改完要 `-Syy`（两个 y）**，只 `-Sy` 不会重新拉数据库
+
+### 坑 9：TUNA 的 i686 镜像路径 404
+- **现象**：给 `mirrorlist.mingw32` 只写 `https://mirrors.tuna.tsinghua.edu.cn/msys2/mingw/i686/` 后，`-Syy` 报 `failed retrieving file 'mingw32.db' ... 404`
+- **原因**：TUNA 该路径下没有 i686 仓库（本文档第 2 步配的 TUNA 只覆盖 ucrt64 和 msys）
+- **对策**：改用官方 `https://repo.msys2.org/mingw/i686/` 作第一源（实测可下载安装成功），TUNA 留作备选。不要因为前面 TUNA 对 ucrt64 好用就默认它对 i686 也好使——**每个仓库路径要单独验**
 
 ## 排查卡住命令的通用流程
 
