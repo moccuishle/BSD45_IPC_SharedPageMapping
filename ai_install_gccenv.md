@@ -223,6 +223,23 @@ foreach ($n in @('http_proxy','https_proxy','no_proxy')) { Remove-Item "env:$n" 
   2. **段名不能原地改 string table**：`.data$`（6 字节）比 `.bss$`（5 字节）长，原地替换会移位，破坏所有 `/<offset>` 引用和符号名。所以要直接写进段头那 8 字节内联字段（`.bss$<序号>` 最多 8 字符）。
 - **根治方向**（本机编译器跑不起来，未实测）：去掉 `-fdata-sections` 让 GCC 回到默认的 `.bss`，或改用真正的 ELF 交叉工具链（`i686-elf-gcc`）；MSYS2 自带的 ld 只支持 `i386pe` 一种 emulation，`-m elf_i386` 走不通。
 
+### 坑 11：install 走到一半报 `FAILED (see messages above)`，实际是 embed.o 陈旧
+
+- **现象**：内核起来、`install` 也跑起来了，日志一路正常：
+  ```
+  install: writing stage2 (0 bytes) at LBA 1
+  install: writing /bsd45.elf to disk ...
+  install: kernel written (146336 bytes, 286 sectors at LBA 8192)
+  install: bad stage1_hdd size 4
+  install: FAILED (see messages above)
+  ```
+- **定位**：`stage2 (0 bytes)` 就是信号。查 `build/embed.o` 只有 1652 字节，而 `build/embed.c` 里有 hello(10320)+init(10508)+stage1_hdd(512)+stage2(196) 共 21 KB 数据 —— **embed.o 是旧文件**（02:03）而 embed.c 是 04:23 重新生成的，`.o` 从没跟着更新，里面的 `stage2_bin` 只有 4 字节。
+- **后果**：`install_to_disk()` 第 4 步校验 `stage1_hdd_bin_len != SECSZ` 直接返回 -1，MBR 都没写，磁盘装不起来。
+- **对策**：
+  1. 正常环境：重跑一次完整 `build_kernel.ps1` 即可（它会无条件重编 embed.o）。**分步/带 `-Only` 编译时最容易漏掉 embed.o**，检查 `ls -l build/embed.o` 应约 22 KB。
+  2. 编译器跑不起来时（cc1 被拦但 `as.exe` 可用）：`python tools/embedc_to_s.py build/embed.c build/embed_new.s && as --32 -o build/embed.o build/embed_new.s`，把 `embed.c` 的数组重新汇编成目标文件，不需要编译器。
+- **验证**：链接后核对 `_stage1_hdd_bin_len` 应为 512、`_stage2_bin_len` 应为 196（`readelf -s` + 读 .data 段即可）。
+
 ## 排查卡住命令的通用流程
 
 1. **输出落盘**：`命令 > log 2>&1 &`，然后 `tail` 看它在等什么
