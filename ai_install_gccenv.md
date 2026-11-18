@@ -186,6 +186,16 @@ C:/msys64/mingw32/bin/objcopy.exe --version   # GNU Binutils 2.47
 - **原因**：`cc1.exe` 找不到依赖 DLL（`libgmp-10.dll`、`libisl-23.dll`、`libmpc-3.dll`、`libmpfr-6.dll`、`libz-1.dll` 等，文件都齐全，只是不在 DLL 搜索路径）；`--version` 不走 cc1，所以不受影响，极具迷惑性
 - **对策**：日常直接用 `C:\msys64\ucrt64.exe` 终端操作（PATH 已配好，最省事）；若必须在普通终端调 gcc，先 `$env:PATH = 'C:\msys64\ucrt64\bin;' + $env:PATH` 把该目录加到 PATH 最前面再编译
 
+> **补充（2026-11-19 实测，另一条独立原因，症状一样）**：`gcc -c` 静默失败也可能是**汇编器 `as.exe` 起不来**，而不是 `cc1`。
+> `as.exe` 依赖 `zlib1.dll`，本机 `C:\Windows\SysWOW64\zlib1.dll`（65,840 字节，某个软件装进去的旧版）会被优先加载，
+> `as` 以 `0xC0000139`（ENTRYPOINT_NOT_FOUND）或 `0xC0000135`（DLL 找不到）秒退，`gcc` 只返回 1、不打印任何东西。
+>
+> - **关键判别**：`gcc -E`、`gcc -S` 都成功，只有 `gcc -c` 失败 ⇒ 问题在 `as`，不在 `cc1`（`-E/-S` 只调 cc1）。
+>   直接跑 `as --version` 有输出、`gcc -v -c` 打印完 as 命令行就没了，也是这个特征。
+> - **对策**：给 gcc 加 `-B C:\msys64\mingw32\bin`，让汇编器落在自带 DLL 的目录里。
+>   `build_kernel.ps1` / `build_iso.ps1` 本来就全程 `-B $ccb`，所以**脚本能编、手敲命令不能编**。
+> - **注意**：这种情况把 `mingw32\bin` 加到 PATH **没用**——Windows 先搜系统目录，SysWOW64 里的旧 `zlib1.dll` 会先命中。
+
 ### 坑 7：PowerShell 5.1 跑 build_all.ps1 在 genassym 步骤崩溃
 - **现象**：构建到 genassym 时 `Start-Process` 抛 `ArgumentException: 字典中已存在键 http_proxy / HTTP_PROXY`，随后 `genassym run failed`，`BUILD_ALL_EXIT=1`
 - **原因**：PowerShell 5.1 的 `Start-Process` 会把进程环境当字典传递，环境里同时存在仅大小写不同的 `http_proxy` 与 `HTTP_PROXY`（以及 `https_proxy`/`HTTPS_PROXY`）时会因重复键报错。这与项目代码无关，是 Windows 环境的通病
