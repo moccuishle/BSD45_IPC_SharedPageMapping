@@ -25,6 +25,6 @@ $(arch_i386_isa_COBJS):$(OBJ_DIR)/%.o:%.c
 
 $(arch_i386_isa_ASMOBJS):$(OBJ_DIR)/%.o:%.s
 	@echo ---------------------[build $<]----------------------------------
-	$(CC) -m32 -c -x assembler-with-cpp -nostdinc $(CPPFLAGS) $< -o $@
+	$(CC) $(ASMFLAGS) $(CPPFLAGS) $< -o $@
 
 clean::

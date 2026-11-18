@@ -29,8 +29,9 @@ $(arch_i386_COBJS):$(OBJ_DIR)/%.o:%.c
 	@echo ---------------------[build $<]----------------------------------
 	$(CC) $(CFLAGS) -c $(CPPFLAGS) $< -o $@
 
-$(arch_i386_ASMOBJS):$(OBJ_DIR)/%.o:%.s
+# x86.asm is an AT&T-syntax assembler file; assemble directly.
+$(arch_i386_ASMOBJS): $(MAKEFILE_DIR_arch_i386_mk)x86.asm
 	@echo ---------------------[build $<]----------------------------------
-	$(CC) -m32 -c -x assembler-with-cpp -nostdinc $(CPPFLAGS) $< -o $@
+	$(CC) $(ASMFLAGS) $(CPPFLAGS) $< -o $@
 
 clean::
