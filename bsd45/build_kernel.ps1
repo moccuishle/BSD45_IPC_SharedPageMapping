@@ -282,6 +282,25 @@ foreach ($k in $c_sources.Keys) {
 if ($fail) { Write-Host "$fail file(s) failed" -ForegroundColor Red; exit 1 }
 if ($NoLink) { Write-Host "objects built"; exit 0 }
 
+# ------------------------------------------------------ shrink BSS objects
+# i686-w64-mingw32-gcc is a PE/COFF target.  With -fdata-sections every
+# *static* zero-initialised object is emitted as ".data$<name>" carrying its
+# bytes, so `static char heap[256KB]` really puts 256 KB into the object and
+# into the linked image.  A Linux ELF toolchain puts the same object in .bss,
+# which costs no file space - that is the whole reason the Windows kernel came
+# out ~572 KB while the Ubuntu one is ~123 KB.
+# Rewriting those sections as bss is a pure representation change (an
+# all-zero payload with no relocations *is* uninitialised data), so the
+# kernel behaves identically while the image shrinks by ~400 KB.
+$fixer = Join-Path $ws "tools\pe_bss_fix.py"
+$py = Get-Command python -ErrorAction SilentlyContinue
+if (-not $py) { $py = Get-Command python3 -ErrorAction SilentlyContinue }
+if ($py -and (Test-Path $fixer)) {
+    & $py.Source $fixer --recurse $obj | Out-Host
+} else {
+    Write-Host "warning: python not found - zero-initialised static arrays stay in .data and the kernel image will be inflated" -ForegroundColor Yellow
+}
+
 # ---------------------------------------------------------------- link
 $ldflags = @(
     "-m", "i386pe", "--image-base", "0xFE000000", "-Ttext", "0xFE001000",

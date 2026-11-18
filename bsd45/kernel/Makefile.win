@@ -85,8 +85,14 @@ $(EMBED_OBJ): $(BUILD_DIR)/embed.c
 	$(CC) $(CFLAGS) -c $(CPPFLAGS) $< -o $@
 
 # (4) Windows link path: COFF objects -> PE32 -> ELF32.
+# The pe_bss_fix step is what keeps the image small: mingw32-gcc puts every
+# static zero-initialised object into a ".data$xxx" section that carries its
+# bytes, so big arrays (heap, pipes, procs ...) would otherwise be stored in
+# the kernel file exactly like initialised data.  The helper rewrites those
+# all-zero sections as bss, which is what an ELF toolchain does on its own.
 $(KERNEL_ELF): $(OBJS)
 	@echo "---------------------[link PE $@]----------------------------------"
+	-python $(MAKEFILE_DIR_project_mk)/../tools/pe_bss_fix.py --recurse $(OBJ_DIR)
 	$(LD) -m i386pe --image-base 0xFE000000 -Ttext 0xFE001000 \
 	    --subsystem console -e start --gc-sections --disable-reloc-section \
 	    --file-alignment 0x1000 --section-alignment 0x1000 \

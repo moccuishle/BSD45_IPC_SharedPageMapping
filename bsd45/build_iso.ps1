@@ -24,12 +24,21 @@ New-Item -ItemType Directory -Force -Path $isodir | Out-Null
 
 function Build-Stage([string]$src, [string]$text, [string]$name, [string]$entry = "_start") {
     $o = "$bld\$name.o"
-    & $GCC -B $ccb -m32 -c -x assembler-with-cpp -o $o $src
-    if ($LASTEXITCODE) { throw "assemble $name failed" }
     $pe = "$bld\$name.pe"
-    & $LD -m i386pe -Ttext $text -e $entry --subsystem console -o $pe $o 2>$null
-    if ($LASTEXITCODE) { throw "link $name failed" }
     $raw = "$bld\$name.bin"
+    # If the assembler/linker are unavailable (e.g. an environment that
+    # blocks the compiler's child processes) reuse the already linked PE as
+    # long as it is newer than the source - it only takes objcopy to produce
+    # the flat binary.
+    $reuse = (Test-Path $pe) -and ((Get-Item $pe).LastWriteTime -gt (Get-Item $src).LastWriteTime)
+    if (-not $reuse) {
+        & $GCC -B $ccb -m32 -c -x assembler-with-cpp -o $o $src
+        if ($LASTEXITCODE) { throw "assemble $name failed" }
+        & $LD -m i386pe -Ttext $text -e $entry --subsystem console -o $pe $o 2>$null
+        if ($LASTEXITCODE) { throw "link $name failed" }
+    } else {
+        Write-Host "reusing $pe (source unchanged)"
+    }
     & $OC -O binary --only-section=.text $pe $raw
     if ($LASTEXITCODE) { throw "objcopy $name failed" }
     return $raw
