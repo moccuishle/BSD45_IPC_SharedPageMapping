@@ -4,6 +4,7 @@
 #   (2) a rule to compile arch/i386/x86.asm (the original only has a .s rule)
 #   (3) embed.o added to OBJS (usermode.c needs the embedded-image symbols)
 #   (4) link step uses the Windows PE -> ELF32 route (ld -m i386pe + objcopy)
+#   (5) fs/jlfs/config.mk is included explicitly (fs/config.mk only knows ffs)
 # The repository's original Makefile is left untouched.
 MAKEFILE_DIR_project_mk := $(dir $(abspath $(lastword $(MAKEFILE_LIST))))
 .DEFAULT_GOAL = all
@@ -56,6 +57,10 @@ include $(MAKEFILE_DIR_project_mk)/thread/config.mk
 OBJS += $(thread_OBJS)
 include $(MAKEFILE_DIR_project_mk)/fs/config.mk
 OBJS += $(fs_OBJS)
+# jlfs (writable UFS1) is a separate directory and is NOT reachable from
+# fs/config.mk; the stock kernel/Makefile pulls it in explicitly as well.
+include $(MAKEFILE_DIR_project_mk)/fs/jlfs/config.mk
+OBJS += $(jlfs_OBJS)
 include $(MAKEFILE_DIR_project_mk)/driver/config.mk
 OBJS += $(driver_OBJS)
 include $(MAKEFILE_DIR_project_mk)/vm/config.mk
