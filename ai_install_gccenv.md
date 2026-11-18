@@ -4,12 +4,15 @@
 
 ## 环境清单
 
-| 组件 | 版本参考 | 路径 |
-|------|---------|------|
-| MSYS2 | 最新版 | `C:\msys64` |
-| GCC | 16.x | `C:\msys64\ucrt64\bin\gcc.exe` |
-| QEMU | 11.x | `C:\msys64\ucrt64\bin\qemu-system-x86_64.exe` |
-| binutils（objcopy/ld/ar/as/nm/objdump 等） | 2.47 | 随 gcc 自动作为依赖安装 |
+| 组件 | 版本参考 | 路径 | 仓库 |
+|------|---------|------|------|
+| MSYS2 | 最新版 | `C:\msys64` | — |
+| GCC | 16.x | `C:\msys64\ucrt64\bin\gcc.exe` | ucrt64 |
+| QEMU | 11.x | `C:\msys64\ucrt64\bin\qemu-system-x86_64.exe` | ucrt64 |
+| binutils（objcopy/ld/ar/as/nm/objdump 等） | 2.47 | 随 gcc 自动作为依赖安装 | ucrt64 |
+| bison | 3.8.2 | `C:\msys64\usr\bin\bison.exe` | msys |
+| flex | 2.6.4 | `C:\msys64\usr\bin\flex.exe` | msys |
+| xorriso | 1.5.8 | `C:\msys64\usr\bin\xorriso.exe` | msys |
 
 ## 一键复现步骤
 
@@ -86,6 +89,33 @@ C:/msys64/ucrt64/bin/objcopy.exe --version
 C:/msys64/ucrt64/bin/ld.exe --version
 ```
 
+### 6. 最终任务：一次性安装 gcc / qemu / flex / bison / xorriso
+
+前面第 4 步只装了 gcc + qemu。要一次装齐全部五个工具，用下面这条命令（gcc/qemu 是 ucrt64 包，bison/flex/xorriso 是 msys 包，pacman 可一次混合安装）：
+
+```bash
+C:/msys64/usr/bin/pacman.exe -S --noconfirm --needed \
+  mingw-w64-ucrt-x86_64-gcc \
+  mingw-w64-ucrt-x86_64-qemu \
+  bison flex xorriso
+```
+
+- `--needed` 保证已装且是最新版的包会跳过，重复执行安全（幂等）
+- binutils（objcopy/ld/ar/as/nm/objdump）随 gcc 自动装上，无需单独装；m4 随 bison 自动装上
+- bison / flex / xorriso 是 **msys 版**，可执行文件在 `C:\msys64\usr\bin\`，不在 `ucrt64\bin`（见坑 5）
+
+验证五个工具（前四个在 ucrt64\bin，后三个在 usr\bin）：
+
+```bash
+C:/msys64/ucrt64/bin/gcc.exe --version
+C:/msys64/ucrt64/bin/qemu-system-x86_64.exe --version
+C:/msys64/usr/bin/bison.exe --version
+C:/msys64/usr/bin/flex.exe --version
+C:/msys64/usr/bin/xorriso.exe --version
+```
+
+本机实测结果（2026-11-19，均已安装）：gcc 16.2.0、qemu 11.1.3、binutils 2.47、bison 3.8.2、flex 2.6.4、xorriso 1.5.8.pl02。
+
 ## 日常使用
 
 - 打开 `C:\msys64\ucrt64.exe` 终端直接用 `gcc` / `qemu-system-x86_64` / `objcopy`
@@ -121,6 +151,18 @@ C:/msys64/ucrt64/bin/ld.exe --version
 - **现象**：`gcc.exe --version` 正常，但真编译 hello.c 时退出码 1、无任何输出，像是 gcc 坏了
 - **原因**：`cc1.exe` 找不到依赖 DLL（`libgmp-10.dll`、`libisl-23.dll`、`libmpc-3.dll`、`libmpfr-6.dll`、`libz-1.dll` 等，文件都齐全，只是不在 DLL 搜索路径）；`--version` 不走 cc1，所以不受影响，极具迷惑性
 - **对策**：日常直接用 `C:\msys64\ucrt64.exe` 终端操作（PATH 已配好，最省事）；若必须在普通终端调 gcc，先 `$env:PATH = 'C:\msys64\ucrt64\bin;' + $env:PATH` 把该目录加到 PATH 最前面再编译
+
+### 坑 7：PowerShell 5.1 跑 build_all.ps1 在 genassym 步骤崩溃
+- **现象**：构建到 genassym 时 `Start-Process` 抛 `ArgumentException: 字典中已存在键 http_proxy / HTTP_PROXY`，随后 `genassym run failed`，`BUILD_ALL_EXIT=1`
+- **原因**：PowerShell 5.1 的 `Start-Process` 会把进程环境当字典传递，环境里同时存在仅大小写不同的 `http_proxy` 与 `HTTP_PROXY`（以及 `https_proxy`/`HTTPS_PROXY`）时会因重复键报错。这与项目代码无关，是 Windows 环境的通病
+- **对策**：运行构建前先删掉小写那组，再用 `powershell` 启动脚本（子进程继承干净环境）：
+
+```powershell
+foreach ($n in @('http_proxy','https_proxy','no_proxy')) { Remove-Item "env:$n" -ErrorAction SilentlyContinue }
+& powershell -NoProfile -ExecutionPolicy Bypass -File ".\build_all.ps1"
+```
+
+- 实测这样处理后 `build_all.ps1` 全链路通过，产出 `out\BSD45-ELF-x86.iso`（xorriso 打包）。ld 的 `section below image base` 是 PE 链接的无害警告，可忽略
 
 ## 排查卡住命令的通用流程
 
