@@ -204,6 +204,7 @@ sources=(
     "c:$src/driver/ata.c"
     "c:$src/fs/isofs.c"
     "c:$src/fs/ffs/ffs.c"
+    "c:$src/fs/jlfs/jlfs.c"
     "c:$src/fs/ffs/install.c"
     "c:$src/fs/tmpfs.c"
     "c:$src/lib/kstr.c"

@@ -135,6 +135,7 @@ int	tmpfs_is_root(struct vnode *vp);
 #define	VFS_ROOT_ISO	0
 #define	VFS_ROOT_FFS	1
 #define	VFS_ROOT_TMPFS	2
+#define	VFS_ROOT_JLFS	3
 void	vfs_set_root_source(int);
 int	vfs_root_source(void);
 

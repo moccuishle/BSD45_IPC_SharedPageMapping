@@ -14,6 +14,7 @@
 #include "atapi.h"
 #include "isofs.h"
 #include "ffs/ffs.h"
+#include "jlfs/jlfs.h"
 #include "vfs.h"
 
 extern void bcopy(const void *, void *, unsigned);
@@ -118,7 +119,7 @@ vn_free(struct vnode *vp)
 {
 	int i;
 
-	if (vp == 0 || vp == &iso_rootv || tmpfs_is_root(vp) || ffs_is_root(vp))
+	if (vp == 0 || vp == &iso_rootv || tmpfs_is_root(vp) || ffs_is_root(vp) || jlfs_is_root(vp))
 		return;
 	i = vp - vnode_pool;
 	if (i < 0 || i >= VNODES)
@@ -201,7 +202,7 @@ void
 vn_put(struct vnode *vp)
 {
 
-	if (vp == 0 || vp == &iso_rootv || tmpfs_is_root(vp) || ffs_is_root(vp))
+	if (vp == 0 || vp == &iso_rootv || tmpfs_is_root(vp) || ffs_is_root(vp) || jlfs_is_root(vp))
 		return;
 	if (--vp->ref <= 0) {
 		vp->ref = 0;
@@ -474,7 +475,15 @@ vfs_init(void)
 	tmpfs_init();
 	tmpfs_root()->v_id = vn_newid();
 
-	if (vfs_root_src == VFS_ROOT_FFS && ffs_mounted()) {
+	if (vfs_root_src == VFS_ROOT_JLFS && jlfs_mounted()) {
+		struct vnode *jv = jlfs_root();
+		bzero(jv, sizeof(*jv));
+		jv->ref = 1; jv->type = VDIR; jv->ops = &jlfs_vnodeops;
+		jv->lba = 2; jv->size = 0; jv->v_id = vn_newid();
+		jv->v_key = 0;                 /* mutable */
+		rootvnode = jv;
+		mount_add("/", jv);
+	} else 	if (vfs_root_src == VFS_ROOT_FFS && ffs_mounted()) {
 		struct vnode *fr = ffs_root();
 
 		bzero(fr, sizeof(*fr));

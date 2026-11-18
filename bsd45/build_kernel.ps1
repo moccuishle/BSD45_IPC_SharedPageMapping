@@ -247,6 +247,7 @@ $c_sources = [ordered]@{
     "ata.o"      = @("c",   "$ws\kernel\driver\ata.c")
     "isofs.o"    = @("c",   "$ws\kernel\fs\isofs.c")
     "ffs.o"      = @("c",   "$ws\kernel\fs\ffs\ffs.c")
+    "jlfs.o"     = @("c",   "$ws\kernel\fs\jlfs\jlfs.c")
     "install.o"  = @("c",   "$ws\kernel\fs\ffs\install.c")
     "tmpfs.o"    = @("c",   "$ws\kernel\fs\tmpfs.c")
     "kstr.o"     = @("c",   "$ws\kernel\lib\kstr.c")

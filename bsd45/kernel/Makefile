@@ -203,6 +203,8 @@ include $(MAKEFILE_DIR_project_mk)/thread/config.mk
 OBJS += $(thread_OBJS)
 include $(MAKEFILE_DIR_project_mk)/fs/config.mk
 OBJS += $(fs_OBJS)
+include $(MAKEFILE_DIR_project_mk)/fs/jlfs/config.mk
+OBJS += $(jlfs_OBJS)
 include $(MAKEFILE_DIR_project_mk)/driver/config.mk
 OBJS += $(driver_OBJS)
 include $(MAKEFILE_DIR_project_mk)/vm/config.mk

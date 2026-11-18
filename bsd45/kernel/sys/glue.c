@@ -31,6 +31,7 @@
 #include "ata.h"
 #include "isofs.h"
 #include "ffs/ffs.h"
+#include "jlfs/jlfs.h"
 #include "vfs.h"
 #include "lib/kstr.h"
 #include "sys/platform.h"
@@ -347,14 +348,21 @@ main(vm_offset_t firstaddr)
 	{
 		int from_disk = 0;
 
-		if (ata_probe() == 0 && ata_present() && ffs_mount() == 0) {
-			printf("ata: ATA disk %d sectors, FFS mounted\n",
-			    ata_capacity());
-			from_disk = 1;
+		if (ata_probe() == 0 && ata_present()) {
+			if (jlfs_mount() == 0) {
+				printf("ata: ATA disk %d sectors, JLFS mounted (rw)\n",
+				    ata_capacity());
+				from_disk = 2;    /* VFS_ROOT_JLFS */
+			} else if (ffs_mount() == 0) {
+				printf("ata: ATA disk %d sectors, FFS mounted (ro)\n",
+				    ata_capacity());
+				from_disk = 1;    /* VFS_ROOT_FFS */
+			} else
+				printf("ata: no FFS/JLFS on ATA disk\n");
 		} else
-			printf("ata: no FFS on ATA disk\n");
+			printf("ata: no ATA disk\n");
 
-		if (atapi_probe() == 0) {
+		if (from_disk == 0 && atapi_probe() == 0) {
 			char vendor[9], product[17];
 
 			if (atapi_inquiry(vendor, product) == 0)
@@ -372,14 +380,15 @@ main(vm_offset_t firstaddr)
 				    iso_root(), iso_root_size());
 			} else {
 				/* CD present but unreadable: fall back to the disk. */
-				vfs_set_root_source(from_disk ? VFS_ROOT_FFS :
-				    VFS_ROOT_TMPFS);
+				vfs_set_root_source(from_disk == 2 ? VFS_ROOT_JLFS :
+				    (from_disk ? VFS_ROOT_FFS : VFS_ROOT_TMPFS));
 				vfs_init();
 				printf("root: %s\n", from_disk ?
 				    "FFS on ATA disk" : "tmpfs (empty)");
 			}
 		} else {
-			vfs_set_root_source(from_disk ? VFS_ROOT_FFS : VFS_ROOT_TMPFS);
+			vfs_set_root_source(from_disk == 2 ? VFS_ROOT_JLFS :
+				    (from_disk ? VFS_ROOT_FFS : VFS_ROOT_TMPFS));
 			vfs_init();
 			printf("root: %s (no ATAPI CD-ROM)\n", from_disk ?
 			    "FFS on ATA disk" : "tmpfs (empty)");
