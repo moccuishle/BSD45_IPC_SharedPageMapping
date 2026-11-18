@@ -74,17 +74,17 @@ for pair in "sh:bin/SH.ELF" "init:sbin/INIT.ELF" "hello:HELLO.ELF" "test:TEST.EL
     [ -f "$ws/out/userland/$name.elf" ] && cp -f "$ws/out/userland/$name.elf" "$isodir/$dst"
 done
 
-# S-install: build the FFS image that the in-guest `install` command writes
-# to the VMware virtual disk, and ship it on the ISO as BSD45.FFS.
-# Uses the pure-Bash port (hdd/make_install_ffs.sh -> mkffs.sh); no python.
-if bash "$ws/hdd/make_install_ffs.sh" "$ws/hdd/BSD45.FFS"; then
-    ffs_img="$ws/hdd/BSD45.FFS"
-    if [ -f "$ffs_img" ]; then
-        cp -f "$ffs_img" "$isodir/BSD45.FFS"
-        echo "BSD45.FFS: $(stat -c%s "$ffs_img" 2>/dev/null || wc -c < "$ffs_img") bytes"
+# S-install: build the native-JLFS image that the in-guest `install` command
+# writes to the VMware virtual disk, and ship it on the ISO as BSD45.JLFS.
+# Uses the pure-Bash port (hdd/make_install_jlfs.sh -> mkjlfs.sh); no python.
+if bash "$ws/hdd/make_install_jlfs.sh" "$ws/hdd/BSD45.JLFS"; then
+    jlfs_img="$ws/hdd/BSD45.JLFS"
+    if [ -f "$jlfs_img" ]; then
+        cp -f "$jlfs_img" "$isodir/BSD45.JLFS"
+        echo "BSD45.JLFS: $(stat -c%s "$jlfs_img" 2>/dev/null || wc -c < "$jlfs_img") bytes"
     fi
 else
-    echo "ERROR: make_install_ffs.sh failed, BSD45.FFS not shipped" >&2
+    echo "ERROR: make_install_jlfs.sh failed, BSD45.JLFS not shipped" >&2
     exit 1
 fi
 

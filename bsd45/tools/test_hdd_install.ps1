@@ -124,9 +124,10 @@ $log2 = Run-Phase $args2 @("disk", "help") "vstat" 8000
 Set-Content (Join-Path $ws "build\qemu-diskboot.log") $log2 -Encoding UTF8
 Write-Host $log2
 
-$ok = $log2.Contains("FFS mounted") -and $log2.Contains("root: FFS on ATA disk")
+$fsOk = $log2.Contains("FFS mounted") -or $log2.Contains("JLFS mounted")
+$ok = $fsOk -and $log2.Contains("root: FFS on ATA disk")
 if ($ok) {
-    Write-Host "`n*** DISK BOOT OK (FFS root mounted) ***" -ForegroundColor Green
+    Write-Host "`n*** DISK BOOT OK (FFS/JLFS root mounted) ***" -ForegroundColor Green
     exit 0
 } else {
     Write-Host "`n*** DISK BOOT FAILED ***" -ForegroundColor Red

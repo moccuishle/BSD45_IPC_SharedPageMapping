@@ -143,17 +143,15 @@ foreach ($pair in @(
     $srcf = Join-Path $ws ("out\userland\{0}.elf" -f $pair[0])
     if (Test-Path $srcf) { Copy-Item $srcf ("$isodir\bin\{0}.ELF" -f $pair[1]) -Force }
 }
-# S-install: build the FFS image that the in-guest `install` command writes
-# to the VMware virtual disk.  It is shipped on the ISO as BSD45.FFS.
-# Resolve a *working* python (the WindowsApps "python3" stub does not run).
-# S-install: build the FFS image with the pure-PowerShell port
-# (hdd/make_install_ffs.ps1 -> mkffs.ps1); no python required.
-& powershell -NoProfile -ExecutionPolicy Bypass -File (Join-Path $ws "hdd\make_install_ffs.ps1") (Join-Path $ws "hdd\BSD45.FFS")
-if ($LASTEXITCODE -ne 0) { throw "make_install_ffs.ps1 failed" }
-$ffsImg = Join-Path $ws "hdd\BSD45.FFS"
-if (Test-Path $ffsImg) {
-    Copy-Item $ffsImg "$isodir\BSD45.FFS" -Force
-    Write-Host ("BSD45.FFS: {0:N0} bytes" -f (Get-Item $ffsImg).Length)
+# S-install: build the native-JLFS image that the in-guest `install` command
+# writes to the VMware virtual disk.  It is shipped on the ISO as BSD45.JLFS.
+# Pure-PowerShell port (hdd/make_install_jlfs.ps1 -> mkjlfs.ps1); no python.
+& powershell -NoProfile -ExecutionPolicy Bypass -File (Join-Path $ws "hdd\make_install_jlfs.ps1") (Join-Path $ws "hdd\BSD45.JLFS")
+if ($LASTEXITCODE -ne 0) { throw "make_install_jlfs.ps1 failed" }
+$jlfsImg = Join-Path $ws "hdd\BSD45.JLFS"
+if (Test-Path $jlfsImg) {
+    Copy-Item $jlfsImg "$isodir\BSD45.JLFS" -Force
+    Write-Host ("BSD45.JLFS: {0:N0} bytes" -f (Get-Item $jlfsImg).Length)
 }
 
 Copy-Item "$bld\boot.img" "$isodir\boot.img" -Force

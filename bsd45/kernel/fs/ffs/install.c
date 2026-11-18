@@ -4,7 +4,7 @@
  * Guest-side half of the Ubuntu-style install flow.  Booted from the live
  * ISO, the on-board monitor's `install` command:
  *   1. detects the VMware virtual ATA disk (primary master, LBA28);
- *   2. streams /BSD45.FFS and /BSD45.ELF off the ISO9660 volume;
+ *   2. streams /BSD45.JLF (8.3 name for BSD45.JLFS) and /BSD45.ELF off the ISO;
  *   3. writes the FFS image, the boot stages and the kernel to the disk;
  *   4. prints "reboot, disconnect the ISO" for the next boot from disk.
  *
@@ -171,14 +171,15 @@ install_to_disk(void)
 		return (-1);
 	}
 
-	/* ---- 1. FFS image from the ISO -> disk LBA 0 (image byte N -> N/512) */
-	/* NOTE: iso_readdir() lowercases ISO names, so query paths are lowercase. */
-	printf("install: writing /bsd45.ffs to disk ...\n");
-	if (stream_iso_file("/bsd45.ffs", emit_ffs) < 0) {
-		printf("install: cannot write /bsd45.ffs\n");
+	/* ---- 1. JLFS image from the ISO -> disk LBA 0 (image byte N -> N/512) */
+	/* NOTE: iso_readdir() lowercases ISO names, so query paths are lowercase.
+	 * ISO9660 level 1 uses 8.3 names, so BSD45.JLFS is stored as BSD45.JLF. */
+	printf("install: writing /bsd45.jlf to disk ...\n");
+	if (stream_iso_file("/bsd45.jlf", emit_ffs) < 0) {
+		printf("install: cannot write /bsd45.jlf\n");
 		return (-1);
 	}
-	printf("install: FFS written (%d bytes)\n", streamed_len);
+	printf("install: JLFS written (%d bytes)\n", streamed_len);
 
 	/* ---- 2. stage2 (ELF loader) -> disk LBA 1 ------------------------ */
 	if (stage2_bin_len > sizeof(s2)) {
