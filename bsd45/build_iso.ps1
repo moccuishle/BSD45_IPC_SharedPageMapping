@@ -168,7 +168,8 @@ if (Test-Path $ovl) {
     }
 }
 # .keep placeholders are only there to keep empty dirs in git
-Get-ChildItem $isodir -Recurse -Filter ".keep" -Force -ErrorAction SilentlyContinue | Remove-Item -Force
+$keepFiles = @(Get-ChildItem $isodir -Recurse -Filter ".keep" -Force -ErrorAction SilentlyContinue)
+if ($keepFiles.Count -gt 0) { Remove-Item $keepFiles.FullName -Force -ErrorAction SilentlyContinue }
 
 if (Test-Path $OutIso) { Remove-Item $OutIso -Force }
 $mkArgs = @()

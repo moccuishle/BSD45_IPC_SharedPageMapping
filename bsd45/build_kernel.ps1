@@ -254,9 +254,11 @@ $c_sources = [ordered]@{
     # subsys/ personality layer removed: syscalls dispatch straight to
     # bsd45_syscall(); struct sysregs now lives in include/sys/platform.h
     "kthread.o"  = @("c",   "$ws\kernel\thread\kthread.c")
+    "sync.o"     = @("c",   "$ws\kernel\thread\sync.c")
     "softirq.o"  = @("c",   "$ws\kernel\thread\softirq.c")
     "kswitch.o"  = @("asm", "$ws\kernel\thread\kswitch.s")
     "hal_arch.o" = @("asm", "$ws\kernel\arch\$Arch\x86.asm")
+    "ap_tramp.o" = @("asm", "$ws\kernel\arch\$Arch\ap_tramp.s")
     # kernel/hal removed: context + timer folded into arch/i386, no IPL layer
     "smp.o"      = @("c",   "$ws\kernel\arch\$Arch\smp.c")
     "ctx.o"      = @("c",   "$ws\kernel\arch\$Arch\ctx.c")

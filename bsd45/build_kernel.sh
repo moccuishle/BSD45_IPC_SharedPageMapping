@@ -211,9 +211,11 @@ sources=(
     # subsys/ personality layer removed: syscalls dispatch straight to
     # bsd45_syscall(); struct sysregs now lives in include/sys/platform.h
     "c:$src/thread/kthread.c"
+    "c:$src/thread/sync.c"
     "c:$src/thread/softirq.c"
     "asm:$src/thread/kswitch.s"
     "asm:$src/arch/$ARCH/x86.asm"
+    "asm:$src/arch/$ARCH/ap_tramp.s"
     # kernel/hal removed: context + timer folded into arch/i386, no IPL layer
     "c:$src/arch/$ARCH/smp.c"
     "c:$src/arch/$ARCH/ctx.c"

@@ -86,6 +86,7 @@ struct kthread {
 	int		t_cpu_burst;	/* consecutive CPU ticks: CPU-bound detector */
 	int		t_lastcpu;	/* affinity: last CPU this thread ran on */
 	void		*t_wchan;	/* non-NULL => blocked on this channel */
+	struct kthread	*t_wqnext;	/* S200: next TCB on a sync wait queue */
 	struct sysregs	t_regs;
 	int		t_wait_pid;
 	unsigned	t_wait_status;

@@ -60,6 +60,15 @@ struct kthread *curthread_cpu(void);
 
 /* run queue helpers (per-CPU) */
 void	smp_balance(void);	/* migrate threads from busy to idle CPU */
+
+/* S200: synchronization + IPI helpers */
+extern int smp_enabled;
+int	smp_enable(void);		/* runtime opt-in: map APIC, start APs */
+void	smp_tlb_shootdown(unsigned va);
+void	smp_reschedule(void);
+void	smp_handle_ipi(int vector);
+void	smp_print(void);
+int	ipi_selftest(void);
 #endif /* !ASSEMBLER */
 
 #endif /* !_SMP_H_ */

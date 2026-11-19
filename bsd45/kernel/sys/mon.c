@@ -26,6 +26,8 @@
 #include "vfs.h"
 #include "sys/platform.h"
 #include "thread/kthread.h"
+#include "sys/sync.h"
+#include "sys/smp.h"
 #include "vm/zcomp.h"
 extern void cow_print(void);
 extern int install_to_disk(void);
@@ -350,6 +352,7 @@ monitor(void)
 			printf("help  mem  vstat  vstress  pte <addr>  map  banner  "
 			    "usermode  shell  test  cd  reboot  halt\n"
 			    			    "      kthread  softirq  kthreadtest  softirqtest\n"
+			    "      schedtest  synctest  smpinfo  ipitest\n"
 			    "      clock  lat  cow\n"
 			    "      zcomp  zcomptest\n"
 			    "      aio  aiotest\n"
@@ -367,6 +370,23 @@ monitor(void)
 			softirq_print();
 		else if (!strcmp(line, "schedtest")) {
 			(void)sched_prio_selftest();
+		}
+		else if (!strcmp(line, "synctest")) {
+			int n = sync_selftest();
+
+			printf("synctest: %s\n", n ? "PASS" : "FAIL");
+		}
+		else if (!strcmp(line, "smpinfo"))
+			smp_print();
+		else if (!strcmp(line, "smpon")) {
+			int n = smp_enable();
+
+			printf("smpon: %d CPU(s) online\n", n);
+		}
+		else if (!strcmp(line, "ipitest")) {
+			int n = ipi_selftest();
+
+			printf("ipitest: %s\n", n ? "PASS" : "FAIL");
 		}
 		else if (!strcmp(line, "kthreadtest")) {
 			unsigned n = kthread_selftest();
