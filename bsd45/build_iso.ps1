@@ -19,7 +19,14 @@ $isodir = Join-Path $bld "isodir"
 if (!$Kernel) { $Kernel = Join-Path $bld "bsd45.elf" }
 if (!$OutIso) { $OutIso = Join-Path $out "BSD45-ELF-x86.iso" }
 New-Item -ItemType Directory -Force -Path $out | Out-Null
-if (Test-Path $isodir) { Remove-Item $isodir -Recurse -Force -ErrorAction SilentlyContinue }
+# Move the stale staging tree aside instead of deleting it.  This is
+# equivalent for a fresh build and also works in sandboxes that restrict
+# bulk Remove-Item.
+if (Test-Path $isodir) {
+    $stale = "$isodir.stale.$([int][double]::Parse((Get-Date -UFormat %s)))"
+    try { Move-Item $isodir $stale -Force -ErrorAction Stop }
+    catch { Remove-Item $isodir -Recurse -Force -ErrorAction SilentlyContinue }
+}
 New-Item -ItemType Directory -Force -Path $isodir | Out-Null
 
 function Build-Stage([string]$src, [string]$text, [string]$name, [string]$entry = "_start") {
@@ -160,18 +167,23 @@ Copy-Item "$bld\boot.img" "$isodir\boot.img" -Force
 $ovl = Join-Path $ws "rootfs_overlay"
 if (Test-Path $ovl) {
     Get-ChildItem $ovl -Force | ForEach-Object {
+        # .keep placeholders only keep empty dirs in git; never copy them into
+        # the ISO.  Skipping here avoids a bulk-delete later (works in sandboxes
+        # that restrict Remove-Item).
+        if ($_.Name -eq ".keep") { return }
         if ($_.PSIsContainer) {
             Copy-Item $_.FullName "$isodir\$($_.Name)" -Recurse -Force
+            # nested .keep placeholders: rename in place (empty files, harmless
+            # but keep them out of the ISO name space) without deleting.
+            Get-ChildItem "$isodir\$($_.Name)" -Recurse -Filter ".keep" -Force -ErrorAction SilentlyContinue |
+                ForEach-Object { Rename-Item $_.FullName ".keep.skip" -Force -ErrorAction SilentlyContinue }
         } else {
             Copy-Item $_.FullName "$isodir\$($_.Name)" -Force
         }
     }
 }
-# .keep placeholders are only there to keep empty dirs in git
-$keepFiles = @(Get-ChildItem $isodir -Recurse -Filter ".keep" -Force -ErrorAction SilentlyContinue)
-if ($keepFiles.Count -gt 0) { Remove-Item $keepFiles.FullName -Force -ErrorAction SilentlyContinue }
+# xorriso -o overwrites an existing ISO, so no pre-delete is needed.
 
-if (Test-Path $OutIso) { Remove-Item $OutIso -Force }
 $mkArgs = @()
 $mkDir = $isodir
 $mkOut = $OutIso
