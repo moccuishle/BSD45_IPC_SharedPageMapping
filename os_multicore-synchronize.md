@@ -188,6 +188,14 @@ powershell -NoProfile -ExecutionPolicy Bypass -File .\tools\run_qemu_test.ps1 `
 > Remove-Item` 在无匹配时会因空管道报错，已改为先判空再删
 > （`build_iso.ps1:171`）。另外 `build_all.ps1` 的 `$ErrorActionPreference="Stop"`
 > 会把 ld 的 `section below image base` 警告当成终止错误，可分步执行各子脚本规避。
+>
+> **i686 原生工具链注意事项**：`Get-MingwBin` 优先选 `C:\msys64\mingw32\bin`
+> （GCC 16.2）。此时 `build_kernel.ps1` 依赖 `tools/pe_bss_fix.py` 把零初始化
+> static 数据从 PE `.data` 移到 `.bss`，否则内核镜像会从 ~165KB 膨胀到 ~575KB、
+> 段布局越界导致启动失败。Python 必须在 PowerShell 的 PATH 中：
+> `$env:PATH = "C:\Users\Administrator\.workbuddy\binaries\python\versions\3.13.12;" + $env:PATH`
+> 构建日志出现 `pe_bss_fix: ... section(s) moved to .bss` 即表示正常。
+> 本轮已用 i686 原生链路完整重建并验证（synctest/ipitest/kthreadtest PASS）。
 
 ### Ubuntu（交叉验证环境）
 
@@ -217,13 +225,30 @@ bash tools/run_qemu_test.sh -Keys "synctest|ipitest|smpinfo" -WaitFor "smp: enab
 
 ## 5. 变更文件清单
 
-- `kernel/include/sys/sync.h`（新增）
+同步与多核：
+- `kernel/include/sys/sync.h`（新增；**无内联汇编**，仅 include arch 头）
 - `kernel/thread/sync.c`（新增）
 - `kernel/thread/kthread.h`（加 `t_wqnext`）
+- `kernel/arch/i386/atomic.{c,h}`（新增；所有 atomic 内联汇编集中于此）
 - `kernel/arch/i386/smp.c`（LAPIC 映射修复 + IPI/shootdown/诊断/开关）
 - `kernel/include/sys/smp.h`（新 API 声明）
 - `kernel/sys/mon.c`（`synctest`/`smpon`/`smpinfo`/`ipitest` 命令）
-- `build_kernel.sh`、`build_kernel.ps1`（加入 sync.c 与 ap_tramp.s）
+
+汇编目录规则整改（asmble.md，2026-11-20）：
+- `kernel/sys/usermode_asm.s` → `kernel/arch/i386/usermode_asm.s`
+- `kernel/thread/kswitch.s` → `kernel/arch/i386/kswitch.s`
+- `kernel/lib/sparc/*.s`（6 个）→ `kernel/arch/sparc/`
+- 同步更新 `build_kernel.sh`/`.ps1`、`kernel/{sys,thread,arch/i386}/config.mk`、
+  `README.md`、`asmble.md`
+
+构建脚本：
+- `build_kernel.sh`、`build_kernel.ps1`（加入 sync.c、atomic.c 与 ap_tramp.s）
+
+> **汇编位置约定**：`kernel/` 下所有汇编（含 C 内联汇编）只允许出现在
+> `arch/<arch>/`。审计命令：
+> `find kernel -type f \( -name '*.s' -o -name '*.asm' \) | grep -v /arch/`
+> 与 `grep -rln '__asm' kernel --include=*.c --include=*.h | grep -v /arch/`
+> 均应为空。本轮交付已满足。
 
 ---
 

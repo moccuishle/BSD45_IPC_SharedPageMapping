@@ -14,7 +14,8 @@ CPPFLAGS := $(CPPFLAGS) -I$(MAKEFILE_DIR_sys_mk)
 # C sources (explicit; 4.5BSD tree has legacy files that must not build)
 sys_CSRCS := usermode.c stubs.c glue.c mon.c
 sys_COBJS := $(patsubst %.c,$(sys_OBJ_DIR)/%.o,$(sys_CSRCS))
-sys_ASMSRC := usermode_asm.s
+# usermode_asm.s moved to arch/i386/ per asmble.md; no asm in this directory.
+sys_ASMSRC :=
 sys_ASMOBJS := $(patsubst %.s,$(sys_OBJ_DIR)/%.o,$(patsubst %.asm,$(sys_OBJ_DIR)/%.o,$(sys_ASMSRC)))
 
 sys_OBJS := $(sys_COBJS) $(sys_ASMOBJS)

@@ -14,7 +14,8 @@ CPPFLAGS := $(CPPFLAGS) -I$(MAKEFILE_DIR_thread_mk)
 # C sources (explicit; 4.5BSD tree has legacy files that must not build)
 thread_CSRCS := kthread.c softirq.c
 thread_COBJS := $(patsubst %.c,$(thread_OBJ_DIR)/%.o,$(thread_CSRCS))
-thread_ASMSRC := kswitch.s
+# kswitch.s moved to arch/i386/ per asmble.md; no asm in this directory.
+thread_ASMSRC :=
 thread_ASMOBJS := $(patsubst %.s,$(thread_OBJ_DIR)/%.o,$(patsubst %.asm,$(thread_OBJ_DIR)/%.o,$(thread_ASMSRC)))
 
 thread_OBJS := $(thread_COBJS) $(thread_ASMOBJS)

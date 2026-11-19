@@ -263,7 +263,7 @@ Linux 上 `gcc -m32` 直接产出 ELF，`build_*.sh` 用 `ld -m elf_i386` 和
 
 相关文件：`include/sys/kproc.h`（kfd/kvma 类型）、`include/sys/platform.h`
 （struct sysregs 与平台钩子）、`thread/kthread.c`、`sys/usermode.c`、
-`sys/usermode_asm.s`。完整的原始实现备份在仓库外 `.ipl-hal-backup/`。
+`arch/i386/usermode_asm.s`（汇编统一放在 `arch/` 下，见 `asmble.md`）。完整的原始实现备份在仓库外 `.ipl-hal-backup/`。
 
 ### 从 ISO 安装到 VMware 虚拟磁盘
 

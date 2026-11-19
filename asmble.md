@@ -26,35 +26,37 @@
    分别收敛到 `arch/i386/io.h`（声明）+ `arch/i386/x86.asm`（实现）、
    `arch/i386/ctx.c`、`arch/i386/timer.c`，本规则是同一原则的延续。
 
-## 当前状态审计（2026-11-18）
+## 当前状态审计（2026-11-20 更新：已全部合规）
 
-`bsd45/kernel/` 下共 **13** 个汇编文件，其中 **5 个合规 / 8 个待迁移**：
+`bsd45/kernel/` 下所有汇编源码现已全部位于 `arch/` 树内。审计命令输出为空：
+非 `arch/` 目录既无 `.s/.S/.asm` 文件，也无 C/头文件内联汇编。
 
-### 合规（已在 arch/）
+### 合规（全部在 arch/）
 
 | 文件 | 说明 |
 |---|---|
-| `kernel/arch/i386/ap_tramp.s` | AP 启动 trampoline（SMP 基础设施，未加入构建） |
+| `kernel/arch/i386/ap_tramp.s` | AP 启动 trampoline（S200 已加入构建） |
+| `kernel/arch/i386/usermode_asm.s` | `resume_user` / `irq0_entry`（2026-11-20 从 `sys/` 迁入） |
+| `kernel/arch/i386/kswitch.s` | 内核栈切换（2026-11-20 从 `thread/` 迁入） |
 | `kernel/arch/i386/i386/locore.s` | 引导早期、页表、上下文切换汇编 |
 | `kernel/arch/i386/isa/locore.s` | 机器相关低层例程 |
 | `kernel/arch/i386/isa/icu.s` | 8259 中断控制器 stub |
 | `kernel/arch/i386/x86.asm` | 端口 I/O 与 CPU 控制（hal_inb/outb 等） |
+| `kernel/arch/sparc/{mul,rem,sdiv,udiv,umul,urem}.s` | SPARC 算术（2026-11-20 从 `lib/sparc/` 迁入，不参与 i386 构建） |
 
-### 待迁移（7 个）
+### 2026-11-20 整改记录
 
-| 当前位置 | 建议目标 | 说明 |
-|---|---|---|
-| `kernel/sys/usermode_asm.s` | `kernel/arch/i386/usermode_asm.s` | `resume_user` / `irq0_entry`，x86 栈帧与 iret 语义 |
-| `kernel/thread/kswitch.s` | `kernel/arch/i386/kswitch.s` | `kswitch` 内核栈切换，直接操作 esp/ebx/esi/edi |
-| `kernel/lib/sparc/mul.s` | `kernel/arch/sparc/mul.s` | SPARC 乘法 |
-| `kernel/lib/sparc/rem.s` | `kernel/arch/sparc/rem.s` | SPARC 取余 |
-| `kernel/lib/sparc/sdiv.s` | `kernel/arch/sparc/sdiv.s` | SPARC 有符号除法 |
-| `kernel/lib/sparc/udiv.s` | `kernel/arch/sparc/udiv.s` | SPARC 无符号除法 |
-| `kernel/lib/sparc/umul.s` | `kernel/arch/sparc/umul.s` | SPARC 无符号乘法 |
-| `kernel/lib/sparc/urem.s` | `kernel/arch/sparc/urem.s` | SPARC 无符号取余 |
-
-（上表 SPARC 为 6 个；加上 `usermode_asm.s`、`kswitch.s` 共 8 条目标，
-其中 SPARC 6 个当前不参与 i386 构建。）
+1. **S200 同步原语**：`sys/sync.h` 初稿把 atomic 用 `__asm` 内联写在通用头里，
+   违反本规则。已迁出：`kernel/arch/i386/atomic.c`（实现）+ `atomic.h`（声明），
+   `sync.h` 仅保留数据结构/函数声明，`#include "arch/i386/atomic.h"`。
+2. **历史遗留 8 个汇编文件全部迁移**：`usermode_asm.s`、`kswitch.s` →
+   `arch/i386/`；6 个 SPARC `.s` → `arch/sparc/`。同步更新了
+   `build_kernel.sh`/`.ps1`、`kernel/{sys,thread,arch/i386}/config.mk` 的引用，
+   README 相关描述一并订正。
+3. **验证**：Windows（gcc→PE→COFF→objcopy→ELF）完整重编译无
+   `undefined reference`；`synctest`/`ipitest`/`kthreadtest` PASS（证明
+   `kswitch.s` 栈切换正常），`test_s3` PASSED（证明 `usermode_asm.s`
+   的 `resume_user` 正常进用户态 shell）。
 
 ## 执行要求
 

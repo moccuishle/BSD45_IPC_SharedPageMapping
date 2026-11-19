@@ -20,76 +20,17 @@
 #include "sys/smp.h"		/* struct spinlock, spin_lock/unlock */
 #include "thread/kthread.h"
 
-/* ------------------------------------------------------------------ */
-/* atomic operations (i386: lock prefix; UP build: plain ops)          */
-/* ------------------------------------------------------------------ */
-typedef volatile int	atomic_t;
-
-static __inline int
-atomic_read(atomic_t *v)
-{
-
-	return (*v);
-}
-
-static __inline void
-atomic_set(atomic_t *v, int x)
-{
-
-	*v = x;
-}
-
-static __inline void
-atomic_inc(atomic_t *v)
-{
-
-	__asm __volatile("lock incl %0" : "+m" (*v));
-}
-
-static __inline void
-atomic_dec(atomic_t *v)
-{
-
-	__asm __volatile("lock decl %0" : "+m" (*v));
-}
-
-static __inline int
-atomic_add(atomic_t *v, int x)
-{
-	int r;
-
-	__asm __volatile("lock xaddl %0,%1"
-	    : "=r" (r) : "m" (*v), "0" (x) : "memory");
-	return (r + x);
-}
-
-/* atomic compare-and-swap: returns the old value. */
-static __inline int
-atomic_cmpxchg(atomic_t *v, int old, int new)
-{
-	int prev;
-
-	__asm __volatile("lock cmpxchgl %2,%1"
-	    : "=a" (prev), "+m" (*v)
-	    : "r" (new), "0" (old) : "memory");
-	return (prev);
-}
-
-/* atomic test-and-set: returns the previous value (1 = was set). */
-static __inline int
-atomic_test_and_set(atomic_t *v)
-{
-	int prev = 1;
-
-	__asm __volatile("xchgl %0,%1"
-	    : "=r" (prev), "+m" (*v) : "0" (1) : "memory");
-	return (prev);
-}
-
-/* memory barriers */
-#define sync_mb()	__asm __volatile("mfence" ::: "memory")
-#define sync_rmb()	__asm __volatile("lfence" ::: "memory")
-#define sync_wmb()	__asm __volatile("sfence" ::: "memory")
+/*
+ * Atomic operations and barriers are architecture-specific and therefore
+ * live under kernel/arch/<arch>/ (see asmble.md).  Pull in the declaration
+ * for the configured architecture; generic code below only calls the plain
+ * C functions declared there.  No inline assembly appears in this header.
+ */
+#if defined(ARCH_i386)
+#include "arch/i386/atomic.h"
+#else
+#error "sync.h: no atomic.h for this ARCH; add one under kernel/arch/<arch>/"
+#endif
 
 /* ------------------------------------------------------------------ */
 /* spinlock - defined in arch/i386/smp.c (struct spinlock in sys/smp.h) */
