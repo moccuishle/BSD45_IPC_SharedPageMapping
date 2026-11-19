@@ -69,6 +69,7 @@ for pair in "sh:bin/SH.ELF" "init:sbin/INIT.ELF" "hello:HELLO.ELF" "test:TEST.EL
             "pthread:bin/PTHREAD.ELF" "schedtest:bin/SCHEDTEST.ELF" "pthpreempt:bin/PTHPRE.ELF" \
             "spin:bin/SPIN.ELF" "cowtest:bin/COWTEST.ELF" \
             "crash:bin/CRASH.ELF" "badptr:bin/BADPTR.ELF" \
+            "ipctest:bin/IPCTEST.ELF" \
             "aiotest:bin/AIOTEST.ELF" "uring:bin/uring.ELF"; do
     name="${pair%%:*}"; dst="${pair#*:}"
     [ -f "$ws/out/userland/$name.elf" ] && cp -f "$ws/out/userland/$name.elf" "$isodir/$dst"

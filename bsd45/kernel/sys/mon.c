@@ -28,6 +28,7 @@
 #include "thread/kthread.h"
 #include "sys/sync.h"
 #include "sys/smp.h"
+#include "sys/kipc.h"
 #include "vm/zcomp.h"
 extern void cow_print(void);
 extern int install_to_disk(void);
@@ -353,6 +354,7 @@ monitor(void)
 			    "usermode  shell  test  cd  reboot  halt\n"
 			    			    "      kthread  softirq  kthreadtest  softirqtest\n"
 			    "      schedtest  synctest  smpinfo  ipitest\n"
+			    "      ipctest  ipcinfo\n"
 			    "      clock  lat  cow\n"
 			    "      zcomp  zcomptest\n"
 			    "      aio  aiotest\n"
@@ -388,6 +390,13 @@ monitor(void)
 
 			printf("ipitest: %s\n", n ? "PASS" : "FAIL");
 		}
+		else if (!strcmp(line, "ipctest")) {
+			int n = ipc_selftest();
+
+			printf("ipctest: %s\n", n ? "PASS" : "FAIL");
+		}
+		else if (!strcmp(line, "ipcinfo"))
+			ipc_print();
 		else if (!strcmp(line, "kthreadtest")) {
 			unsigned n = kthread_selftest();
 

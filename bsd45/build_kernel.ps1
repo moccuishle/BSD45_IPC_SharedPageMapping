@@ -255,6 +255,7 @@ $c_sources = [ordered]@{
     # bsd45_syscall(); struct sysregs now lives in include/sys/platform.h
     "kthread.o"  = @("c",   "$ws\kernel\thread\kthread.c")
     "sync.o"     = @("c",   "$ws\kernel\thread\sync.c")
+    "kipc.o"     = @("c",   "$ws\kernel\thread\kipc.c")
     "softirq.o"  = @("c",   "$ws\kernel\thread\softirq.c")
     "kswitch.o"  = @("asm", "$ws\kernel\arch\$Arch\kswitch.s")
     "hal_arch.o" = @("asm", "$ws\kernel\arch\$Arch\x86.asm")

@@ -212,6 +212,7 @@ sources=(
     # bsd45_syscall(); struct sysregs now lives in include/sys/platform.h
     "c:$src/thread/kthread.c"
     "c:$src/thread/sync.c"
+    "c:$src/thread/kipc.c"
     "c:$src/thread/softirq.c"
     "asm:$src/arch/$ARCH/kswitch.s"
     "asm:$src/arch/$ARCH/x86.asm"

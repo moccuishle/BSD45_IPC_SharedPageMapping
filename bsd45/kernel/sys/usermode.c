@@ -36,6 +36,7 @@
 #include "vfs.h"
 #include "sys/platform.h"
 #include "thread/kthread.h"
+#include "sys/kipc.h"		/* S300: IPC / shared-page syscalls */
 /* context-switch hooks are declared in sys/platform.h */
 #include "sys/platform.h"
 #include "sys/platform.h"
@@ -670,6 +671,57 @@ user_unmap(unsigned pdpa, unsigned va)
 		pt[pti] = 0;
 		tlbflush();
 	}
+}
+
+/*
+ * 中文：S300 KP-7 桥接——把物理页映射/解除映射到任意进程地址空间。
+ * kipc.c 调用它们；包装静态 mmap 帮助函数，使共享页逻辑无需复制页表代码。
+ * EN: S300 KP-7 bridge: map/unmap a physical page into an arbitrary process
+ * address space.  kipc.c calls these; they wrap the static mmap helpers so
+ * the shared-page logic can live outside usermode.c without duplicating
+ * page-table code.
+ */
+void
+user_map_shared(unsigned pdpa, unsigned va, unsigned pa, int prot)
+{
+
+	user_map_prot(pdpa, va & ~(PAGE_SIZE - 1), pa, prot);
+	/* 中文：若映射进的是当前进程地址空间，重载 CR3 刷新 TLB，使新映射立即生效；
+	 * 这与 mmap/uring 路径一致。映射到别的进程时不刷（对方切换时会自然加载新页表）。
+	 * EN: If the mapping targets the current process, reload CR3 so the new mapping
+	 * takes effect immediately (same as the mmap/uring paths).  For a different
+	 * process we do not flush here; it will pick up the new page table on switch. */
+	if (cur != 0 && cur->uk_pd == pdpa)
+		hal_address_space_activate(cur->uk_pd);
+}
+
+/* 中文：解除由 user_map_shared 建立的映射 */
+/* EN: Undo a mapping created by user_map_shared. */
+void
+user_unmap_shared(unsigned pdpa, unsigned va)
+{
+
+	user_unmap(pdpa, va & ~(PAGE_SIZE - 1));
+	/* 中文：同样在映射属于当前进程时刷新 TLB（user_unmap 的 tlbflush 之外再保险）。
+	 * EN: Likewise reload CR3 when the mapping belongs to the current process. */
+	if (cur != 0 && cur->uk_pd == pdpa)
+		hal_address_space_activate(cur->uk_pd);
+}
+
+/* 中文：S300 KP-7 桥接——把物理页暂映射到内核 scratch 窗口，返回可访问的内核虚址；
+ * 供生产者在发送前填充共享页内容。调用方须先使用再让窗口被下一次调用覆盖。
+ * EN: S300 KP-7 bridge: temporarily map a physical page into the kernel scratch
+ * window and return an accessible kernel VA, so the producer can fill a shared
+ * page before sending.  The caller must use it before the next call overwrites
+ * the window.
+ */
+void *
+user_scratch_window(unsigned pa)
+{
+
+	if (pa == 0)
+		return (0);
+	return (map_page(SCRATCH_PAGE, pa));
 }
 
 /* 中文：查出用户地址 va 当前映射的物理页，未映射或不存在返回 0 */
@@ -2361,6 +2413,28 @@ proc_find(int pid)
 	return (0);
 }
 
+/*
+ * 中文：S300 KP-7 桥接——返回进程 pid 的页目录物理地址（找不到返回 0）。
+ * EN: S300 KP-7 bridge: return the page-directory physical address of process
+ * pid (0 if not found).
+ */
+unsigned
+proc_pd_by_pid(unsigned pid)
+{
+	struct proc *p = proc_find((int)pid);
+
+	return (p != 0 ? p->uk_pd : 0);
+}
+
+/* 中文：S300——当前进程的 pid（无用户进程上下文时返回 0） */
+/* EN: S300: pid of the current process (0 if no user process context). */
+unsigned
+proc_cur_pid(void)
+{
+
+	return (cur != 0 ? (unsigned)cur->uk_pid : 0);
+}
+
 /* 中文：统计指定 pid 的子进程数量 */
 /* EN: Count the number of child processes of a given pid */
 static int
@@ -2819,6 +2893,8 @@ proc_exit(int code)
 			if (cur->uk_fds[fd].used)
 				fd_close(fd);
 	}
+	/* S300: close this process's IPC ports; wake waiters with EIO */
+	ipc_proc_exit((unsigned)cur->uk_pid);
 	/* release the process's main thread slot */
 	if (cur->uk_p_thread != 0) {
 		kthread_user_free(cur->uk_p_thread);
@@ -5077,6 +5153,54 @@ bsd45_syscall(struct sysregs *r)
 #endif
 		break;
 	}
+
+	/* ---- S300: KP-4/6/7 IPC and shared-page syscalls -------------- */
+	case SYS_IPC_PORT_REGISTER:	/* port_register(port) */
+		r->eax = (unsigned)port_register(r->ebx);
+		break;
+	case SYS_IPC_PORT_RELEASE:	/* port_release(port) */
+		r->eax = (unsigned)port_release(r->ebx);
+		break;
+	case SYS_IPC_SEND: {		/* ipc_send(port, struct ipc_msg *) */
+		struct ipc_msg m;
+		int n;
+
+		if (!user_ok(r->ecx, sizeof(m))) {
+			r->eax = (unsigned)-EFAULT;
+			break;
+		}
+		bcopy((void *)r->ecx, &m, sizeof(m));
+		n = ipc_send(r->ebx, &m);
+		r->eax = (unsigned)n;
+		break;
+	}
+	case SYS_IPC_RECV: {		/* ipc_recv(port, struct ipc_msg *) */
+		struct ipc_msg m;
+		int n;
+
+		if (!user_ok(r->ecx, sizeof(m))) {
+			r->eax = (unsigned)-EFAULT;
+			break;
+		}
+		n = ipc_recv(r->ebx, &m);
+		if (n == 0)
+			bcopy(&m, (void *)r->ecx, sizeof(m));
+		r->eax = (unsigned)n;
+		break;
+	}
+	case SYS_IPC_MAP_SHARED:	/* map_shared(pid, va, pa, prot) */
+		r->eax = (unsigned)map_shared(r->ebx, r->ecx, r->edx, r->esi);
+		break;
+	case SYS_IPC_UNMAP_SHARED:	/* unmap_shared(pid, va) */
+		r->eax = (unsigned)unmap_shared(r->ebx, r->ecx);
+		break;
+	case SYS_IPC_PAGE_ALLOC:	/* ipc page_alloc() -> physical address */
+		r->eax = vfs_page_alloc();
+		break;
+	case SYS_IPC_PAGE_FREE:		/* ipc page_free(pa) */
+		vfs_page_free(r->ebx);
+		r->eax = 0;
+		break;
 	}
 
 	/* S10.2: deliver one pending signal on the way back to user mode */

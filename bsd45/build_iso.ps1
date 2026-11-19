@@ -139,7 +139,7 @@ $urb = Join-Path $ws "out\userland\uring.elf"
 if (Test-Path $urb) { Copy-Item $urb "$isodir\bin\uring.ELF" -Force }
 foreach ($pair in @(
     @("spin", "SPIN"), @("cowtest", "COWTEST"), @("crash", "CRASH"),
-    @("badptr", "BADPTR"))) {
+    @("badptr", "BADPTR"), @("ipctest", "IPCTEST"))) {
     $srcf = Join-Path $ws ("out\userland\{0}.elf" -f $pair[0])
     if (Test-Path $srcf) { Copy-Item $srcf ("$isodir\bin\{0}.ELF" -f $pair[1]) -Force }
 }
